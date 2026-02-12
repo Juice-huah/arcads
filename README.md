@@ -132,11 +132,7 @@ Before running this project, ensure you have the following installed:
 
 
 4. Frontend Setup (Client)
-
-    Open a new terminal and navigate to the client/root directory.
-
-    # Assuming frontend is in the root or 'client' folder
-    cd client 
+    cd ..  # Go back to the root 'arcads' folder
     npm install
     npm install firebase react-router-dom axios
 
@@ -178,8 +174,7 @@ Terminal 1 (Backend API):
     # Server should run on http://localhost:8081
 
 Terminal 2 (Frontend React App):
-
-    cd client
+    # Run this in the main 'arcads' folder
     npm start
     # App should open on http://localhost:3000
 
