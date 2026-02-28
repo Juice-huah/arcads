@@ -13,8 +13,22 @@ import StudentLogin from './pages/StudentLogin.jsx';
 import StudentMenu from './pages/StudentMenu.jsx'; 
 import StudentSignUp from './pages/StudentSignUp.jsx';
 import UserProfile from './pages/UserProfile.jsx';
-import Maze from './games/Maze.jsx'; // Make sure the file name matches exactly (Maze.jsx vs maze.jsx)
+
+// --- GAME IMPORTS ---
+import Maze from './games/Maze.jsx'; 
+import AdventureBattle from './games/AdventureBattle.jsx';
+import WordQuest from './games/WordQuest.jsx';
+import EnchantedForest from './games/EnchantedForest.jsx';
+import WhackAMole from './games/WhackAMole.jsx';
+
+// --- GAME CREATION PAGES ---
 import CreateMazeGame from './pages/CreateMazeGame.jsx';
+import CreateAdventure from './pages/CreateAdventure.jsx';
+import CreateWordQuest from './pages/CreateWordQuest.jsx';
+import CreateEnchantedForest from './pages/CreateEnchantedForest.jsx'; 
+
+// 🟢 NEW: Import Create Whack-a-Mole
+import CreateWhackAMole from './pages/CreateWhackAMole.jsx';
 
 import './index.css';
 
@@ -55,7 +69,8 @@ const router = createBrowserRouter([
         path: "/profile", // User Profile page
         element: <UserProfile />,
       },
-      // --- ADDED MISSING GAME ROUTE HERE ---
+      
+      // --- MAZE GAME ROUTES ---
       {
         path: "/student/play/:gameId",
         element: (
@@ -64,10 +79,49 @@ const router = createBrowserRouter([
           </div>
         ),
       },
-      // -------------------------------------
       {
         path: "/teacher/create-maze",
         element: <CreateMazeGame />,
+      },
+
+      // --- ADVENTURE BATTLE ROUTES ---
+      {
+        path: "/student/play-adventure/:gameId",
+        element: <AdventureBattle />,
+      },
+      {
+        path: "/teacher/create-adventure",
+        element: <CreateAdventure />,
+      },
+      
+      // --- WORD QUEST ROUTES ---
+      {
+        path: "/student/play-word-quest/:gameId",
+        element: <WordQuest />,
+      },
+      {
+        path: "/teacher/create-word-quest",
+        element: <CreateWordQuest />,
+      },
+
+      // --- ENCHANTED FOREST ROUTES ---
+      {
+        path: "/teacher/create-enchanted-forest",
+        element: <CreateEnchantedForest />,
+      },
+      {
+        path: "/student/play-enchanted-forest/:gameId",
+        element: <EnchantedForest />,
+      },
+
+      // --- WHACK-A-MOLE ROUTES ---
+      {
+        path: "/teacher/create-whack-a-mole",
+        element: <CreateWhackAMole />,
+      },
+      {
+        path: "/student/play-whack-a-mole/:gameId",
+        element: <WhackAMole />,
       },
     ],
   },

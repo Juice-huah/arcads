@@ -1,0 +1,248 @@
+/* src/games/WordQuest.css */
+
+/* --- GAME WRAPPER --- */
+.screen {
+  position: relative; /* Fixes the full-screen layout break */
+  width: 100%;
+  min-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 10;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+/* --- STARFIELD BACKGROUND --- */
+.starfield {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #050a15; 
+  overflow: hidden;
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--dur) infinite alternate;
+  animation-delay: var(--delay);
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 5px #fff; }
+}
+
+/* --- CARDS & MENUS --- */
+.card {
+  background-color: var(--darker-blue);
+  border: 4px solid var(--arcade-yellow);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(252, 163, 17, 0.4);
+  width: 100%;
+  margin: auto; 
+  flex-shrink: 0; 
+}
+
+.game-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 2rem;
+  color: var(--arcade-orange);
+  text-shadow: 3px 3px 0 #000;
+  margin-bottom: 10px;
+}
+
+.game-subtitle {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-light);
+  margin-bottom: 30px;
+  font-size: 0.9rem;
+}
+
+/* --- BUTTONS --- */
+.screen .btn {
+  background-color: var(--arcade-yellow);
+  color: var(--primary-blue);
+  border: none;
+  padding: 15px 20px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 0px #b87300;
+  transition: all 0.1s ease;
+  margin: 10px auto;
+  display: block;
+  width: 100%;
+}
+
+.screen .btn:active {
+  box-shadow: 0 0 0 #b87300;
+  transform: translateY(6px);
+}
+
+.screen .btn.ghost {
+  background-color: transparent;
+  color: var(--arcade-yellow);
+  border: 2px solid var(--arcade-yellow);
+  box-shadow: 0 4px 0px rgba(252, 163, 17, 0.3);
+}
+
+.screen .btn.ghost:active {
+  box-shadow: 0 0 0 transparent;
+  transform: translateY(4px);
+}
+
+/* --- BOARD GRID --- */
+.board-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 650px;
+  aspect-ratio: 1; 
+  margin: 0 auto;
+  border: 4px solid var(--arcade-orange);
+  background-color: rgba(10, 34, 64, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.8);
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  width: 100%;
+  height: 100%;
+}
+
+.tile {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.2);
+}
+
+.tile:nth-child(even) { background-color: rgba(255, 255, 255, 0.05); }
+
+.tile-num { position: absolute; top: 4px; left: 4px; font-size: 0.5rem; }
+.tile-icon { font-size: 1.5rem; z-index: 2; }
+.tile-label { display: none; } 
+
+.board-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* --- TOKENS (Players) --- */
+.tile-tokens {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  z-index: 10;
+}
+.token {
+  font-size: 1.2rem;
+  background: var(--tok-color, #fff);
+  border-radius: 50%;
+  border: 2px solid #000;
+  padding: 2px;
+  box-shadow: 0 0 10px var(--tok-color, #fff);
+  animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
+
+/* --- SIDEBAR PLAYER PANELS --- */
+.player-panel {
+  background: var(--darker-blue);
+  border: 2px solid var(--p-color, #fff);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+.player-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.player-emoji { font-size: 2rem; }
+.player-name { font-weight: bold; font-size: 1.1rem; }
+.player-meta { font-size: 0.8rem; color: #aaa; }
+
+.hp-bar-wrap {
+  width: 100%;
+  height: 10px;
+  background: #222;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+.hp-bar { height: 100%; transition: width 0.3s; }
+.hp-text { font-size: 0.8rem; color: #ccc; }
+
+.score-badge { display: inline-block; background: #333; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid #ffd700; color: #ffd700; margin-right: 5px; }
+
+/* --- QUESTION MODAL / QUIZ --- */
+.modal-q {
+  font-size: 1.2rem;
+  margin: 20px 0;
+  color: white;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.opt-btn {
+  background: var(--primary-blue);
+  color: white;
+  border: 2px solid #555;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+  font-size: 1rem;
+}
+.opt-btn:hover { border-color: var(--arcade-yellow); }
+.opt-btn.correct { background: #14a014; border-color: #0f7a0f; }
+.opt-btn.wrong { background: #e03616; border-color: #900; }
+
+.timer-track {
+  width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-bottom: 15px;
+}
+.timer-fill { height: 100%; transition: width 1s linear; }
+
+/* --- WIN SCREEN --- */
+.win-crown { font-size: 4rem; margin-bottom: 10px; }
+.win-player { font-family: 'Press Start 2P', cursive; color: var(--arcade-yellow); font-size: 1.5rem; margin-bottom: 10px; }
+.win-sub { color: #aaa; margin-bottom: 30px; }
+
+.score-row { display: flex; justify-content: space-around; margin-bottom: 20px; }
+.score-col { text-align: center; }
+.s-val { font-size: 2rem; font-weight: bold; }
+.s-lab { font-size: 0.8rem; color: #888; font-family: 'Press Start 2P', cursive; margin-top: 5px; }

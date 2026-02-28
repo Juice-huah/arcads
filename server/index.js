@@ -10,7 +10,7 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "Kwekkwek100%", 
+  password: "Passw0rd04", 
   database: "arcads_dbs"
 });
 
@@ -135,7 +135,6 @@ app.post("/api/check-username-availability", (req, res) => {
 
 app.post("/api/create-class", (req, res) => {
   const { teacher_fid, class_name } = req.body;
-  // Make sure to validate input
   if (!teacher_fid || !class_name) return res.status(400).json({error: "Missing fields"});
 
   const sql = "INSERT INTO classes (teacher_fid, class_name) VALUES (?, ?)";
@@ -200,12 +199,32 @@ app.delete("/api/remove-student", (req, res) => {
   });
 });
 
-// --- GAME ROUTES ---
+// --- DELETE GAME ROUTE ---
+app.delete('/api/delete-game/:game_id', (req, res) => {
+    const gameId = req.params.game_id;
+    
+    const sqlQuestions = "DELETE FROM game_questions WHERE game_id = ?";
+    db.query(sqlQuestions, [gameId], (err) => {
+        if (err) {
+            console.error("Error deleting game questions:", err);
+            return res.status(500).json({ error: "Database error" });
+        }
 
+        const sqlInstance = "DELETE FROM game_instances WHERE game_id = ?";
+        db.query(sqlInstance, [gameId], (err2) => {
+            if (err2) {
+                console.error("Error deleting game instance:", err2);
+                return res.status(500).json({ error: "Database error" });
+            }
+            res.json({ message: "Game deleted successfully" });
+        });
+    });
+});
+
+// --- EXISTING MAZE GAME CREATION ---
 app.post('/api/create-game', (req, res) => {
     const { teacher_fid, class_id, game_type, questions } = req.body;
 
-    // 1. Insert the Game Instance first
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, ?)";
     
     db.query(sqlGame, [teacher_fid, class_id, game_type], (err, result) => {
@@ -215,9 +234,7 @@ app.post('/api/create-game', (req, res) => {
         }
 
         const newGameId = result.insertId; 
-        console.log("Game created with ID:", newGameId);
 
-        // 2. Insert the Questions
         const sqlQuestion = `
             INSERT INTO game_questions 
             (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) 
@@ -239,18 +256,236 @@ app.post('/api/create-game', (req, res) => {
                 console.error("Error saving questions:", err);
                 return res.status(500).json({ error: "Failed to save questions" });
             }
-            
             res.json({ message: "Game created successfully!", gameId: newGameId });
         });
     });
 });
 
-// --- UPDATED ROUTE ---
+// --- EXISTING ADVENTURE BATTLE CREATION ---
+app.post('/api/create-adventure', (req, res) => {
+    const { teacher_fid, class_id, questions } = req.body;
+
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'adventure')";
+    
+    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+        if (err) {
+            console.error("Error creating adventure game:", err);
+            return res.status(500).json({ error: "Failed to create game instance" });
+        }
+
+        const newGameId = result.insertId; 
+
+        const questionValues = questions.map(q => {
+            let type = q.type; 
+            let cA, cB, cC, cD, correct;
+
+            if (type === 'multiple_choice') {
+                cA = q.choiceA; cB = q.choiceB; cC = q.choiceC; cD = q.choiceD;
+                correct = parseInt(q.correctAnswer); 
+            } 
+            else if (type === 'true_false') {
+                cA = 'True'; cB = 'False'; cC = null; cD = null;
+                correct = parseInt(q.correctAnswer); 
+            } 
+            else if (type === 'identification') {
+                cA = q.choiceA; cB = null; cC = null; cD = null;
+                correct = 0; 
+            }
+
+            return [
+                newGameId,
+                q.question,
+                type,
+                cA, cB, cC, cD,
+                correct
+            ];
+        });
+
+        const sqlQuestions = `
+            INSERT INTO game_questions 
+            (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+            VALUES ?
+        `;
+
+        db.query(sqlQuestions, [questionValues], (err, result) => {
+            if (err) {
+                console.error("Error saving questions:", err);
+                return res.status(500).json({ error: "Failed to save questions" });
+            }
+            res.json({ message: "Adventure Battle created successfully!", gameId: newGameId });
+        });
+    });
+});
+
+// --- EXISTING WORD QUEST CREATION ---
+app.post('/api/create-word-quest', (req, res) => {
+    const { teacher_fid, class_id, questions } = req.body;
+
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'word_quest')";
+    
+    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+        if (err) {
+            console.error("Error creating Word Quest:", err);
+            return res.status(500).json({ error: "Failed to create game instance" });
+        }
+
+        const newGameId = result.insertId; 
+
+        const questionValues = questions.map(q => {
+            const correctIndex = q.options.indexOf(q.correct); 
+            const finalCorrect = correctIndex >= 0 ? correctIndex : 0;
+
+            return [
+                newGameId,
+                q.question,
+                'multiple_choice', 
+                q.options[0] || "",
+                q.options[1] || "",
+                q.options[2] || "",
+                q.options[3] || "",
+                finalCorrect
+            ];
+        });
+
+        const sqlQuestions = `
+            INSERT INTO game_questions 
+            (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+            VALUES ?
+        `;
+
+        db.query(sqlQuestions, [questionValues], (err, result) => {
+            if (err) {
+                console.error("Error saving questions:", err);
+                return res.status(500).json({ error: "Failed to save questions" });
+            }
+            res.json({ message: "Word Quest created successfully!", gameId: newGameId });
+        });
+    });
+});
+
+// --- ENCHANTED FOREST ROUTE ---
+app.post('/api/create-enchanted-forest', (req, res) => {
+    const { teacher_fid, class_id, game_data } = req.body;
+
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'enchanted_forest')";
+    
+    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+        if (err) {
+            console.error("Error creating Enchanted Forest:", err);
+            return res.status(500).json({ error: "Failed to create game instance" });
+        }
+
+        const newGameId = result.insertId; 
+        
+        try {
+            const parsedData = JSON.parse(game_data);
+            const locations = parsedData.locations;
+            const questionValues = [];
+
+            locations.forEach((loc, locIdx) => {
+                loc.words.forEach(word => {
+                    questionValues.push([
+                        newGameId,
+                        word.hint || "No hint",      
+                        'enchanted_forest',          
+                        word.scrambled,              
+                        locIdx.toString(),           
+                        'regular',                   
+                        word.answer,                 
+                        0                            
+                    ]);
+                });
+
+                loc.bossWords.forEach(word => {
+                    questionValues.push([
+                        newGameId,
+                        word.hint || "No hint",
+                        'enchanted_forest',
+                        word.scrambled,
+                        locIdx.toString(),
+                        'boss',                      
+                        word.answer,                 
+                        0                            
+                    ]);
+                });
+            });
+
+            if (questionValues.length === 0) {
+                return res.json({ message: "Game created without words!", gameId: newGameId });
+            }
+
+            const sqlQuestions = `
+                INSERT INTO game_questions 
+                (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+                VALUES ?
+            `;
+
+            db.query(sqlQuestions, [questionValues], (err2, result2) => {
+                if (err2) {
+                    console.error("Error saving forest words:", err2);
+                    return res.status(500).json({ error: "Failed to save words" });
+                }
+                res.json({ message: "Enchanted Forest created successfully!", gameId: newGameId });
+            });
+        } catch (parseErr) {
+            console.error("Error parsing game data:", parseErr);
+            return res.status(500).json({ error: "Invalid game data format" });
+        }
+    });
+});
+
+// --- WHACK-A-MOLE ROUTE ---
+app.post('/api/create-whack-a-mole', (req, res) => {
+    const { teacher_fid, class_id, questions } = req.body;
+
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'whack_a_mole')";
+    
+    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+        if (err) {
+            console.error("Error creating Whack-a-Mole game:", err);
+            return res.status(500).json({ error: "Failed to create game instance" });
+        }
+
+        const newGameId = result.insertId; 
+
+        const questionValues = questions.map(q => {
+            let correctInt = 0;
+            if (q.correct_option === 'A') correctInt = 0;
+            if (q.correct_option === 'B') correctInt = 1;
+            if (q.correct_option === 'C') correctInt = 2;
+            if (q.correct_option === 'D') correctInt = 3;
+
+            return [
+                newGameId,
+                q.question_text,
+                'multiple_choice',
+                q.choice_a,
+                q.choice_b,
+                q.choice_c,
+                q.choice_d,
+                correctInt 
+            ];
+        });
+
+        const sqlQuestions = `
+            INSERT INTO game_questions 
+            (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+            VALUES ?
+        `;
+
+        db.query(sqlQuestions, [questionValues], (err, result) => {
+            if (err) {
+                console.error("Error saving Whack-a-Mole questions:", err);
+                return res.status(500).json({ error: "Failed to save questions" });
+            }
+            res.json({ message: "Whack-a-Mole created successfully!", gameId: newGameId });
+        });
+    });
+});
+
+// --- GET TEACHER CLASSES ---
 app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
     const teacherId = req.params.teacher_fid;
-
-    // FIX: Using alias so frontend receives 'id' and 'name'
-    // This assumes your table columns are 'class_id' and 'class_name'
     const query = "SELECT class_id as id, class_name as name FROM classes WHERE teacher_fid = ?";
 
     db.query(query, [teacherId], (err, results) => {
@@ -266,7 +501,6 @@ app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
 app.get('/api/get-games/:teacher_fid', (req, res) => {
     const teacherId = req.params.teacher_fid;
     
-    // Join with classes table to get the Class Name (e.g., "IT Elective 3")
     const sql = `
         SELECT g.game_id, g.game_type, g.created_at, c.class_name 
         FROM game_instances g
@@ -305,6 +539,7 @@ app.get('/api/student-games/:student_fid', (req, res) => {
         res.json(results);
     });
 });
+
 app.get('/api/game-questions/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     
@@ -321,11 +556,11 @@ app.get('/api/game-questions/:game_id', (req, res) => {
         res.json(results);
     });
 });
-// --- SAVE SCORE ROUTE (Updated for 'scores' table) ---
+
+// --- SAVE SCORE ROUTE ---
 app.post('/api/save-score', (req, res) => {
     const { student_fid, game_id, score, time_taken } = req.body;
 
-    // We changed 'game_scores' to 'scores' to match your existing table
     const sql = "INSERT INTO scores (student_fid, game_id, score, time_taken) VALUES (?, ?, ?, ?)";
     
     db.query(sql, [student_fid, game_id, score, time_taken], (err, result) => {
@@ -336,11 +571,10 @@ app.post('/api/save-score', (req, res) => {
         res.json({ message: "Score saved!" });
     });
 });
+
 app.get('/api/leaderboard/:game_id', (req, res) => {
     const gameId = req.params.game_id;
 
-    // Join 'scores' with 'student' to get names
-    // Order by Score (Highest) first, then Time (Lowest/Fastest) second
     const sql = `
         SELECT s.student_name, s.student_surname, sc.score, sc.time_taken
         FROM scores sc
@@ -358,6 +592,7 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
         res.json(results);
     });
 });
+
 app.listen(8081, () => {
   console.log("Backend server is running on http://localhost:8081");
 });

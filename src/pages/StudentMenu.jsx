@@ -139,7 +139,7 @@ const StudentMenu = () => {
         {loading ? <p>Loading...</p> : (
             <>
                 {/* ========================================================== */}
-                {/* TAB 1: MY CLASSES (Existing Code)                          */}
+                {/* TAB 1: MY CLASSES                                          */}
                 {/* ========================================================== */}
                 {activeTab === 'classes' && !selectedClass && (
                     <>
@@ -149,8 +149,35 @@ const StudentMenu = () => {
                                 <p style={{color:'#aaa'}}>No classes found.</p>
                             ) : (
                                 Object.keys(groupedGames).map((className) => (
-                                    <div key={className} className="class-card" onClick={() => setSelectedClass(className)}>
-                                        <h3 style={{color: '#fff'}}>{className}</h3>
+                                    <div 
+                                      key={className} 
+                                      className="class-card" 
+                                      onClick={() => setSelectedClass(className)}
+                                      style={{
+                                        overflow: 'hidden', // FIX: Keep inside box
+                                        padding: '20px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        minHeight: '150px'
+                                      }}
+                                    >
+                                        <h3 
+                                          style={{
+                                            color: '#fff',
+                                            // FIX: Text wrapping
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            overflowWrap: 'anywhere',
+                                            lineHeight: '1.4',
+                                            textAlign: 'center',
+                                            margin: '0 0 10px 0',
+                                            width: '100%'
+                                          }}
+                                        >
+                                          {className}
+                                        </h3>
                                         <p style={{fontSize: '0.8rem', color: '#0ac8f0'}}>{groupedGames[className].length} Active Games</p>
                                     </div>
                                 ))
@@ -159,6 +186,7 @@ const StudentMenu = () => {
                     </>
                 )}
 
+                {/* --- GAME LIST FOR SELECTED CLASS --- */}
                 {activeTab === 'classes' && selectedClass && (
                     <>
                         <div className="section-header">
@@ -167,12 +195,47 @@ const StudentMenu = () => {
                         </div>
                         <div className="classes-grid">
                             {groupedGames[selectedClass].map((game) => (
-                                <div key={game.game_id} className="class-card" style={{borderColor: '#0ac8f0'}}>
-                                    <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
+                                <div 
+                                  key={game.game_id} 
+                                  className="class-card" 
+                                  style={{
+                                    borderColor: '#0ac8f0',
+                                    overflow: 'hidden', 
+                                    padding: '20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    minHeight: '150px'
+                                  }}
+                                >
+                                    <h3 
+                                      style={{
+                                        color: '#0ac8f0',
+                                        whiteSpace: 'normal',
+                                        wordBreak: 'break-word',
+                                        overflowWrap: 'anywhere',
+                                        lineHeight: '1.4',
+                                        textAlign: 'center',
+                                        margin: '0 0 10px 0',
+                                        width: '100%'
+                                      }}
+                                    >
+                                      {game.game_type.replace('_', ' ').toUpperCase()}
+                                    </h3>
                                     <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname}</p>
-                                    <Link to={`/student/play/${game.game_id}`}>
+                                    
+                                    {/* 🟢 FIXED: Added Whack-a-Mole routing here */}
+                                    <Link to={
+                                        game.game_type === 'adventure' ? `/student/play-adventure/${game.game_id}` :
+                                        game.game_type === 'word_quest' ? `/student/play-word-quest/${game.game_id}` :
+                                        game.game_type === 'enchanted_forest' ? `/student/play-enchanted-forest/${game.game_id}` :
+                                        game.game_type === 'whack_a_mole' ? `/student/play-whack-a-mole/${game.game_id}` :
+                                        `/student/play/${game.game_id}` // Fallback is Maze
+                                    } style={{width: '100%'}}>
                                         <button className="btn btn-primary" style={{width: '100%', marginTop: '15px'}}>START GAME</button>
                                     </Link>
+                                    
                                 </div>
                             ))}
                         </div>
@@ -180,7 +243,7 @@ const StudentMenu = () => {
                 )}
 
                 {/* ========================================================== */}
-                {/* TAB 2: LEADERBOARD (New Logic)                             */}
+                {/* TAB 2: LEADERBOARD                                         */}
                 {/* ========================================================== */}
                 
                 {/* STEP 1: SELECT CLASS FOR LEADERBOARD */}
@@ -193,10 +256,32 @@ const StudentMenu = () => {
                                 <div 
                                     key={className} 
                                     className="class-card" 
-                                    style={{border: '1px solid #ffd700'}}
+                                    style={{
+                                      border: '1px solid #ffd700',
+                                      overflow: 'hidden', 
+                                      padding: '20px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      justifyContent: 'center',
+                                      alignItems: 'center',
+                                      minHeight: '150px'
+                                    }}
                                     onClick={() => { setSelectedClass(className); setLeaderboardView('games'); }}
                                 >
-                                    <h3 style={{color: '#ffd700'}}>{className}</h3>
+                                    <h3 
+                                      style={{
+                                        color: '#ffd700',
+                                        whiteSpace: 'normal',
+                                        wordBreak: 'break-word',
+                                        overflowWrap: 'anywhere',
+                                        lineHeight: '1.4',
+                                        textAlign: 'center',
+                                        margin: '0 0 10px 0',
+                                        width: '100%'
+                                      }}
+                                    >
+                                      {className}
+                                    </h3>
                                     <p style={{color: '#aaa'}}>View Rankings</p>
                                 </div>
                             ))}
@@ -214,8 +299,34 @@ const StudentMenu = () => {
                         <p style={{color: '#aaa', marginBottom: '20px'}}>Select an activity.</p>
                         <div className="classes-grid">
                             {groupedGames[selectedClass].map((game) => (
-                                <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
-                                    <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
+                                <div 
+                                  key={game.game_id} 
+                                  className="class-card" 
+                                  onClick={() => fetchLeaderboard(game)}
+                                  style={{
+                                    overflow: 'hidden', 
+                                    padding: '20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    minHeight: '150px'
+                                  }}
+                                >
+                                    <h3 
+                                      style={{
+                                        color: '#0ac8f0',
+                                        whiteSpace: 'normal',
+                                        wordBreak: 'break-word',
+                                        overflowWrap: 'anywhere',
+                                        lineHeight: '1.4',
+                                        textAlign: 'center',
+                                        margin: '0 0 10px 0',
+                                        width: '100%'
+                                      }}
+                                    >
+                                      {game.game_type.replace('_', ' ').toUpperCase()}
+                                    </h3>
                                     <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
                                 </div>
                             ))}
@@ -227,7 +338,7 @@ const StudentMenu = () => {
                 {activeTab === 'leaderboard' && leaderboardView === 'ranking' && leaderboardGame && (
                     <>
                         <div className="section-header">
-                            <h2>{leaderboardGame.game_type} <span style={{fontSize:'0.6em', color:'#aaa'}}>LEADERBOARD</span></h2>
+                            <h2>{leaderboardGame.game_type.replace('_', ' ').toUpperCase()} <span style={{fontSize:'0.6em', color:'#aaa'}}>LEADERBOARD</span></h2>
                             <button className="btn btn-secondary" onClick={() => setLeaderboardView('games')}>BACK</button>
                         </div>
 
@@ -272,24 +383,24 @@ const StudentMenu = () => {
                                 {/* --- REST OF THE LIST (4th onwards) --- */}
                                 {leaderboardData.length > 3 && (
                                     <table className="students-table">
-                                        <thead>
-                                            <tr>
-                                                <th>RANK</th>
-                                                <th>STUDENT</th>
-                                                <th>SCORE</th>
-                                                <th>TIME</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {leaderboardData.slice(3).map((entry, index) => (
-                                                <tr key={index}>
-                                                    <td style={{fontWeight:'bold', color:'#888'}}>#{index + 4}</td>
-                                                    <td>{entry.student_name} {entry.student_surname}</td>
-                                                    <td style={{color: '#0ac8f0', fontWeight:'bold'}}>{entry.score}</td>
-                                                    <td>{entry.time_taken}s</td>
+                                            <thead>
+                                                <tr>
+                                                    <th>RANK</th>
+                                                    <th>STUDENT</th>
+                                                    <th>SCORE</th>
+                                                    <th>TIME</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
+                                            </thead>
+                                            <tbody>
+                                                {leaderboardData.slice(3).map((entry, index) => (
+                                                    <tr key={index}>
+                                                        <td style={{fontWeight:'bold', color:'#888'}}>#{index + 4}</td>
+                                                        <td>{entry.student_name} {entry.student_surname}</td>
+                                                        <td style={{color: '#0ac8f0', fontWeight:'bold'}}>{entry.score}</td>
+                                                        <td>{entry.time_taken}s</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
                                     </table>
                                 )}
                             </>
