@@ -63,7 +63,8 @@ const Maze = () => {
     activePopup: null,
     particles: [],
     questions: {},
-    gameEnded: false 
+    gameEnded: false,
+    answerLog: [] // --- NEW: Tracks every answer the student gives ---
   });
 
   const [activeScreen, setActiveScreen] = useState('menu'); 
@@ -85,6 +86,7 @@ const Maze = () => {
                 const formattedQuestions = {};
                 data.forEach((q, index) => {
                     formattedQuestions[index + 1] = {
+                        db_id: q.id, // --- FIX: We must save the actual DB ID of the question ---
                         q: q.question_text,
                         choices: [q.choice_a, q.choice_b, q.choice_c, q.choice_d],
                         correct: q.correct_answer
@@ -105,26 +107,36 @@ const Maze = () => {
     fetchGameData();
   }, [gameId]);
 
-  // --- SAVE SCORE ---
+  // --- SAVE SCORE & ITEM ANALYSIS ---
   const saveScoreToDB = async (finalScore, timeTaken) => {
     if (!auth.currentUser) return;
     
     setSaveStatus("Saving score...");
     try {
-        const payload = {
+        // 1. Save the Final Score
+        const scorePayload = {
             student_fid: auth.currentUser.uid,
             game_id: gameId,
             score: finalScore,
             time_taken: timeTaken
         };
 
-        const res = await fetch('http://localhost:8081/api/save-score', {
+        const resScore = await fetch('http://localhost:8081/api/save-score', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(scorePayload)
         });
 
-        if (res.ok) setSaveStatus("Score Saved!");
+        // 2. NEW: Save the Item Analysis Answers
+        if (gameState.current.answerLog.length > 0) {
+            await fetch('http://localhost:8081/api/save-answers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answers: gameState.current.answerLog })
+            });
+        }
+
+        if (resScore.ok) setSaveStatus("Score Saved!");
         else setSaveStatus("Error saving score.");
         
     } catch (err) {
@@ -278,7 +290,6 @@ const Maze = () => {
         state.screen = 'clue';
         state.activePopup = { text: `You need to find KEY ${required} first!`, title: "LOCKED" };
         setActiveScreen('clue');
-        // Reset position slightly so they don't get stuck in loop
         state.player.tileX = startPos.x; 
         state.player.tileY = startPos.y;
         state.player.px = startPos.x * TILE; 
@@ -287,7 +298,8 @@ const Maze = () => {
       }
       if (!state.usedDoors[did]) {
         state.screen = 'question';
-        const qData = state.questions[did] || { q: "No Question in DB", choices: ["A","B","C","D"], correct: 0 };
+        // Provide fallback if no question is assigned
+        const qData = state.questions[did] || { q: "No Question in DB", choices: ["A","B","C","D"], correct: 0, db_id: null };
         state.activePopup = { ...qData, did: did, startPos };
         setActiveScreen('question');
       } else {
@@ -398,12 +410,23 @@ const Maze = () => {
       setActiveScreen('playing'); 
   };
 
-  // --- LOGIC FIX: TRIGGER WIN ON LAST ANSWER ---
+  // --- ITEM ANALYSIS LOGIC TRACKER ---
   const handleAnswer = (choiceIndex) => {
     const q = gameState.current.activePopup;
+    const isCorrect = (choiceIndex === q.correct);
+
+    // NEW: Push this answer to our log array so we can save it later
+    if (q.db_id && auth.currentUser) {
+        gameState.current.answerLog.push({
+            student_fid: auth.currentUser.uid,
+            game_id: parseInt(gameId),
+            question_id: q.db_id,
+            is_correct: isCorrect
+        });
+    }
     
-    if (choiceIndex === q.correct) {
-      gameState.current.score += 100;
+    if (isCorrect) {
+      gameState.current.score += 1;
       gameState.current.usedDoors[q.did] = true;
 
       if (q.did === 1) {
@@ -418,7 +441,6 @@ const Maze = () => {
          if (gameState.current.usedDoors[1] && gameState.current.usedDoors[3]) {
              teleport(18, 17); 
              
-             // FORCE WIN STATE IMMEDIATELY
              if (!gameState.current.gameEnded) {
                  gameState.current.gameEnded = true;
                  const time = Math.floor((Date.now() - gameState.current.startTime) / 1000);
@@ -426,7 +448,7 @@ const Maze = () => {
                  gameState.current.screen = 'win';
                  gameState.current.activePopup = { score: gameState.current.score, time: time };
                  setActiveScreen('win'); 
-                 saveScoreToDB(gameState.current.score, time);
+                 saveScoreToDB(gameState.current.score, time); // This now saves the final score AND the item answers
              }
          } 
          else { 

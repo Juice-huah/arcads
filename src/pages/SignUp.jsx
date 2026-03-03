@@ -1,13 +1,22 @@
-// src/components/SignUp.jsx
+// src/pages/SignUp.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate, Link } from 'react-router-dom'; 
 import { createUserWithEmailAndPassword, deleteUser } from "firebase/auth"; 
 import { auth } from '../firebase'; 
 import './SignUp.css';
 
-function SignUp() {
+function SignUp({ role }) {
   const navigate = useNavigate();
   
+  // Dynamic variables based on the 'role' prop ('student' or 'teacher')
+  const isStudent = role === 'student';
+  const title = isStudent ? "Create Student Account" : "Create Teacher Account";
+  const loginRoute = isStudent ? '/student-login' : '/teacher-login';
+  const signupEndpoint = isStudent ? '/api/student-signup' : '/api/teacher-signup';
+  
+  const usernamePlaceholder = isStudent ? "StudentUser" : "Username";
+  const emailPlaceholder = isStudent ? "student@school.edu" : "teacher@school.edu";
+
   const [formData, setFormData] = useState({
     name: '',
     surname: '',
@@ -17,17 +26,15 @@ function SignUp() {
     confirmPassword: '',
   });
 
-  const [usernameError, setUsernameError] = useState(''); 
-  const [emailError, setEmailError] = useState('');      
-  const [errors, setErrors] = useState({});               
-  
+  const [usernameError, setUsernameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [errors, setErrors] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
- 
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     if (name === 'username') setUsernameError('');
     if (name === 'email') setEmailError('');
@@ -43,19 +50,19 @@ function SignUp() {
       setErrors({ confirmPassword: "Passwords do not match."});
       return;
     }
+
     try {
       const response = await fetch('http://localhost:8081/api/check-username-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: formData.username, role: 'teacher' })
+        body: JSON.stringify({ username: formData.username, role })
       });
       const data = await response.json();
 
       if (!data.available) {
         setUsernameError("This username is already taken.");
-        return;
+        return; 
       }
-
       setShowConfirmModal(true);
 
     } catch (error) {
@@ -68,8 +75,8 @@ function SignUp() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
-      
-      const response = await fetch('http://localhost:8081/api/teacher-signup', {
+
+      const response = await fetch(`http://localhost:8081${signupEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,40 +89,34 @@ function SignUp() {
 
       if (!response.ok) {
         await deleteUser(user);
-        throw new Error("Failed to save data to MySQL.");
+        throw new Error("Failed to save to database.");
       }
+
       setIsSuccess(true);
 
       setTimeout(() => {
-        navigate('/teacher-login');
+        navigate(loginRoute);
       }, 2000);
 
     } catch (error) {
-      console.error(error);
       const errorCode = error.code;
       let newErrors = {};
-
-      if (errorCode === 'auth/email-already-in-use') {
-        setEmailError("This email is already registered.");
-      } else if (errorCode === 'auth/invalid-email') {
-        setEmailError("Please enter a valid email address.");
-      } else if (errorCode === 'auth/weak-password') {
-        newErrors.password = "Password should be at least 6 characters.";
-      } else {
-        newErrors.general = "An error occurred. Please try again.";
-      }
+      
+      if (errorCode === 'auth/email-already-in-use') setEmailError("Email already in use.");
+      else if (errorCode === 'auth/weak-password') newErrors.password = "Password weak.";
+      else newErrors.general = error.message;
       
       setErrors(newErrors);
-      setShowConfirmModal(false);
+      setShowConfirmModal(false); 
     }
   };
 
   return (
     <div className="signup-container">
        <form className="signup-form" onSubmit={handleVerify}>
-          <h1>Create Teacher Account</h1>
-        {errors.general && <p className="error-text" style={{textAlign: 'center'}}>{errors.general}</p>}
-
+          <h1>{title}</h1>
+          {errors.general && <p className="error-text" style={{textAlign:'center'}}>{errors.general}</p>}
+        
         <div className="form-group">
           <label htmlFor="name">First Name</label>
           <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Name"/>
@@ -128,13 +129,13 @@ function SignUp() {
 
         <div className="form-group">
           <label htmlFor="username">Username</label>
-          <input type="text" name="username" value={formData.username} onChange={handleChange} required placeholder="Username" className={usernameError ? "input-error" : ""}/>
+          <input type="text" name="username" value={formData.username} onChange={handleChange} required placeholder={usernamePlaceholder} className={usernameError ? "input-error" : ""}/>
           {usernameError && <span className="error-text">{usernameError}</span>}
         </div>
         
         <div className="form-group">
           <label htmlFor="email">Email</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="teacher@school.edu" className={emailError ? "input-error" : ""}/>
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder={emailPlaceholder} className={emailError ? "input-error" : ""}/>
           {emailError && <span className="error-text">{emailError}</span>}
         </div>
         
@@ -155,27 +156,31 @@ function SignUp() {
         </button>
 
         <p className="login-link">
-          Already have an account? <a href="/teacher-login">Login</a>
+          Already have an account? <Link to={loginRoute}>Login</Link>
         </p>
       </form>
 
-      {/* MODAL*/}
       {showConfirmModal && (
         <div className="modal-overlay">
           <div className="modal-box">
+            
             {isSuccess ? (
               <div className="success-content">
                 <h2 style={{color: '#4cc9f0'}}>SUCCESS!</h2>
-                <p style={{color: 'white', marginTop: '20px'}}>Account created successfully.</p>
-                <p style={{color: 'var(--arcade-yellow)', fontSize: '0.8rem', marginTop: '10px'}}>Redirecting to Login Page</p>
+                <p style={{color: 'white', marginTop: '20px'}}>
+                  Account created successfully.
+                </p>
+                <p style={{color: 'var(--arcade-yellow)', fontSize: '0.8rem', marginTop: '10px'}}>
+                  Redirecting to Login Page...
+                </p>
               </div>
             ) : (
               <>
                 <h2>CONFIRM DETAILS</h2>
                 <p style={{color: '#fff', fontSize: '0.8rem', fontFamily: 'Arial, sans-serif', marginBottom: '15px'}}>Please check your information:</p>
-                <div style={{textAlign: 'left', color: 'var(--arcade-yellow)', fontSize: '0.9rem', margin: '0 auto', width: '80%'}}>
+                <div style={{textAlign: 'left', color: 'var(--arcade-yellow)', fontSize: '0.9rem', margin: '10px auto', width: '80%'}}>
                   <p><strong>Name:</strong> {formData.name} {formData.surname}</p>
-                  <p><strong>User:</strong> {formData.username}</p>
+                  <p><strong>Username:</strong> {formData.username}</p>
                   <p><strong>Email:</strong> {formData.email}</p>
                 </div>
                 <p style={{color: '#fff', fontSize: '0.8rem', marginTop: '20px'}}>Is this correct?</p>
@@ -185,6 +190,7 @@ function SignUp() {
                 </div>
               </>
             )}
+
           </div>
         </div>
       )}

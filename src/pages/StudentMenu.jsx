@@ -37,10 +37,13 @@ const StudentMenu = () => {
       
       if (Array.isArray(data)) {
         const groups = {};
-        data.forEach(game => {
-            const className = game.class_name;
+        data.forEach(row => {
+            const className = row.class_name || "Unknown/Deleted Class";
             if (!groups[className]) groups[className] = [];
-            groups[className].push(game);
+            
+            if (row.game_id) {
+                groups[className].push(row);
+            }
         });
         setGroupedGames(groups);
       } else {
@@ -51,6 +54,35 @@ const StudentMenu = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleJoinClass = async (e) => {
+      e.preventDefault();
+      setJoinMsg('Joining...');
+      try {
+          const res = await fetch('http://localhost:8081/api/join-class', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ 
+                  student_fid: user.uid, 
+                  class_code: classCodeInput.toUpperCase() 
+              })
+          });
+          const data = await res.json();
+          if(res.ok) {
+              setJoinMsg('Success!');
+              setClassCodeInput('');
+              setTimeout(() => {
+                  setShowJoinModal(false);
+                  setJoinMsg('');
+                  fetchAvailableGames(user.uid); 
+              }, 1000);
+          } else {
+              setJoinMsg(data.error || "Failed to join");
+          }
+      } catch (err) {
+          setJoinMsg("Server Error");
+      }
   };
 
   const fetchLeaderboard = async (game) => {
@@ -111,10 +143,15 @@ const StudentMenu = () => {
             <>
                 {activeTab === 'classes' && !selectedClass && (
                     <>
-                        <div className="section-header"><h2>MY CLASSES</h2></div>
+                        <div className="section-header">
+                            <h2>MY CLASSES</h2>
+                            <button className="btn btn-primary" onClick={() => setShowJoinModal(true)}>
+                                + JOIN CLASS
+                            </button>
+                        </div>
                         <div className="classes-grid">
                             {Object.keys(groupedGames).length === 0 ? (
-                                <p style={{color:'#aaa'}}>No classes found.</p>
+                                <p style={{color:'#aaa'}}>No classes found. Click "+ Join Class" to get started!</p>
                             ) : (
                                 Object.keys(groupedGames).map((className) => (
                                     <div key={className} className="class-card" onClick={() => setSelectedClass(className)} style={{ overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
@@ -133,6 +170,42 @@ const StudentMenu = () => {
                             <h2>{selectedClass}</h2>
                             <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
                         </div>
+                        
+                        {groupedGames[selectedClass].length === 0 ? (
+                            <p style={{color: '#aaa', fontStyle: 'italic', marginTop: '20px'}}>
+                                Your teacher hasn't assigned any games to this class yet.
+                            </p>
+                        ) : (
+                            <div className="classes-grid">
+                                {groupedGames[selectedClass].map((game) => (
+                                    <div key={game.game_id} className="class-card" style={{borderColor: '#0ac8f0'}}>
+                                        <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
+                                        <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
+                                        
+                                        {/* FIX: If score is NOT null, show Completed Badge instead of Start Game */}
+                                        {game.raw_score !== null ? (
+                                            <div style={{marginTop: '15px', padding: '10px', backgroundColor: 'rgba(20, 160, 20, 0.2)', borderRadius: '5px', textAlign: 'center'}}>
+                                                <span style={{color: '#14a014', fontWeight: 'bold'}}>COMPLETED</span>
+                                            </div>
+                                        ) : (
+                                            <Link to={`/student/play/${game.game_id}`}>
+                                                <button className="btn btn-primary" style={{width: '100%', marginTop: '15px'}}>START GAME</button>
+                                            </Link>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* ========================================================== */}
+                {/* TAB 2: MY GRADES (Report Card)                             */}
+                {/* ========================================================== */}
+                {activeTab === 'grades' && !selectedClass && (
+                    <>
+                        <div className="section-header"><h2>MY GRADES</h2></div>
+                        <p style={{color: '#aaa', marginBottom: '20px'}}>Select a class to view your report card.</p>
                         <div className="classes-grid">
                             {groupedGames[selectedClass].map((game) => (
                                 <div key={game.game_id} className="class-card" style={{ borderColor: '#0ac8f0', overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
@@ -255,6 +328,38 @@ const StudentMenu = () => {
             </>
         )}
       </div>
+
+      {/* --- JOIN CLASS POPUP --- */}
+      {showJoinModal && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h2>JOIN A CLASS</h2>
+            <p style={{fontSize:'0.8rem', color:'#aaa', marginBottom:'15px'}}>
+              Ask your teacher for the 6-character Class Code.
+            </p>
+            {joinMsg && <p className={joinMsg === 'Success!' ? "success-text" : "error-text"} style={{marginBottom: '10px'}}>{joinMsg}</p>}
+            
+            <form onSubmit={handleJoinClass}>
+              <div className="form-group">
+                <input 
+                  type="text" 
+                  placeholder="Enter Class Code" 
+                  value={classCodeInput} 
+                  onChange={(e) => {setClassCodeInput(e.target.value); setJoinMsg('');}} 
+                  maxLength={6}
+                  style={{textTransform: 'uppercase', textAlign: 'center', letterSpacing: '3px', fontSize: '1.2rem'}}
+                  required 
+                />
+              </div>
+              <div className="modal-actions-row">
+                <button type="submit" className="btn btn-primary">JOIN</button>
+                <button type="button" onClick={() => setShowJoinModal(false)} className="btn btn-secondary">CANCEL</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
