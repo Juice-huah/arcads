@@ -21,10 +21,7 @@ app.post("/api/teacher-signup", (req, res) => {
   const sql = "INSERT INTO teacher (teacher_fid, teacher_name, teacher_surname, teacher_username) VALUES (?, ?, ?, ?)";
   
   db.query(sql, [uid, name, surname, username], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Error saving teacher" });
-    }
+    if (err) return res.status(500).json({ error: "Error saving teacher" });
     return res.status(200).json({ message: "Teacher registered!" });
   });
 });
@@ -34,117 +31,75 @@ app.post("/api/student-signup", (req, res) => {
   const sql = "INSERT INTO student (student_fid, student_name, student_surname, student_username) VALUES (?, ?, ?, ?)";
   
   db.query(sql, [uid, name, surname, username], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Error saving student" });
-    }
+    if (err) return res.status(500).json({ error: "Error saving student" });
     return res.status(200).json({ message: "Student registered!" });
   });
 });
 
 app.get("/api/check-teacher/:uid", (req, res) => {
-  const uid = req.params.uid;
   const sql = "SELECT * FROM teacher WHERE teacher_fid = ?"; 
-  
-  db.query(sql, [uid], (err, results) => {
+  db.query(sql, [req.params.uid], (err, results) => {
     if (err) return res.status(500).json({ error: "Server error" });
-    if (results.length > 0) {
-      return res.status(200).json({ isTeacher: true, teacher: results[0] });
-    } else {
-      return res.status(200).json({ isTeacher: false });
-    }
+    if (results.length > 0) return res.status(200).json({ isTeacher: true, teacher: results[0] });
+    return res.status(200).json({ isTeacher: false });
   });
 });
 
 app.get("/api/check-student/:uid", (req, res) => {
-  const uid = req.params.uid;
   const sql = "SELECT * FROM student WHERE student_fid = ?"; 
-  
-  db.query(sql, [uid], (err, results) => {
+  db.query(sql, [req.params.uid], (err, results) => {
     if (err) return res.status(500).json({ error: "Server error" });
-    if (results.length > 0) {
-      return res.status(200).json({ isStudent: true, student: results[0] });
-    } else {
-      return res.status(200).json({ isStudent: false });
-    }
+    if (results.length > 0) return res.status(200).json({ isStudent: true, student: results[0] });
+    return res.status(200).json({ isStudent: false });
   });
 });
 
 app.put("/api/update-username", (req, res) => {
   const { uid, role, newUsername } = req.body;
-  
-  let sql = "";
-  if (role === 'teacher') {
-    sql = "UPDATE teacher SET teacher_username = ? WHERE teacher_fid = ?";
-  } else if (role === 'student') {
-    sql = "UPDATE student SET student_username = ? WHERE student_fid = ?";
-  } else {
-    return res.status(400).json({ error: "Invalid role" });
-  }
-
+  let sql = role === 'teacher' ? "UPDATE teacher SET teacher_username = ? WHERE teacher_fid = ?" : "UPDATE student SET student_username = ? WHERE student_fid = ?";
   db.query(sql, [newUsername, uid], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Error updating database" });
-    }
+    if (err) return res.status(500).json({ error: "Error updating database" });
     return res.status(200).json({ message: "Username updated!" });
-  });
-});
-
-app.get("/api/get-teacher/:id", (req, res) => {
-  const teacherId = req.params.id;
-  const sql = "SELECT teacher_name, teacher_surname FROM teacher WHERE id_teacher = ?";
-  
-  db.query(sql, [teacherId], (err, results) => {
-    if (err) return res.status(500).json({ error: "Server error" });
-    if (results.length > 0) {
-      return res.status(200).json({ found: true, teacher: results[0] });
-    } else {
-      return res.status(200).json({ found: false });
-    }
   });
 });
 
 app.post("/api/check-username-availability", (req, res) => {
   const { username, role } = req.body;
-  
-  let sql = "";
-  if (role === 'teacher') {
-    sql = "SELECT * FROM teacher WHERE teacher_username = ?";
-  } else if (role === 'student') {
-    sql = "SELECT * FROM student WHERE student_username = ?";
-  } else {
-    return res.status(400).json({ error: "Invalid role" });
-  }
-
+  let sql = role === 'teacher' ? "SELECT * FROM teacher WHERE teacher_username = ?" : "SELECT * FROM student WHERE student_username = ?";
   db.query(sql, [username], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    if (results.length > 0) {
-      return res.json({ available: false });
-    } else {
-      return res.json({ available: true });
-    }
+    if (err) return res.status(500).json({ error: "Database error" });
+    return res.json({ available: results.length === 0 });
   });
 });
 
 // --- CLASS ROUTES ---
 
+const generateClassCode = () => {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
 app.post("/api/create-class", (req, res) => {
   const { teacher_fid, class_name } = req.body;
-  // Make sure to validate input
   if (!teacher_fid || !class_name) return res.status(400).json({error: "Missing fields"});
 
-  const sql = "INSERT INTO classes (teacher_fid, class_name) VALUES (?, ?)";
-  db.query(sql, [teacher_fid, class_name], (err, result) => {
-    if (err) {
-        console.error("Create Class Error:", err);
-        return res.status(500).json({ error: "Database error" });
-    }
-    res.json({ message: "Class created!", classId: result.insertId });
+  const class_code = generateClassCode(); 
+  const sql = "INSERT INTO classes (teacher_fid, class_name, class_code) VALUES (?, ?, ?)";
+  db.query(sql, [teacher_fid, class_name, class_code], (err, result) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json({ message: "Class created!", classId: result.insertId, class_code });
+  });
+});
+
+app.put("/api/edit-class/:class_id", (req, res) => {
+  const { class_name } = req.body;
+  const classId = req.params.class_id;
+  
+  if (!class_name) return res.status(400).json({ error: "Class name cannot be empty" });
+
+  const sql = "UPDATE classes SET class_name = ? WHERE class_id = ?";
+  db.query(sql, [class_name, classId], (err, result) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      res.json({ message: "Class updated successfully!" });
   });
 });
 
@@ -158,9 +113,9 @@ app.get("/api/get-classes/:teacher_fid", (req, res) => {
 
 app.get("/api/class-members/:class_id", (req, res) => {
   const sql = `
-    SELECT s.student_name, s.student_surname, s.student_username, s.student_fid 
+    SELECT cm.student_fid as cm_fid, s.student_name, s.student_surname, s.student_username 
     FROM class_members cm
-    JOIN student s ON cm.student_fid = s.student_fid
+    LEFT JOIN student s ON cm.student_fid = s.student_fid
     WHERE cm.class_id = ?
   `;
   db.query(sql, [req.params.class_id], (err, results) => {
@@ -171,7 +126,6 @@ app.get("/api/class-members/:class_id", (req, res) => {
 
 app.post("/api/add-student-to-class", (req, res) => {
   const { class_id, student_email } = req.body;
-
   const findStudentSql = "SELECT student_fid FROM student WHERE student_username = ?"; 
   
   db.query(findStudentSql, [student_email], (err, results) => {
@@ -182,11 +136,38 @@ app.post("/api/add-student-to-class", (req, res) => {
     const addSql = "INSERT INTO class_members (class_id, student_fid) VALUES (?, ?)";
     
     db.query(addSql, [class_id, student_fid], (err, result) => {
-      if (err) {
-        if(err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: "Student already in class" });
-        return res.status(500).json({ error: "Error adding student" });
-      }
+      if (err) return res.status(400).json({ error: "Student already in class or DB error" });
       res.json({ message: "Student added!" });
+    });
+  });
+});
+
+app.post("/api/join-class", (req, res) => {
+  const { student_fid, class_code } = req.body;
+
+  const findClassSql = "SELECT class_id FROM classes WHERE class_code = ?";
+  db.query(findClassSql, [class_code], (err, classResults) => {
+    if (err) return res.status(500).json({ error: "Database error 1" });
+    if (classResults.length === 0) return res.status(404).json({ error: "Invalid class code." });
+    
+    const class_id = classResults[0].class_id;
+
+    const checkDupSql = "SELECT id FROM class_members WHERE class_id = ? AND student_fid = ?";
+    db.query(checkDupSql, [class_id, student_fid], (err, dupResults) => {
+        if (err) return res.status(500).json({ error: "Database error 2" });
+        if (dupResults.length > 0) return res.status(400).json({ error: "You are already in this class!" });
+
+        const checkStudentSql = "SELECT student_fid FROM student WHERE student_fid = ?";
+        db.query(checkStudentSql, [student_fid], (err, studentResults) => {
+            if (err) return res.status(500).json({ error: "Database error 3" });
+            if (studentResults.length === 0) return res.status(404).json({ error: "Your MySQL record is missing. Please re-register." });
+
+            const addSql = "INSERT INTO class_members (class_id, student_fid) VALUES (?, ?)";
+            db.query(addSql, [class_id, student_fid], (err, result) => {
+              if (err) return res.status(500).json({ error: "Error joining class" });
+              res.json({ message: "Successfully joined the class!" });
+            });
+        });
     });
   });
 });
@@ -200,147 +181,177 @@ app.delete("/api/remove-student", (req, res) => {
   });
 });
 
+app.delete("/api/delete-class/:class_id", (req, res) => {
+  const classId = req.params.class_id;
+
+  const delAnswers = "DELETE FROM student_answers WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
+  const delScores = "DELETE FROM scores WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
+  const delQuestions = "DELETE FROM game_questions WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
+  const delGames = "DELETE FROM game_instances WHERE class_id = ?";
+  const delMembers = "DELETE FROM class_members WHERE class_id = ?";
+  const delClass = "DELETE FROM classes WHERE class_id = ?";
+
+  db.query(delAnswers, [classId], () => {
+    db.query(delScores, [classId], (err1) => {
+      if (err1) return res.status(500).json({ error: "Failed to delete scores" });
+      db.query(delQuestions, [classId], (err2) => {
+        if (err2) return res.status(500).json({ error: "Failed to delete questions" });
+        db.query(delGames, [classId], (err3) => {
+          if (err3) return res.status(500).json({ error: "Failed to delete games" });
+          db.query(delMembers, [classId], (err4) => {
+            if (err4) return res.status(500).json({ error: "Failed to delete members" });
+            db.query(delClass, [classId], (err5) => {
+              if (err5) return res.status(500).json({ error: "Failed to delete class" });
+              res.json({ message: "Class completely deleted!" });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
 // --- GAME ROUTES ---
 
 app.post('/api/create-game', (req, res) => {
     const { teacher_fid, class_id, game_type, questions } = req.body;
-
-    // 1. Insert the Game Instance first
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, ?)";
     
     db.query(sqlGame, [teacher_fid, class_id, game_type], (err, result) => {
-        if (err) {
-            console.error("Error creating game instance:", err);
-            return res.status(500).json({ error: "Failed to create game" });
-        }
+        if (err) return res.status(500).json({ error: "Failed to create game" });
 
         const newGameId = result.insertId; 
-        console.log("Game created with ID:", newGameId);
+        const sqlQuestion = `INSERT INTO game_questions (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
 
-        // 2. Insert the Questions
-        const sqlQuestion = `
-            INSERT INTO game_questions 
-            (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) 
-            VALUES ?
-        `;
-
-        const questionValues = questions.map(q => [
-            newGameId,
-            q.q,
-            q.choices[0],
-            q.choices[1],
-            q.choices[2],
-            q.choices[3],
-            q.correct
-        ]);
+        const questionValues = questions.map(q => [newGameId, q.q, q.choices[0], q.choices[1], q.choices[2], q.choices[3], q.correct]);
 
         db.query(sqlQuestion, [questionValues], (err, result) => {
-            if (err) {
-                console.error("Error saving questions:", err);
-                return res.status(500).json({ error: "Failed to save questions" });
-            }
-            
+            if (err) return res.status(500).json({ error: "Failed to save questions" });
             res.json({ message: "Game created successfully!", gameId: newGameId });
         });
     });
 });
 
-// --- UPDATED ROUTE ---
 app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
-    const teacherId = req.params.teacher_fid;
-
-    // FIX: Using alias so frontend receives 'id' and 'name'
-    // This assumes your table columns are 'class_id' and 'class_name'
     const query = "SELECT class_id as id, class_name as name FROM classes WHERE teacher_fid = ?";
-
-    db.query(query, [teacherId], (err, results) => {
-        if (err) {
-            console.error("Error fetching classes:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+    db.query(query, [req.params.teacher_fid], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
 
-// --- GET GAMES ROUTE ---
 app.get('/api/get-games/:teacher_fid', (req, res) => {
-    const teacherId = req.params.teacher_fid;
-    
-    // Join with classes table to get the Class Name (e.g., "IT Elective 3")
     const sql = `
-        SELECT g.game_id, g.game_type, g.created_at, c.class_name 
+        SELECT g.game_id, g.game_type, g.created_at, c.class_name, c.class_id 
         FROM game_instances g
         JOIN classes c ON g.class_id = c.class_id
         WHERE g.teacher_fid = ?
         ORDER BY g.created_at DESC
     `;
+    db.query(sql, [req.params.teacher_fid], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        res.json(results);
+    });
+});
 
-    db.query(sql, [teacherId], (err, results) => {
-        if (err) {
-            console.error("Error fetching games:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+app.get('/api/gradebook/:game_id', (req, res) => {
+    const gameId = req.params.game_id;
+    const sql = `
+        SELECT
+            s.student_fid, s.student_name, s.student_surname,
+            sc.score as raw_score, sc.time_taken,
+            (SELECT COUNT(*) FROM game_questions WHERE game_id = ?) as total_items
+        FROM class_members cm
+        JOIN student s ON cm.student_fid = s.student_fid
+        LEFT JOIN scores sc ON s.student_fid = sc.student_fid AND sc.game_id = ?
+        WHERE cm.class_id = (SELECT class_id FROM game_instances WHERE game_id = ?)
+        ORDER BY s.student_surname ASC, s.student_name ASC
+    `;
+    db.query(sql, [gameId, gameId, gameId], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
 
 app.get('/api/student-games/:student_fid', (req, res) => {
-    const studentId = req.params.student_fid;
-    
+    const studentFid = req.params.student_fid;
     const sql = `
-        SELECT g.game_id, g.game_type, g.created_at, c.class_name, t.teacher_name, t.teacher_surname
+        SELECT 
+            c.class_name, c.class_id, 
+            t.teacher_name, t.teacher_surname, 
+            g.game_id, g.game_type, g.created_at,
+            sc.score as raw_score, sc.time_taken,
+            (SELECT COUNT(*) FROM game_questions WHERE game_id = g.game_id) as total_items
         FROM class_members cm
-        JOIN game_instances g ON cm.class_id = g.class_id
-        JOIN classes c ON g.class_id = c.class_id
-        JOIN teacher t ON g.teacher_fid = t.teacher_fid
+        LEFT JOIN classes c ON cm.class_id = c.class_id
+        LEFT JOIN teacher t ON c.teacher_fid = t.teacher_fid
+        LEFT JOIN game_instances g ON c.class_id = g.class_id
+        LEFT JOIN scores sc ON sc.game_id = g.game_id AND sc.student_fid = cm.student_fid
         WHERE cm.student_fid = ?
-        ORDER BY g.created_at DESC
+        ORDER BY c.class_name ASC, g.created_at DESC
     `;
-
-    db.query(sql, [studentId], (err, results) => {
-        if (err) {
-            console.error("Error fetching student games:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+    db.query(sql, [studentFid], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
+
 app.get('/api/game-questions/:game_id', (req, res) => {
-    const gameId = req.params.game_id;
-    
-    const sql = `
-        SELECT * FROM game_questions 
-        WHERE game_id = ?
-    `;
-
-    db.query(sql, [gameId], (err, results) => {
-        if (err) {
-            console.error("Error fetching questions:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+    const sql = `SELECT * FROM game_questions WHERE game_id = ?`;
+    db.query(sql, [req.params.game_id], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
-// --- SAVE SCORE ROUTE (Updated for 'scores' table) ---
+
+// --- NEW ROUTE: SAVE INDIVIDUAL ANSWERS ---
+app.post('/api/save-answers', (req, res) => {
+    const { answers } = req.body; 
+    // answers should be an array of objects: [{ student_fid, game_id, question_id, is_correct }]
+    if (!answers || answers.length === 0) return res.json({ message: "No answers to save." });
+
+    const sql = "INSERT INTO student_answers (student_fid, game_id, question_id, is_correct) VALUES ?";
+    const values = answers.map(a => [a.student_fid, a.game_id, a.question_id, a.is_correct]);
+
+    db.query(sql, [values], (err, result) => {
+        if (err) {
+            console.error("Error saving item answers:", err);
+            return res.status(500).json({ error: "Database error" });
+        }
+        res.json({ message: "Answers saved successfully!" });
+    });
+});
+
+// --- NEW ROUTE: FETCH ITEM ANALYSIS ---
+app.get('/api/item-analysis/:game_id', (req, res) => {
+    const gameId = req.params.game_id;
+    const sql = `
+        SELECT 
+            q.id as question_id,
+            q.question_text,
+            SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
+            SUM(CASE WHEN sa.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count
+        FROM game_questions q
+        LEFT JOIN student_answers sa ON q.id = sa.question_id
+        WHERE q.game_id = ?
+        GROUP BY q.id
+    `;
+    db.query(sql, [gameId], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        res.json(results);
+    });
+});
+
 app.post('/api/save-score', (req, res) => {
     const { student_fid, game_id, score, time_taken } = req.body;
-
-    // We changed 'game_scores' to 'scores' to match your existing table
     const sql = "INSERT INTO scores (student_fid, game_id, score, time_taken) VALUES (?, ?, ?, ?)";
-    
     db.query(sql, [student_fid, game_id, score, time_taken], (err, result) => {
-        if (err) {
-            console.error("Error saving score:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json({ message: "Score saved!" });
     });
 });
-app.get('/api/leaderboard/:game_id', (req, res) => {
-    const gameId = req.params.game_id;
 
-    // Join 'scores' with 'student' to get names
-    // Order by Score (Highest) first, then Time (Lowest/Fastest) second
+app.get('/api/leaderboard/:game_id', (req, res) => {
     const sql = `
         SELECT s.student_name, s.student_surname, sc.score, sc.time_taken
         FROM scores sc
@@ -349,15 +360,12 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
         ORDER BY sc.score DESC, sc.time_taken ASC
         LIMIT 50
     `;
-
-    db.query(sql, [gameId], (err, results) => {
-        if (err) {
-            console.error("Leaderboard error:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
+    db.query(sql, [req.params.game_id], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
+
 app.listen(8081, () => {
   console.log("Backend server is running on http://localhost:8081");
 });

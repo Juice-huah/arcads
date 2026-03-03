@@ -1,9 +1,8 @@
+// src/pages/StudentLogin.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth"; // Imported signOut
 import { auth } from '../firebase'; 
-
-// src/pages/StudentLogin.jsx
 
 function StudentLogin() {
     const [email, setEmail] = useState('');
@@ -16,15 +15,27 @@ function StudentLogin() {
         setMessage('');
 
         try {
+            // 1. Authenticate with Firebase
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            console.log("Student logged in:", user.email);
-
-            setMessage('Login Successful! Redirecting...');
             
-            setTimeout(() => {
-                navigate('/student-menu');
-            }, 1000);
+            // 2. THE BOUNCER: Check if this UID actually exists in the MySQL 'student' table
+            const res = await fetch(`http://localhost:8081/api/check-student/${user.uid}`);
+            const data = await res.json();
+
+            if (data.isStudent) {
+                // Success! Let them in.
+                console.log("Student logged in:", user.email);
+                setMessage('Login Successful! Redirecting...');
+                
+                setTimeout(() => {
+                    navigate('/student-menu');
+                }, 1000);
+            } else {
+                // Wrong portal! Force logout and show error.
+                await signOut(auth);
+                setMessage('Access Denied. Are you trying to log in as a Teacher?');
+            }
 
         } catch (error) {
             console.error('Firebase error:', error);

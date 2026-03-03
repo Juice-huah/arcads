@@ -11,16 +11,21 @@ const StudentMenu = () => {
   const [loading, setLoading] = useState(true);
   
   // Data State
-  const [groupedGames, setGroupedGames] = useState({}); // { "IT Elective": [Game1, Game2] }
+  const [groupedGames, setGroupedGames] = useState({}); 
   
   // UI State
-  const [activeTab, setActiveTab] = useState('classes'); 
+  const [activeTab, setActiveTab] = useState('classes'); // 'classes', 'grades', 'leaderboard'
   const [selectedClass, setSelectedClass] = useState(null); 
   
-  // Leaderboard Specific State
-  const [leaderboardView, setLeaderboardView] = useState('list'); // 'list' (classes), 'games' (select game), 'ranking' (show scores)
-  const [leaderboardGame, setLeaderboardGame] = useState(null); // The specific game selected
-  const [leaderboardData, setLeaderboardData] = useState([]); // The scores
+  // Join Class State
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [classCodeInput, setClassCodeInput] = useState('');
+  const [joinMsg, setJoinMsg] = useState('');
+
+  // Leaderboard State
+  const [leaderboardView, setLeaderboardView] = useState('list'); 
+  const [leaderboardGame, setLeaderboardGame] = useState(null); 
+  const [leaderboardData, setLeaderboardData] = useState([]); 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -42,10 +47,13 @@ const StudentMenu = () => {
       
       if (Array.isArray(data)) {
         const groups = {};
-        data.forEach(game => {
-            const className = game.class_name;
+        data.forEach(row => {
+            const className = row.class_name || "Unknown/Deleted Class";
             if (!groups[className]) groups[className] = [];
-            groups[className].push(game);
+            
+            if (row.game_id) {
+                groups[className].push(row);
+            }
         });
         setGroupedGames(groups);
       } else {
@@ -58,10 +66,39 @@ const StudentMenu = () => {
     }
   };
 
+  const handleJoinClass = async (e) => {
+      e.preventDefault();
+      setJoinMsg('Joining...');
+      try {
+          const res = await fetch('http://localhost:8081/api/join-class', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ 
+                  student_fid: user.uid, 
+                  class_code: classCodeInput.toUpperCase() 
+              })
+          });
+          const data = await res.json();
+          if(res.ok) {
+              setJoinMsg('Success!');
+              setClassCodeInput('');
+              setTimeout(() => {
+                  setShowJoinModal(false);
+                  setJoinMsg('');
+                  fetchAvailableGames(user.uid); 
+              }, 1000);
+          } else {
+              setJoinMsg(data.error || "Failed to join");
+          }
+      } catch (err) {
+          setJoinMsg("Server Error");
+      }
+  };
+
   const fetchLeaderboard = async (game) => {
       setLeaderboardGame(game);
-      setLeaderboardData([]); // Clear previous
-      setLeaderboardView('ranking'); // Switch view
+      setLeaderboardData([]); 
+      setLeaderboardView('ranking'); 
 
       try {
           const res = await fetch(`http://localhost:8081/api/leaderboard/${game.game_id}`);
@@ -72,36 +109,28 @@ const StudentMenu = () => {
       }
   };
 
+  const switchTab = (tab) => {
+      setActiveTab(tab);
+      setSelectedClass(null);
+      setLeaderboardView('list');
+  };
+
   // --- STYLES FOR TOP 3 ---
   const podiumStyle = {
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'flex-end',
-      gap: '20px',
-      marginBottom: '40px',
-      marginTop: '20px'
+      display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+      gap: '20px', marginBottom: '40px', marginTop: '20px'
   };
 
   const rankCardStyle = (rank) => {
-      let color = '#fff';
-      let height = '120px';
-      let border = '2px solid #555';
-      
-      if(rank === 0) { color = '#ffd700'; height = '160px'; border = '4px solid #ffd700'; } // Gold
-      if(rank === 1) { color = '#c0c0c0'; height = '140px'; border = '4px solid #c0c0c0'; } // Silver
-      if(rank === 2) { color = '#cd7f32'; height = '130px'; border = '4px solid #cd7f32'; } // Bronze
+      let color = '#fff'; let height = '120px'; let border = '2px solid #555';
+      if(rank === 0) { color = '#ffd700'; height = '160px'; border = '4px solid #ffd700'; } 
+      if(rank === 1) { color = '#c0c0c0'; height = '140px'; border = '4px solid #c0c0c0'; } 
+      if(rank === 2) { color = '#cd7f32'; height = '130px'; border = '4px solid #cd7f32'; } 
 
       return {
-          width: '150px',
-          height: height,
-          backgroundColor: '#222',
-          border: border,
-          borderRadius: '10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
+          width: '150px', height: height, backgroundColor: '#222', border: border,
+          borderRadius: '10px', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', textAlign: 'center',
           boxShadow: `0 0 15px ${rank === 0 ? 'rgba(255, 215, 0, 0.3)' : 'transparent'}`,
           position: 'relative'
       };
@@ -114,21 +143,15 @@ const StudentMenu = () => {
       <div className="sidebar">
         <h3 style={{color: '#0ac8f0', textAlign:'center'}}>STUDENT</h3>
         
-        <button 
-          className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`}
-          onClick={() => {setActiveTab('classes'); setSelectedClass(null);}}
-        >
+        <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>
           My Classes
         </button>
 
-        <button 
-          className={`sidebar-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
-          onClick={() => {
-              setActiveTab('leaderboard'); 
-              setSelectedClass(null); 
-              setLeaderboardView('list');
-          }}
-        >
+        <button className={`sidebar-btn ${activeTab === 'grades' ? 'active' : ''}`} onClick={() => switchTab('grades')}>
+          My Grades
+        </button>
+
+        <button className={`sidebar-btn ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => switchTab('leaderboard')}>
           Leaderboard
         </button>
       </div>
@@ -139,14 +162,19 @@ const StudentMenu = () => {
         {loading ? <p>Loading...</p> : (
             <>
                 {/* ========================================================== */}
-                {/* TAB 1: MY CLASSES (Existing Code)                          */}
+                {/* TAB 1: MY CLASSES (Play Games)                             */}
                 {/* ========================================================== */}
                 {activeTab === 'classes' && !selectedClass && (
                     <>
-                        <div className="section-header"><h2>MY CLASSES</h2></div>
+                        <div className="section-header">
+                            <h2>MY CLASSES</h2>
+                            <button className="btn btn-primary" onClick={() => setShowJoinModal(true)}>
+                                + JOIN CLASS
+                            </button>
+                        </div>
                         <div className="classes-grid">
                             {Object.keys(groupedGames).length === 0 ? (
-                                <p style={{color:'#aaa'}}>No classes found.</p>
+                                <p style={{color:'#aaa'}}>No classes found. Click "+ Join Class" to get started!</p>
                             ) : (
                                 Object.keys(groupedGames).map((className) => (
                                     <div key={className} className="class-card" onClick={() => setSelectedClass(className)}>
@@ -165,37 +193,114 @@ const StudentMenu = () => {
                             <h2>{selectedClass}</h2>
                             <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
                         </div>
+                        
+                        {groupedGames[selectedClass].length === 0 ? (
+                            <p style={{color: '#aaa', fontStyle: 'italic', marginTop: '20px'}}>
+                                Your teacher hasn't assigned any games to this class yet.
+                            </p>
+                        ) : (
+                            <div className="classes-grid">
+                                {groupedGames[selectedClass].map((game) => (
+                                    <div key={game.game_id} className="class-card" style={{borderColor: '#0ac8f0'}}>
+                                        <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
+                                        <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
+                                        
+                                        {/* FIX: If score is NOT null, show Completed Badge instead of Start Game */}
+                                        {game.raw_score !== null ? (
+                                            <div style={{marginTop: '15px', padding: '10px', backgroundColor: 'rgba(20, 160, 20, 0.2)', borderRadius: '5px', textAlign: 'center'}}>
+                                                <span style={{color: '#14a014', fontWeight: 'bold'}}>COMPLETED</span>
+                                            </div>
+                                        ) : (
+                                            <Link to={`/student/play/${game.game_id}`}>
+                                                <button className="btn btn-primary" style={{width: '100%', marginTop: '15px'}}>START GAME</button>
+                                            </Link>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* ========================================================== */}
+                {/* TAB 2: MY GRADES (Report Card)                             */}
+                {/* ========================================================== */}
+                {activeTab === 'grades' && !selectedClass && (
+                    <>
+                        <div className="section-header"><h2>MY GRADES</h2></div>
+                        <p style={{color: '#aaa', marginBottom: '20px'}}>Select a class to view your report card.</p>
                         <div className="classes-grid">
-                            {groupedGames[selectedClass].map((game) => (
-                                <div key={game.game_id} className="class-card" style={{borderColor: '#0ac8f0'}}>
-                                    <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
-                                    <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname}</p>
-                                    <Link to={`/student/play/${game.game_id}`}>
-                                        <button className="btn btn-primary" style={{width: '100%', marginTop: '15px'}}>START GAME</button>
-                                    </Link>
+                            {Object.keys(groupedGames).map((className) => (
+                                <div key={className} className="class-card" style={{border: '1px solid #14a014'}} onClick={() => setSelectedClass(className)}>
+                                    <h3 style={{color: '#14a014'}}>{className}</h3>
+                                    <p style={{color: '#aaa'}}>View Grades</p>
                                 </div>
                             ))}
                         </div>
                     </>
                 )}
 
+                {activeTab === 'grades' && selectedClass && (
+                    <>
+                        <div className="section-header">
+                            <h2>{selectedClass} Report Card</h2>
+                            <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
+                        </div>
+                        
+                        <table className="students-table" style={{marginTop: '20px'}}>
+                            <thead>
+                                <tr>
+                                    <th>Activity</th>
+                                    <th>Raw Score</th>
+                                    <th>Grade</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* Filter out games they haven't played yet */}
+                                {groupedGames[selectedClass].filter(g => g.raw_score !== null).length === 0 ? (
+                                    <tr><td colSpan="4" style={{textAlign:'center'}}>You haven't completed any activities in this class yet.</td></tr>
+                                ) : (
+                                    groupedGames[selectedClass].filter(g => g.raw_score !== null).map((game) => {
+                                        const raw = game.raw_score;
+                                        const total = game.total_items || 1;
+                                        // Base-50 Computation
+                                        const grade = Math.round((raw / total) * 50 + 50);
+                                        const isPassing = grade >= 75;
+
+                                        return (
+                                            <tr key={game.game_id}>
+                                                <td style={{color: '#0ac8f0', fontWeight: 'bold'}}>{game.game_type}</td>
+                                                <td style={{fontWeight: 'bold'}}>{raw} / {total}</td>
+                                                <td style={{color: isPassing ? '#14a014' : '#ff4c4c', fontWeight: 'bold'}}>{grade}%</td>
+                                                <td>
+                                                    <span style={{
+                                                        backgroundColor: isPassing ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)',
+                                                        color: isPassing ? '#14a014' : '#ff4c4c',
+                                                        padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold'
+                                                    }}>
+                                                        {isPassing ? 'PASSED' : 'FAILED'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </>
+                )}
+
                 {/* ========================================================== */}
-                {/* TAB 2: LEADERBOARD (New Logic)                             */}
+                {/* TAB 3: LEADERBOARD                                         */}
                 {/* ========================================================== */}
-                
-                {/* STEP 1: SELECT CLASS FOR LEADERBOARD */}
                 {activeTab === 'leaderboard' && leaderboardView === 'list' && (
                     <>
                         <div className="section-header"><h2>HALL OF FAME</h2></div>
                         <p style={{color: '#aaa', marginBottom: '20px'}}>Select a class to view rankings.</p>
                         <div className="classes-grid">
                             {Object.keys(groupedGames).map((className) => (
-                                <div 
-                                    key={className} 
-                                    className="class-card" 
-                                    style={{border: '1px solid #ffd700'}}
-                                    onClick={() => { setSelectedClass(className); setLeaderboardView('games'); }}
-                                >
+                                <div key={className} className="class-card" style={{border: '1px solid #ffd700'}} onClick={() => { setSelectedClass(className); setLeaderboardView('games'); }}>
                                     <h3 style={{color: '#ffd700'}}>{className}</h3>
                                     <p style={{color: '#aaa'}}>View Rankings</p>
                                 </div>
@@ -204,7 +309,6 @@ const StudentMenu = () => {
                     </>
                 )}
 
-                {/* STEP 2: SELECT GAME FOR LEADERBOARD */}
                 {activeTab === 'leaderboard' && leaderboardView === 'games' && selectedClass && (
                     <>
                         <div className="section-header">
@@ -212,18 +316,22 @@ const StudentMenu = () => {
                             <button className="btn btn-secondary" onClick={() => setLeaderboardView('list')}>BACK</button>
                         </div>
                         <p style={{color: '#aaa', marginBottom: '20px'}}>Select an activity.</p>
-                        <div className="classes-grid">
-                            {groupedGames[selectedClass].map((game) => (
-                                <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
-                                    <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
-                                    <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
-                                </div>
-                            ))}
-                        </div>
+                        
+                        {groupedGames[selectedClass].length === 0 ? (
+                            <p style={{color: '#aaa', fontStyle: 'italic'}}>No games have been played in this class yet.</p>
+                        ) : (
+                            <div className="classes-grid">
+                                {groupedGames[selectedClass].map((game) => (
+                                    <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
+                                        <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
+                                        <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </>
                 )}
 
-                {/* STEP 3: THE ACTUAL LEADERBOARD (Top 3 Big + List) */}
                 {activeTab === 'leaderboard' && leaderboardView === 'ranking' && leaderboardGame && (
                     <>
                         <div className="section-header">
@@ -238,9 +346,7 @@ const StudentMenu = () => {
                             </div>
                         ) : (
                             <>
-                                {/* --- TOP 3 PODIUM --- */}
                                 <div style={podiumStyle}>
-                                    {/* SILVER (2nd) */}
                                     {leaderboardData[1] && (
                                         <div style={rankCardStyle(1)}>
                                             <div style={{fontSize:'2rem'}}>🥈</div>
@@ -249,7 +355,6 @@ const StudentMenu = () => {
                                         </div>
                                     )}
 
-                                    {/* GOLD (1st) */}
                                     {leaderboardData[0] && (
                                         <div style={rankCardStyle(0)}>
                                             <div style={{fontSize:'3rem'}}>👑</div>
@@ -259,7 +364,6 @@ const StudentMenu = () => {
                                         </div>
                                     )}
 
-                                    {/* BRONZE (3rd) */}
                                     {leaderboardData[2] && (
                                         <div style={rankCardStyle(2)}>
                                             <div style={{fontSize:'2rem'}}>🥉</div>
@@ -269,7 +373,6 @@ const StudentMenu = () => {
                                     )}
                                 </div>
 
-                                {/* --- REST OF THE LIST (4th onwards) --- */}
                                 {leaderboardData.length > 3 && (
                                     <table className="students-table">
                                         <thead>
@@ -299,6 +402,38 @@ const StudentMenu = () => {
             </>
         )}
       </div>
+
+      {/* --- JOIN CLASS POPUP --- */}
+      {showJoinModal && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h2>JOIN A CLASS</h2>
+            <p style={{fontSize:'0.8rem', color:'#aaa', marginBottom:'15px'}}>
+              Ask your teacher for the 6-character Class Code.
+            </p>
+            {joinMsg && <p className={joinMsg === 'Success!' ? "success-text" : "error-text"} style={{marginBottom: '10px'}}>{joinMsg}</p>}
+            
+            <form onSubmit={handleJoinClass}>
+              <div className="form-group">
+                <input 
+                  type="text" 
+                  placeholder="Enter Class Code" 
+                  value={classCodeInput} 
+                  onChange={(e) => {setClassCodeInput(e.target.value); setJoinMsg('');}} 
+                  maxLength={6}
+                  style={{textTransform: 'uppercase', textAlign: 'center', letterSpacing: '3px', fontSize: '1.2rem'}}
+                  required 
+                />
+              </div>
+              <div className="modal-actions-row">
+                <button type="submit" className="btn btn-primary">JOIN</button>
+                <button type="button" onClick={() => setShowJoinModal(false)} className="btn btn-secondary">CANCEL</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -42,7 +42,7 @@ function Header() {
         <nav className="main-nav">
           <ul className="nav-links">
             <li><Link to="/games">Games</Link></li>
-            <li><Link to="/contact">Contact</Link></li>
+            <li><Link to="/contact">Contact Us</Link></li>
             
             {userLoggedIn ? (
               <li>

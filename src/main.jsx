@@ -11,9 +11,8 @@ import TeacherLogin from './pages/TeacherLogin.jsx';
 import TeacherMenu from './pages/TeacherMenu.jsx'; 
 import StudentLogin from './pages/StudentLogin.jsx';
 import StudentMenu from './pages/StudentMenu.jsx'; 
-import StudentSignUp from './pages/StudentSignUp.jsx';
 import UserProfile from './pages/UserProfile.jsx';
-import Maze from './games/Maze.jsx'; // Make sure the file name matches exactly (Maze.jsx vs maze.jsx)
+import Maze from './games/Maze.jsx'; 
 import CreateMazeGame from './pages/CreateMazeGame.jsx';
 
 import './index.css';
@@ -24,38 +23,39 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       {
-        path: "/", // The homepage
+        path: "/", 
         element: <HomePage />,
       },
       {
-        path: "/signup", // The sign-up page
-        element: <SignUp />,
+        path: "/signup", 
+        // 2. ADDED role="teacher" to the existing SignUp route
+        element: <SignUp role="teacher" />, 
       },
       {
-        path: "/student-login", // student login page
+        path: "/student-login", 
         element: <StudentLogin />,
       },
       { 
-        path: "/student-menu",  // student menu
+        path: "/student-menu", 
         element: <StudentMenu />,
       },
       { 
-        path: "/teacher-menu",  // teacher menu
+        path: "/teacher-menu", 
         element: <TeacherMenu />,
       },
       {
-        path: "/teacher-login", // Teacher login page
+        path: "/teacher-login", 
         element: <TeacherLogin />,
       },
       {
-        path: "/student-signup", // Student sign-up page
-        element: <StudentSignUp />,
+        path: "/student-signup", 
+        // 3. REPLACED StudentSignUp with SignUp and ADDED role="student"
+        element: <SignUp role="student" />, 
       },
       {
-        path: "/profile", // User Profile page
+        path: "/profile", 
         element: <UserProfile />,
       },
-      // --- ADDED MISSING GAME ROUTE HERE ---
       {
         path: "/student/play/:gameId",
         element: (
@@ -64,7 +64,6 @@ const router = createBrowserRouter([
           </div>
         ),
       },
-      // -------------------------------------
       {
         path: "/teacher/create-maze",
         element: <CreateMazeGame />,
