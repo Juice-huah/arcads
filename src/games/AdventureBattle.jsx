@@ -38,10 +38,17 @@ const AdventureBattle = () => {
   
   const [screen, setScreen] = useState('MENU'); 
   const [selectedHero, setSelectedHero] = useState(CHARACTERS[0]);
+  
+  // Keep original questions safe for Retries
+  const [originalQuestions, setOriginalQuestions] = useState([]); 
   const [questions, setQuestions] = useState([]);
+  
   const [monsterHp, setMonsterHp] = useState(5);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
+  
+  // Track if score is saved
+  const [isScoreSaved, setIsScoreSaved] = useState(false);
 
   // --- AUDIO REFS ---
   const menuMusic = useRef(new Audio(SOUNDS.menu));
@@ -67,9 +74,10 @@ const AdventureBattle = () => {
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setQuestions(data);
-          setMonsterHp(data.length);
-          setMaxScore(data.length * 100); 
+          setOriginalQuestions(data); // Save raw data for retries
+          setQuestions(shuffleArray([...data])); // Shuffle for first playthrough
+          setMonsterHp(data.length); // 1 HP per question
+          setMaxScore(data.length);  // 1 Point per question
         } else {
           alert("No questions found.");
           navigate('/student-menu');
@@ -108,6 +116,38 @@ const AdventureBattle = () => {
         gameMusic.current.pause();
     };
   }, [screen]);
+
+  // --- MANUAL SAVE & RETRY HANDLERS ---
+  const handleSaveScore = async () => {
+    if (!auth.currentUser || !gameId || isScoreSaved) return;
+    try {
+        await fetch('http://localhost:8081/api/save-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_fid: auth.currentUser.uid,
+                game_id: gameId,
+                score: score,
+                time_taken: 0
+            })
+        });
+        setIsScoreSaved(true);
+        alert("Score saved successfully!");
+    } catch (e) {
+        console.error("Error saving score:", e);
+        alert("Failed to save score.");
+    }
+  };
+
+  const handleRetry = () => {
+    playClick();
+    // Resets everything cleanly for a fresh retry!
+    setQuestions(shuffleArray([...originalQuestions]));
+    setMonsterHp(originalQuestions.length);
+    setScore(0);
+    setIsScoreSaved(false);
+    setScreen('CHAR_SELECT');
+  };
 
   // --- SCREEN RENDERERS ---
 
@@ -211,31 +251,12 @@ const AdventureBattle = () => {
             playClick={playClick} 
             playSoundEffect={playSoundEffect}
             
-            // --- UPDATED GAME END LOGIC WITH SAVE ---
-            onGameEnd={async (won, finalScore) => {
+            // Removed Auto-Save. It now only navigates to WIN/LOSE screen.
+            onGameEnd={(won, finalScore) => {
               setScore(finalScore);
               setScreen(won ? 'WIN' : 'LOSE');
-              
               if (won) playSoundEffect('win');
               else playSoundEffect('lose');
-
-              // *** SAVE SCORE TO DB ***
-              if (auth.currentUser) {
-                  try {
-                      await fetch('http://localhost:8081/api/save-score', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              student_fid: auth.currentUser.uid,
-                              game_id: gameId,
-                              score: finalScore
-                          })
-                      });
-                      console.log("Score Saved!");
-                  } catch (e) {
-                      console.error("Error saving score:", e);
-                  }
-              }
             }}
           />
         </div>
@@ -243,20 +264,42 @@ const AdventureBattle = () => {
     );
   }
 
-  return (
-    <div style={pageStyle}>
-      <div style={gameBoxStyle}>
-        <div style={{...bgStyle, background:'#1a202c'}}></div>
-        <div style={overlayStyle}>
-          <h1 style={{fontSize: '3rem', color: screen === 'WIN' ? '#48bb78' : '#e53e3e', textShadow:'3px 3px #000'}}>
-            {screen === 'WIN' ? 'VICTORY!' : 'DEFEATED'}
-          </h1>
-          <p style={{fontSize: '2rem', color:'white', margin: '20px 0'}}>Final Score: {score} / {maxScore}</p>
-          <button onClick={() => { playClick(); navigate('/student-menu'); }} style={mainBtnStyle}>RETURN TO MENU</button>
+  // The new Game Over screen with Manual Save, Retry, and Menu buttons!
+  if (screen === 'WIN' || screen === 'LOSE') {
+      return (
+        <div style={pageStyle}>
+          <div style={gameBoxStyle}>
+            <div style={{...bgStyle, background:'#1a202c'}}></div>
+            <div style={overlayStyle}>
+              <h1 style={{fontSize: '3.5rem', margin: '0 0 10px 0', color: screen === 'WIN' ? '#48bb78' : '#e53e3e', textShadow:'3px 3px #000'}}>
+                {screen === 'WIN' ? 'VICTORY!' : 'DEFEATED'}
+              </h1>
+              <p style={{fontSize: '2rem', color:'#fff', margin: '10px 0 30px 0', fontWeight: 'bold'}}>
+                  Final Score: <span style={{color: '#fbd38d'}}>{score}</span> / {maxScore}
+              </p>
+              
+              <div style={{display: 'flex', gap: '15px'}}>
+                  <button onClick={handleRetry} style={{...mainBtnStyle, background: '#38a169', fontSize: '1rem'}}>
+                      ⚔️ PLAY AGAIN
+                  </button>
+                  <button 
+                      onClick={handleSaveScore} 
+                      disabled={isScoreSaved}
+                      style={{...mainBtnStyle, background: isScoreSaved ? '#718096' : '#3182ce', fontSize: '1rem'}}
+                  >
+                      {isScoreSaved ? '✅ SAVED' : '💾 SAVE SCORE'}
+                  </button>
+                  <button onClick={() => { playClick(); navigate('/student-menu'); }} style={{...mainBtnStyle, background: '#e53e3e', fontSize: '1rem'}}>
+                      🚪 MAIN MENU
+                  </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  );
+      );
+  }
+
+  return null;
 };
 
 // ==========================================
@@ -340,7 +383,7 @@ const DialogueScene = ({ heroId, onFinish, playClick }) => {
 };
 
 // ==========================================
-// SCENE: BATTLE ENGINE (With Sound Effects)
+// SCENE: BATTLE ENGINE
 // ==========================================
 const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonsterHp, maxScore, onGameEnd, playClick, playSoundEffect }) => {
   const canvasRef = useRef(null);
@@ -392,7 +435,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
     const monAtk = new Image(); monAtk.src = '/assets/monster_attack.png';
     const monHit = new Image(); monHit.src = '/assets/monster_hit.png';
     const monDead = new Image(); monDead.src = '/assets/monster_dead.png';
-    const slashImg = new Image(); slashImg.src = '/assets/slash_arc.png';
     
     const mageEffect = new Image(); mageEffect.src = '/assets/hero_2_attack_effect.png';
     const archerEffect = new Image(); archerEffect.src = '/assets/hero_3_attack_effect.png';
@@ -550,7 +592,9 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       animState.current.phase = 'hero_attack';
       
       setTimeout(() => {
-        setMonsterHp(h => h - 1); setScore(s => s + 100); nextTurn(true);
+        setMonsterHp(h => h - 1); 
+        setScore(s => s + 1); // Exact 1 point given
+        nextTurn(true);
       }, 2000); 
     } else {
       playClick(); 
@@ -576,8 +620,8 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
     
     // --- CHECK FOR VICTORY ---
     if (newMonsterHp <= 0) { 
-        playSoundEffect('death'); // Monster Death Sound
-        setTimeout(() => onGameEnd(true, score + 100), 2000); 
+        playSoundEffect('death'); 
+        setTimeout(() => onGameEnd(true, score + 1), 2000); 
         return; 
     }
 
@@ -585,7 +629,7 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
         if (qIndex < questions.length - 1) {
             setQIndex(q => q + 1); setInputValue(''); setFeedback(''); setButtonsDisabled(false);
         } else {
-            onGameEnd(true, score + 100); 
+            onGameEnd(true, score + 1); 
         }
     } else {
         const newQs = [...questions];

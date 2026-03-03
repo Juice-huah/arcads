@@ -4,7 +4,7 @@ import "./WordQuest.css";
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 
-// --- ONLY THE 3 AUDIO IMPORTS YOU HAVE ---
+// --- AUDIO IMPORTS ---
 import bgmMenu from "../assets/wordquest/sounds/bgm_menu.wav";
 import bgmGame from "../assets/wordquest/sounds/bgm_game.wav";
 import sfxClick from "../assets/wordquest/sounds/click.wav";
@@ -20,7 +20,8 @@ import MainMenu        from "../components/MainMenu";
 import ModeSelect      from "../components/ModeSelect";
 import CharacterSelect from "../components/CharacterSelect";
 import GameScreen      from "../components/GameScreen";
-import WinScreen       from "../components/WinScreen";
+
+import { isQuestionTile } from "../components/Board";
 
 export default function WordQuest() {
   const { gameId } = useParams();
@@ -55,7 +56,7 @@ export default function WordQuest() {
   
   // --- AUDIO REFS & GLOBAL SFX ---
   const bgmRef = useRef(null);
-  const activeBgmRef = useRef(bgmMenu); // Tracks the current playing song
+  const activeBgmRef = useRef(bgmMenu);
 
   const playSfx = (soundFile) => {
     const audio = new Audio(soundFile);
@@ -63,7 +64,6 @@ export default function WordQuest() {
     audio.play().catch(e => console.log("SFX Blocked"));
   };
 
-  // GLOBAL BUTTON CLICK LISTENER (Plays click sound instantly on any button)
   useEffect(() => {
     const handleGlobalClick = (e) => {
       if (e.target.closest('button') || e.target.closest('.card div')) {
@@ -74,15 +74,11 @@ export default function WordQuest() {
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // START MENU MUSIC INSTANTLY ON LOAD
   useEffect(() => {
     if (bgmRef.current) {
-      bgmRef.current.volume = 0.25; // 25% volume
-      // Because you clicked "Start Game" on the previous page, the browser allows this instantly!
+      bgmRef.current.volume = 0.25;
       bgmRef.current.play().catch(e => console.log("Autoplay blocked by browser:", e));
     }
-    
-    // Fallback: If they refresh the page directly, wait for ANY click to start the music
     const fallbackPlay = () => {
       if (bgmRef.current && bgmRef.current.paused) {
         bgmRef.current.play();
@@ -93,12 +89,9 @@ export default function WordQuest() {
     return () => window.removeEventListener('click', fallbackPlay);
   }, []);
 
-  // SWITCH MUSIC TRACKS WHEN MOVING FROM MENU TO THE BOARD GAME
   useEffect(() => {
     if (!bgmRef.current) return;
-    
     const expectedBgm = screen === SCREENS.GAME ? bgmGame : bgmMenu;
-    
     if (activeBgmRef.current !== expectedBgm) {
       activeBgmRef.current = expectedBgm;
       bgmRef.current.src = expectedBgm;
@@ -116,7 +109,7 @@ export default function WordQuest() {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           const formattedQs = data.map(q => {
-            const opts = [q.choice_a, q.choice_b, q.choice_c, q.choice_d].filter(Boolean);
+            const opts = [q.choice_a, q.choice_b, q.choice_c, q.choice_d].slice(0, 4);
             return {
               id: q.question_id || Math.random(),
               question: q.question_text,
@@ -126,36 +119,39 @@ export default function WordQuest() {
               difficulty: "medium" 
             };
           });
+          
           setQuestions(formattedQs);
-          allQsRef.current = [...formattedQs];
-          availableQsRef.current = [...formattedQs];
+          const pristineQs = JSON.parse(JSON.stringify(formattedQs));
+          allQsRef.current = pristineQs;
+          availableQsRef.current = JSON.parse(JSON.stringify(pristineQs));
         }
       } catch(e) { console.error("Error fetching questions:", e); }
     };
     if (gameId) fetchQuestions();
   }, [gameId]);
 
-  const handleGameEnd = async (finalPlayers) => {
-    if (scoreSaved) return;
-    setScoreSaved(true);
-
-    const humanPlayer = finalPlayers[0];
-    
-    if (auth.currentUser) {
-        try {
-            await fetch('http://localhost:8081/api/save-score', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    student_fid: auth.currentUser.uid,
-                    game_id: gameId,
-                    score: humanPlayer.score,
-                    time_taken: 0 
-                })
-            });
-            console.log("Player 1 score saved successfully!");
-        } catch (e) { console.error(e); }
+  const handleSaveScore = async () => {
+    if (scoreSaved || !auth.currentUser || !winner) return;
+    try {
+        await fetch('http://localhost:8081/api/save-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_fid: auth.currentUser.uid,
+                game_id: gameId,
+                score: winner.score,
+                time_taken: 0
+            })
+        });
+        setScoreSaved(true);
+        alert("Score saved successfully!");
+    } catch (e) {
+        console.error(e);
+        alert("Failed to save score.");
     }
+  };
+
+  const handleGameEnd = (finalPlayers) => {
     setTimeout(() => setScreen(SCREENS.WIN), 600);
   };
 
@@ -178,12 +174,13 @@ export default function WordQuest() {
         name: mode === MODES.VS_AI && idx === 1 ? "Computer" : `Player ${idx + 1}`,
         char: charObj, 
         score: 0,
+        health: 100, // 🟢 ADDED: Players now start with 100 HP!
         pos: 1,
         streak: 0,
         skipTurn: false
     }));
     
-    availableQsRef.current = [...allQsRef.current];
+    availableQsRef.current = JSON.parse(JSON.stringify(allQsRef.current));
 
     setPlayers(ps);
     setCurrentPlayer(0);
@@ -204,26 +201,23 @@ export default function WordQuest() {
 
   function applyPowerUp(ps, idx, eff) {
     const p = ps[idx];
-    if (eff.includes("15 HP"))     p.score += 15;
-    if (eff.includes("10 HP"))     p.score += 10;
-    if (eff.includes("20 points")) p.score += 20;
+    if (eff.includes("15 HP") || eff.includes("10 HP") || eff.includes("20 points")) p.score += 1;
     if (eff.includes("forward 3")) p.pos = Math.min(100, p.pos + 3);
   }
   function applyTrap(ps, idx, eff) {
     const p = ps[idx];
-    if (eff.includes("15 HP"))     p.score = Math.max(0, p.score - 15);
+    if (eff.includes("15 HP") || eff.includes("10 points")) p.score = Math.max(0, p.score - 1);
     if (eff.includes("back 3"))    p.pos   = Math.max(1, p.pos - 3);
     if (eff.includes("Skip"))      p.skipTurn = true;
-    if (eff.includes("10 points")) p.score = Math.max(0, p.score - 10);
   }
   function applyWild(ps, idx, eff) {
     const p = ps[idx]; const opp = ps[1 - idx];
     switch (eff.effect) {
       case "forward5": p.pos   = Math.min(100, p.pos + 5);    break;
-      case "heal20":   p.score += 20; break;
+      case "heal20":   p.score += 1; break;
       case "double":   setDoubleNext(true);                   break;
       case "back3":    p.pos   = Math.max(1, p.pos - 3);      break;
-      case "damage15": p.score = Math.max(0, p.score - 15);   break;
+      case "damage15": p.score = Math.max(0, p.score - 1);    break;
       case "swap": { const t = p.pos; p.pos = opp.pos; opp.pos = t; break; }
       default: break;
     }
@@ -237,8 +231,8 @@ export default function WordQuest() {
       setPlayers(prev => {
         const u = prev.map(p => ({ ...p }));
         if (u[nextIdx].skipTurn) {
-          u[nextIdx].skipTurn = false;
-          addLog(`⏸ ${u[nextIdx].name} skips a turn!`);
+          u[nextIdx].skipTurn = false; 
+          addLog(`⏸ ${u[nextIdx].name} is stuck in a trap and loses their turn!`);
           setCurrentPlayer(playerIdx);
           setGameLocked(false);
           return u;
@@ -251,84 +245,105 @@ export default function WordQuest() {
   }, []);
 
   const afterTileEvent = useCallback((ps, playerIdx) => {
-    if (availableQsRef.current.length === 0) {
-      if (allQsRef.current.length === 0) {
-        endTurn(playerIdx); 
-        return;
-      }
-      availableQsRef.current = [...allQsRef.current];
-      addLog("🔄 Question pile refilled!");
+    const tile = ps[playerIdx].pos;
+    
+    const isDoubleOrTrap = DOUBLE_TILES.includes(tile) || TRAP_TILES.includes(tile);
+
+    if (isQuestionTile(tile) || isDoubleOrTrap) {
+        if (availableQsRef.current.length === 0) {
+            if (allQsRef.current.length === 0) {
+                endTurn(playerIdx, ps); 
+                return;
+            }
+            availableQsRef.current = JSON.parse(JSON.stringify(allQsRef.current));
+            addLog("🔄 Question pile refilled!");
+        }
+
+        const q = availableQsRef.current.shift();
+        const dbl = DOUBLE_TILES.includes(tile) || doubleNext;
+        setDoubleNext(false);
+
+        const pristineQ = JSON.parse(JSON.stringify(q));
+        pristineQ.options = pristineQ.options.slice(0, 4);
+
+        setModal({ type: "question", question: pristineQ, doublePoints: dbl, playerIdx, ps: [...ps], originalId: pristineQ.id });
+    } else {
+        endTurn(playerIdx, ps);
     }
-
-    const qIndex = Math.floor(Math.random() * availableQsRef.current.length);
-    const q = availableQsRef.current[qIndex];
-    availableQsRef.current.splice(qIndex, 1);
-
-    const dbl = doubleNext;
-    setDoubleNext(false);
-    setModal({ type: "question", question: q, doublePoints: dbl, playerIdx, ps: [...ps] });
   }, [doubleNext, endTurn]);
 
   const processTile = useCallback((ps, playerIdx) => {
     const p = ps[playerIdx]; const tile = p.pos;
 
     if (tile >= 100) { 
-        const loserIdx = 1 - playerIdx;
-
-        if (ps[playerIdx].score <= ps[loserIdx].score) {
-            const bonusNeeded = (ps[loserIdx].score - ps[playerIdx].score) + 50;
-            ps[playerIdx].score += bonusNeeded;
-            addLog(`🏆 ${ps[playerIdx].name} reached the goal! Comeback Bonus: +${bonusNeeded} PTS!`);
-        } else {
-            ps[playerIdx].score += 50;
-            addLog(`🏆 ${ps[playerIdx].name} reached the goal! Finish Bonus: +50 PTS!`);
-        }
-
+        ps[playerIdx].pos = 100;
+        ps[playerIdx].score += 5;
+        addLog(`🏆 ${ps[playerIdx].name} reached the goal! Finish Bonus: +5 PTS!`);
+        
         setPlayers([...ps]); 
         setWinner(ps[playerIdx]); 
         handleGameEnd([...ps]); 
         return; 
     }
 
-    if (LADDERS[tile]) {
-      const dest = LADDERS[tile];
-      addLog(`🪜 ${p.name} climbs ladder ${tile}→${dest}!`);
-      ps[playerIdx].pos = dest; setPlayers([...ps]); setHighlightTile(dest);
-      setModal({ type:"event", event:{icon:"🪜",title:"Ladder Boost!",desc:`Climbing to tile ${dest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+    const snakeDest = SNAKES[tile] || SNAKES[String(tile)];
+    const ladderDest = LADDERS[tile] || LADDERS[String(tile)];
+
+    if (ladderDest) {
+      addLog(`🪜 ${p.name} climbs ladder ${tile}→${ladderDest}!`);
+      ps[playerIdx].pos = ladderDest; setPlayers([...ps]); setHighlightTile(ladderDest);
+      setModal({ type:"event", event:{icon:"🪜",title:"Ladder Boost!",desc:`Climbing to tile ${ladderDest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
       return;
     }
-    if (SNAKES[tile]) {
-      const dest = SNAKES[tile];
-      addLog(`🐍 ${p.name} bitten! ${tile}→${dest}`);
-      ps[playerIdx].pos = dest;
-      setPlayers([...ps]); setHighlightTile(dest);
-      setModal({ type:"event", event:{icon:"🐍",title:"Snake Bite!",desc:`Sliding to tile ${dest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+    
+    if (snakeDest) {
+      addLog(`🐍 ${p.name} bitten! ${tile}→${snakeDest}`);
+      ps[playerIdx].pos = snakeDest;
+      setPlayers([...ps]); setHighlightTile(snakeDest);
+      setModal({ type:"event", event:{icon:"🐍",title:"Snake Bite!",desc:`Oh no! Sliding down to tile ${snakeDest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
       return;
     }
+
     if (POWER_UP_TILES.includes(tile)) {
       const eff = POWER_UP_EFFECTS[Math.floor(Math.random() * POWER_UP_EFFECTS.length)];
-      applyPowerUp(ps, playerIdx, eff); addLog(`⚡ ${p.name}: ${eff}`);
-      setModal({ type:"event", event:{icon:"⚡",title:"Power Up!",desc:eff}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      applyPowerUp(ps, playerIdx, eff); addLog(`⚡ ${p.name}: Power up!`);
+      setModal({ type:"event", event:{icon:"⚡",title:"Power Up!",desc:"You found an item!"}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
       return;
     }
+    
     if (TRAP_TILES.includes(tile)) {
-      const eff = TRAP_EFFECTS[Math.floor(Math.random() * TRAP_EFFECTS.length)];
-      applyTrap(ps, playerIdx, eff); addLog(`💀 ${p.name}: ${eff}`);
-      setModal({ type:"event", event:{icon:"💀",title:"Trap Sprung!",desc:eff}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      ps[playerIdx].skipTurn = true; 
+      addLog(`💀 ${p.name} trapped! Misses next turn.`);
+      setModal({ 
+        type:"event", 
+        event:{
+          icon:"💀",
+          title:"Trap Sprung!",
+          desc:"You are stuck in a trap! You will skip your next turn. Answer this question to at least earn 1 point!"
+        }, 
+        onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} 
+      });
       return;
     }
+    
+    if (DOUBLE_TILES.includes(tile)) { 
+      setDoubleNext(true); 
+      addLog(`×2 ${p.name} lands on Double!`); 
+      setModal({ type:"event", event:{icon:"✨",title:"Double Points!",desc:`You found a Bonus Question worth 2 points!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      return;
+    }
+    
     if (WILD_TILES.includes(tile)) {
       const eff = WILD_EFFECTS[Math.floor(Math.random() * WILD_EFFECTS.length)];
       applyWild(ps, playerIdx, eff); addLog(`🃏 ${p.name}: ${eff.label}`);
-      setModal({ type:"event", event:{icon:"🃏",title:eff.label,desc:eff.desc}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      setModal({ type:"event", event:{icon:"🃏",title:eff.label,desc:"A wild magic effect occurred!"}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
       return;
     }
-    if (DOUBLE_TILES.includes(tile)) { setDoubleNext(true); addLog(`×2 ${p.name} lands on Double!`); }
     if (STEAL_TILES.includes(tile)) {
       const opp = ps[1-playerIdx];
-      opp.score = Math.max(0, opp.score - 10); p.score += 10;
-      addLog(`💉 ${p.name} steals 10 PTS from ${opp.name}!`); setPlayers([...ps]);
-      setModal({ type:"event", event:{icon:"💉",title:"Drain!",desc:`Stole 10 PTS from ${opp.name}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      opp.score = Math.max(0, opp.score - 1); p.score += 1;
+      addLog(`💉 ${p.name} steals 1 PT from ${opp.name}!`); setPlayers([...ps]);
+      setModal({ type:"event", event:{icon:"💉",title:"Drain!",desc:`Stole 1 PT from ${opp.name}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
       return;
     }
     afterTileEvent(ps, playerIdx);
@@ -337,7 +352,7 @@ export default function WordQuest() {
   const handleAnswer = useCallback((correctOrSignal) => {
     setModal(prev => {
       if (!prev) return null;
-      const { playerIdx, ps, doublePoints } = prev;
+      const { playerIdx, ps, doublePoints, originalId } = prev;
       const updated = ps.map(p => ({ ...p }));
       const p = updated[playerIdx];
 
@@ -350,19 +365,25 @@ export default function WordQuest() {
       }
 
       if (correct) {
-        const pts = doublePoints ? 20 : 10;
+        const pts = doublePoints ? 2 : 1; 
         p.score += pts;
         p.streak = (p.streak || 0) + 1;
-        const bonus = p.streak >= 3 ? 5 : 0;
-        if (bonus) { p.score += bonus; addLog(`🔥 Streak bonus! +${bonus} pts`); }
         if (correctOrSignal !== "__ai_resolve__")
-          addLog(`✅ ${p.name} correct! +${pts} pts${p.streak >= 3 ? ` 🔥×${p.streak}` : ""}`);
+          addLog(`✅ ${p.name} correct! +${pts} pt${pts > 1 ? 's' : ''}${p.streak >= 3 ? ` 🔥×${p.streak}` : ""}`);
       } else {
         p.streak = 0;
-        p.pos = Math.max(1, p.pos - 1); 
         
-        if (correctOrSignal !== "__ai_resolve__")
-          addLog(`❌ ${p.name} wrong! Moved back 1 step.`);
+        // 🟢 ADDED: Subtracts exactly 10 HP when they get it wrong!
+        p.health = Math.max(0, p.health - 10);
+        
+        if (correctOrSignal !== "__ai_resolve__") {
+          addLog(`❌ ${p.name} answered incorrectly! Lost 10 HP.`);
+        }
+
+        const pristineDatabaseQ = allQsRef.current.find(x => x.id === originalId);
+        if (pristineDatabaseQ) {
+            availableQsRef.current.push(JSON.parse(JSON.stringify(pristineDatabaseQ)));
+        }
       }
       setPlayers([...updated]);
       setTimeout(() => endTurn(playerIdx, updated), 200);
@@ -459,10 +480,8 @@ export default function WordQuest() {
     <div style={{ position: 'relative', width: '100%', minHeight: '85vh' }}>
       <Starfield />
       
-      {/* --- HIDDEN MUSIC PLAYER (Notice we added autoPlay and the src!) --- */}
       <audio ref={bgmRef} src={bgmMenu} loop autoPlay />
 
-      {/* 🟢 FIXED: Added onExit navigation to the student-menu */}
       {screen === SCREENS.MENU && <MainMenu onSelectMode={handleSelectMode} onExit={() => navigate('/student-menu')} />}
       {screen === "difficulty" && <ModeSelect onConfirm={handleDifficultySelect} onBack={() => setScreen(SCREENS.MENU)} />}
       {screen === SCREENS.CHAR && <CharacterSelect mode={mode} onConfirm={handleCharConfirm} onBack={() => setScreen(mode === MODES.VS_AI ? "difficulty" : SCREENS.MENU)} />}
@@ -494,20 +513,46 @@ export default function WordQuest() {
         />
       )}
       
-      {screen === SCREENS.WIN && players && (
-        <WinScreen 
-          players={players} 
-          winner={winner}
-          mode={mode} 
-          onRetry={() => { restart(); setScreen(SCREENS.GAME); }} 
-          onMenu={() => { 
-            setScreen(SCREENS.MENU); 
-            setPlayers(null); 
-            setMode(null); 
-            setAiDifficulty(null); 
-            navigate('/student-menu'); 
-          }} 
-        />
+      {screen === SCREENS.WIN && players && winner && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 15, 30, 0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+            <div className="card" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                
+                {mode === MODES.VS_AI && winner.id === 1 ? (
+                    <>
+                        <h1 style={{ color: '#ef4444', fontSize: '3.5rem', textShadow: '2px 2px #000', marginBottom: '10px' }}>DEFEATED!</h1>
+                        <p style={{ color: '#fbbf24', fontSize: '1.5rem', marginBottom: '20px' }}>Computer Reached the Castle!</p>
+                    </>
+                ) : (
+                    <>
+                        <h1 style={{ color: '#4ade80', fontSize: '3.5rem', textShadow: '2px 2px #000', marginBottom: '10px' }}>VICTORY!</h1>
+                        <p style={{ color: '#ffd700', fontSize: '1.5rem', marginBottom: '20px' }}>{winner.name} Reached the Castle!</p>
+                    </>
+                )}
+                
+                <div style={{ fontSize: '2rem', color: '#fff', marginBottom: '30px' }}>
+                    Final Score: <span style={{ fontWeight: 'bold', color: '#ffd700', fontSize: '2.5rem' }}>{winner.score}</span> PTS
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '300px' }}>
+                    <button className="btn" onClick={() => { restart(); setScreen(SCREENS.GAME); }} style={{ background: '#3b82f6', border: '2px solid #fff' }}>
+                        ⚔️ PLAY AGAIN
+                    </button>
+                    <button 
+                        className="btn" 
+                        onClick={handleSaveScore} 
+                        disabled={scoreSaved}
+                        style={{ background: scoreSaved ? '#4b5563' : '#10b981', color: '#fff', border: '2px solid #fff' }}
+                    >
+                        {scoreSaved ? '✅ SCORE SAVED' : '💾 SAVE SCORE'}
+                    </button>
+                    <button className="btn" onClick={() => { 
+                        setScreen(SCREENS.MENU); setPlayers(null); setMode(null); setAiDifficulty(null); navigate('/student-menu'); 
+                    }} style={{ background: '#ef4444', border: '2px solid #fff' }}>
+                        🚪 MAIN MENU
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
     </div>
   );

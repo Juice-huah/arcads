@@ -20,15 +20,19 @@ import AdventureBattle from './games/AdventureBattle.jsx';
 import WordQuest from './games/WordQuest.jsx';
 import EnchantedForest from './games/EnchantedForest.jsx';
 import WhackAMole from './games/WhackAMole.jsx';
+import TowerDefense from './games/TowerDefense.jsx'; 
+
+// 🟢 FIXED: Point to the new hamsterball folder!
+import HamsterBall from './games/HamsterBall.jsx';
 
 // --- GAME CREATION PAGES ---
 import CreateMazeGame from './pages/CreateMazeGame.jsx';
 import CreateAdventure from './pages/CreateAdventure.jsx';
 import CreateWordQuest from './pages/CreateWordQuest.jsx';
 import CreateEnchantedForest from './pages/CreateEnchantedForest.jsx'; 
-
-// 🟢 NEW: Import Create Whack-a-Mole
 import CreateWhackAMole from './pages/CreateWhackAMole.jsx';
+import CreateTowerDefense from './pages/CreateTowerDefense.jsx';
+import CreateHamsterBall from './pages/CreateHamsterBall.jsx';
 
 import './index.css';
 
@@ -122,6 +126,26 @@ const router = createBrowserRouter([
       {
         path: "/student/play-whack-a-mole/:gameId",
         element: <WhackAMole />,
+      },
+
+      // --- TOWER DEFENSE ROUTES ---
+      {
+        path: "/teacher/create-tower-defense",
+        element: <CreateTowerDefense />,
+      },
+      {
+        path: "/student/play-tower-defense/:gameId",
+        element: <TowerDefense />,
+      },
+
+      // 🟢 HAMSTERBALL ROUTES 🟢
+      {
+        path: "/teacher/create-hamsterball",
+        element: <CreateHamsterBall />,
+      },
+      {
+        path: "/student/play-hamsterball/:gameId",
+        element: <HamsterBall />,
       },
     ],
   },

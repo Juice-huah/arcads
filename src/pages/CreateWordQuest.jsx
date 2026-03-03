@@ -95,6 +95,7 @@ const CreateWordQuest = () => {
       <div style={{textAlign:'left', background:'#0c0e17', padding:'20px', borderRadius:'8px', marginBottom:'20px'}}>
         <p style={{color:'#ce93d8', fontSize:'0.8rem'}}>GAMEPLAY:</p>
         <ul style={{fontSize:'0.8rem', color:'#aaa', marginTop:'10px'}}>
+          <li>Create A 40 minimum question 50 max Questions</li>
           <li>Classic Snakes & Ladders mechanics</li>
           <li>Power-ups, Traps, and AI Opponent</li>
           <li>Questions appear after every move</li>

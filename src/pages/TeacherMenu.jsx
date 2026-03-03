@@ -196,6 +196,25 @@ function TeacherMenu() {
                <div className="class-card" style={{border: '2px solid #ce93d8'}}><h3 style={{color: '#ce93d8', fontSize: '1rem'}}>WORD QUEST</h3><p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Snakes & Ladders. Roll dice, answer questions, race to finish!</p><Link to="/teacher/create-word-quest"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ce93d8', color:'#1a0d2e', border: 'none'}}>+ CREATE</button></Link></div>
                <div className="class-card" style={{border: '2px solid #4dff91'}}><h3 style={{color: '#4dff91', fontSize: '1rem'}}>ENCHANTED FOREST</h3><p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Restore lost words. Explore magical woods and defeat guardians!</p><Link to="/teacher/create-enchanted-forest"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#4dff91', color:'#040a06', border: 'none'}}>+ CREATE</button></Link></div>
                <div className="class-card" style={{border: '2px solid #ff4757'}}><h3 style={{color: '#ff4757', fontSize: '1rem'}}>WHACK-A-MOLE</h3><p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Reflex & Recall! Hit moles to score points and answer questions.</p><Link to="/teacher/create-whack-a-mole"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff4757', color:'#fff', border: 'none'}}>+ CREATE</button></Link></div>
+               
+               {/* WORD TOWER DEFENSE */}
+               <div className="class-card" style={{border: '2px solid #ffd700'}}>
+                 <h3 style={{color: '#ffd700', fontSize: '1rem'}}>WORD TOWER DEFENSE</h3>
+                 <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Defend the castle! Match the correct words to fire at approaching enemies.</p>
+                 <Link to="/teacher/create-tower-defense">
+                   <button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ffd700', color: '#000', border: 'none', fontWeight: 'bold'}}>+ CREATE</button>
+                 </Link>
+               </div>
+
+               {/* 🐹 NEW: HAMSTERBALL GAME CARD 🐹 */}
+               <div className="class-card" style={{border: '2px solid #ff007f'}}>
+                 <h3 style={{color: '#ff007f', fontSize: '1rem'}}>HAMSTERBALL</h3>
+                 <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Roll your hamster through a 3D track, jump obstacles, and chain words!</p>
+                 <Link to="/teacher/create-hamsterball">
+                   <button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff007f', color:'#fff', border: 'none', fontWeight: 'bold'}}>+ CREATE</button>
+                 </Link>
+               </div>
+
             </div>
           </>
         )}

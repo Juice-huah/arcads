@@ -199,31 +199,41 @@ app.delete("/api/remove-student", (req, res) => {
   });
 });
 
-// --- DELETE GAME ROUTE ---
 app.delete('/api/delete-game/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     
-    const sqlQuestions = "DELETE FROM game_questions WHERE game_id = ?";
-    db.query(sqlQuestions, [gameId], (err) => {
-        if (err) {
-            console.error("Error deleting game questions:", err);
+    // STEP 1: Delete all scores associated with this game
+    const sqlScores = "DELETE FROM scores WHERE game_id = ?";
+    db.query(sqlScores, [gameId], (err1) => {
+        if (err1) {
+            console.error("Error deleting game scores:", err1);
             return res.status(500).json({ error: "Database error" });
         }
 
-        const sqlInstance = "DELETE FROM game_instances WHERE game_id = ?";
-        db.query(sqlInstance, [gameId], (err2) => {
+        // STEP 2: Delete all questions associated with this game
+        const sqlQuestions = "DELETE FROM game_questions WHERE game_id = ?";
+        db.query(sqlQuestions, [gameId], (err2) => {
             if (err2) {
-                console.error("Error deleting game instance:", err2);
+                console.error("Error deleting game questions:", err2);
                 return res.status(500).json({ error: "Database error" });
             }
-            res.json({ message: "Game deleted successfully" });
+
+            // STEP 3: Finally, delete the game itself
+            const sqlInstance = "DELETE FROM game_instances WHERE game_id = ?";
+            db.query(sqlInstance, [gameId], (err3) => {
+                if (err3) {
+                    console.error("Error deleting game instance:", err3);
+                    return res.status(500).json({ error: "Database error" });
+                }
+                res.json({ message: "Game deleted successfully" });
+            });
         });
     });
 });
 
-// --- EXISTING MAZE GAME CREATION ---
+// --- CREATE GAME ROUTE (Now supports HamsterBall config) ---
 app.post('/api/create-game', (req, res) => {
-    const { teacher_fid, class_id, game_type, questions } = req.body;
+    const { teacher_fid, class_id, game_type, questions, game_data } = req.body;
 
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, ?)";
     
@@ -235,6 +245,33 @@ app.post('/api/create-game', (req, res) => {
 
         const newGameId = result.insertId; 
 
+        // 🟢 NEW: If game_data is provided (like in HamsterBall), save it as a config row!
+        if (game_data) {
+            const sqlConfig = `
+                INSERT INTO game_questions 
+                (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+                VALUES (?, ?, 'config', '', '', '', '', 0)
+            `;
+            db.query(sqlConfig, [newGameId, game_data], (err2, result2) => {
+                if (err2) {
+                    console.error("Error saving game config:", err2);
+                    return res.status(500).json({ error: "Failed to save configuration" });
+                }
+                return res.json({ message: "Game config created successfully!", gameId: newGameId });
+            });
+            return; // Stop execution here so it doesn't run the below code
+        }
+
+        // If no questions array is provided (like in Tower Defense), just return the ID
+        if (!questions || questions.length === 0) {
+            return res.json({ 
+                message: "Game instance created successfully!", 
+                gameId: newGameId, 
+                game_id: newGameId 
+            });
+        }
+
+        // If questions ARE provided (like Maze), insert them all at once
         const sqlQuestion = `
             INSERT INTO game_questions 
             (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) 
@@ -258,6 +295,25 @@ app.post('/api/create-game', (req, res) => {
             }
             res.json({ message: "Game created successfully!", gameId: newGameId });
         });
+    });
+});
+
+// --- ADD INDIVIDUAL QUESTION ROUTE (Used by Tower Defense) ---
+app.post('/api/add-question', (req, res) => {
+    const { game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer } = req.body;
+    
+    const sql = `
+        INSERT INTO game_questions 
+        (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    
+    db.query(sql, [game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer], (err, result) => {
+        if (err) {
+            console.error("Error adding question:", err);
+            return res.status(500).json({ error: "Failed to save question" });
+        }
+        res.json({ message: "Question added successfully!" });
     });
 });
 

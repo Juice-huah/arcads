@@ -3,8 +3,23 @@ import React from "react";
 import { BOARD_SIZE, TILE_SIZE, LADDERS, SNAKES } from "../constants/gameData";
 import { getTileType, tileIcon, tileCenter } from "../utils/helpers";
 
+// 🟢 FIXED: Exactly 40 Question Tiles (4 per row), perfectly jumbled!
+const QUESTION_TILES = new Set([
+  2, 4, 6, 9,
+  11, 15, 17, 20,
+  23, 26, 28, 29,
+  31, 34, 37, 40,
+  42, 45, 48, 49,
+  51, 53, 56, 60,
+  62, 64, 67, 69,
+  71, 75, 78, 80,
+  83, 86, 87, 89,
+  91, 94, 96, 98
+]);
+
+export const isQuestionTile = (t) => QUESTION_TILES.has(t);
+
 export default function Board({ players, highlightTile, movingPlayer }) {
-  // Generate the 10x10 grid (100 to 1)
   const orderedRows = [];
   for (let row = BOARD_SIZE - 1; row >= 0; row--) {
     const rowTiles = [];
@@ -14,12 +29,8 @@ export default function Board({ players, highlightTile, movingPlayer }) {
     orderedRows.push(rowTiles);
   }
 
-  // ==========================================
-  // MAGIC SVG GENERATOR (REAL LADDERS & SNAKES)
-  // ==========================================
   const svgLines = [];
   
-  // 1. Draw Golden/Yellow Ladders
   Object.entries(LADDERS).forEach(([from, to]) => {
     const f = tileCenter(Number(from));
     const t = tileCenter(Number(to));
@@ -28,7 +39,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
     const length = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-    // Generate the rungs mathematically so they fit perfectly no matter the length
     const rungs = [];
     for (let i = 15; i < length - 10; i += 20) {
       rungs.push(<line key={i} x1={i} y1="-10" x2={i} y2="10" stroke="#ffd700" strokeWidth="4" />);
@@ -36,16 +46,13 @@ export default function Board({ players, highlightTile, movingPlayer }) {
 
     svgLines.push(
       <g key={`l${from}`} transform={`translate(${f.x}, ${f.y}) rotate(${angle})`} opacity="0.85">
-        {/* The Side Rails (Dark Gold) */}
         <line x1="0" y1="-12" x2={length} y2="-12" stroke="#b8860b" strokeWidth="5" strokeLinecap="round" />
         <line x1="0" y1="12" x2={length} y2="12" stroke="#b8860b" strokeWidth="5" strokeLinecap="round" />
-        {/* The Steps (Bright Yellow) */}
         {rungs}
       </g>
     );
   });
 
-  // 2. Draw Crimson Red Snakes
   Object.entries(SNAKES).forEach(([from, to]) => {
     const f  = tileCenter(Number(from));
     const t  = tileCenter(Number(to));
@@ -54,7 +61,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
     const length = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-    // Math for a perfect wavy slithering body
     const segments = Math.max(2, Math.floor(length / 30));
     const segLen = length / segments;
     let pathData = `M 0 0`;
@@ -67,31 +73,20 @@ export default function Board({ players, highlightTile, movingPlayer }) {
 
     svgLines.push(
       <g key={`s${from}`} transform={`translate(${f.x}, ${f.y}) rotate(${angle})`} opacity="0.85">
-        {/* Thick Dark Red Base Body */}
         <path d={pathData} stroke="#7a0000" strokeWidth="16" fill="none" strokeLinecap="round" />
-        {/* Bright Red Slithering Pattern */}
         <path d={pathData} stroke="#ff4444" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="10 15" />
-        
-        {/* Snake Tail (Rattle) */}
         <circle cx={length} cy="0" r="6" fill="#ffaa00" />
         <circle cx={length + 6} cy="0" r="4" fill="#ffaa00" />
-
-        {/* Snake Head */}
         <circle cx="0" cy="0" r="14" fill="#7a0000" />
-        {/* White Eyes & Pupils */}
         <circle cx="-4" cy="-6" r="4" fill="#fff" />
         <circle cx="-4" cy="6" r="4" fill="#fff" />
         <circle cx="-5" cy="-6" r="1.5" fill="#000" />
         <circle cx="-5" cy="6" r="1.5" fill="#000" />
-        {/* Forked Tongue */}
         <path d="M -14 0 L -24 -4 M -14 0 L -24 4" stroke="#ff4444" strokeWidth="2" fill="none" />
       </g>
     );
   });
 
-  // ==========================================
-  // TILE STYLES
-  // ==========================================
   const getTileStyle = (tileNum, type, isHighlight) => {
     let baseStyle = {
       border: '1px solid rgba(255, 255, 255, 0.05)',
@@ -103,6 +98,12 @@ export default function Board({ players, highlightTile, movingPlayer }) {
       backgroundColor: tileNum % 2 === 0 ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
       transition: 'all 0.3s ease'
     };
+
+    // Highlight the 40 Question Tiles
+    if (isQuestionTile(tileNum)) {
+        baseStyle.backgroundColor = 'rgba(59, 130, 246, 0.15)'; 
+        baseStyle.border = '1px solid rgba(59, 130, 246, 0.4)';
+    }
 
     switch (type) {
         case 'power-up': baseStyle.backgroundColor = 'rgba(74, 20, 140, 0.5)'; break; 
@@ -135,7 +136,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
 
   return (
     <div className="board-wrap" style={{ position: 'relative' }}>
-      
       <style>{`
         @keyframes floatToken {
           0%, 100% { transform: translateY(0px); }
@@ -149,6 +149,11 @@ export default function Board({ players, highlightTile, movingPlayer }) {
             const type = getTileType(tileNum);
             let { icon, label } = tileIcon(tileNum);
 
+            // Render the ❓ icon perfectly on the 40 tiles
+            if (isQuestionTile(tileNum) && !icon) {
+                icon = "❓";
+            }
+
             if (tileNum === 1) { icon = "🏠"; label = "START"; }
             if (tileNum === 100) { icon = "🏆"; label = "FINISH"; }
 
@@ -158,19 +163,16 @@ export default function Board({ players, highlightTile, movingPlayer }) {
 
             return (
               <div key={tileNum} style={style}>
-                {/* Tile Number */}
                 <span style={{ position: 'absolute', top: 4, left: 6, fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>
                   {tileNum}
                 </span>
                 
-                {/* Icon */}
                 {icon && (
-                  <span style={{ fontSize: tileNum === 1 || tileNum === 100 ? '1.8rem' : '1.5rem', zIndex: 2, dropShadow: '2px 2px 2px rgba(0,0,0,0.8)' }}>
+                  <span style={{ fontSize: tileNum === 1 || tileNum === 100 ? '1.8rem' : '1.5rem', zIndex: 2, dropShadow: '2px 2px 2px rgba(0,0,0,0.8)', opacity: icon === "❓" ? 0.6 : 1 }}>
                     {icon}
                   </span>
                 )}
                 
-                {/* Label */}
                 {label && (
                   <span style={{ 
                     fontSize: '0.5rem', 
@@ -185,7 +187,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
                   </span>
                 )}
 
-                {/* Player Tokens */}
                 {playersHere.length > 0 && (
                   <div className="tile-tokens" style={{ position: 'absolute', display: 'flex', gap: '5px', zIndex: 20, bottom: '5px' }}>
                     {playersHere.map(p => {
@@ -217,7 +218,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
         )}
       </div>
 
-      {/* SVG Container strictly forced over the grid */}
       <svg 
         className="board-svg" 
         viewBox={`0 0 ${BOARD_SIZE * TILE_SIZE} ${BOARD_SIZE * TILE_SIZE}`}

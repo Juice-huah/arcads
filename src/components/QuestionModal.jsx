@@ -1,7 +1,7 @@
 // src/components/QuestionModal.jsx
 import React, { useState, useEffect, useRef } from "react";
 
-// Helper function to color-code difficulty if you don't have it in helpers yet
+// Helper function to color-code difficulty
 const diffColor = (diff) => {
   if (diff === 'easy') return { bg: '#14a01422', color: '#44ff88' };
   if (diff === 'hard') return { bg: '#ff444422', color: '#ff4444' };
@@ -38,7 +38,6 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
     const t = setTimeout(() => {
       if (!answered) {
         clearInterval(timerRef.current);
-        // AI answer is resolved by parent via onAnswer(correct) — we just show the AI is done
         setSelected("__ai__");
         setAnswered(true);
         setTimeout(() => onAnswer("__ai_resolve__"), 1000);
@@ -68,7 +67,8 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
           <span style={{ background: dc.bg, color: dc.color, marginLeft: 8, padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>
               {(question.difficulty || 'medium').toUpperCase()}
           </span>
-          {doublePoints && <span style={{ marginLeft: "auto", color: "#ffd700", fontSize: '0.8rem', fontFamily: "'Press Start 2P', cursive" }}>⚡ DOUBLE!</span>}
+          
+          {doublePoints && <span style={{ marginLeft: "auto", color: "#ffd700", fontSize: '0.8rem', fontFamily: "'Press Start 2P', cursive", textShadow: "0 0 5px #ffd700" }}>✨ BONUS!</span>}
           {!isAI && <span style={{ marginLeft: doublePoints ? 8 : "auto", color: timerColor, fontFamily: "'Press Start 2P', cursive", fontSize: '0.9rem' }}>⏱ {timeLeft}s</span>}
           {isAI && <span style={{ marginLeft: "auto", color: "#ce93d8", fontFamily: "'Press Start 2P', cursive", fontSize: '0.7rem' }}>🤖 AI answering…</span>}
         </div>
@@ -94,7 +94,7 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
 
         {/* The Options */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          {question.options.map(opt => {
+          {question.options.map((opt, i) => {
             let bgColor = "#0d2c54";
             let borderColor = "#555";
             
@@ -110,7 +110,7 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
 
             return (
               <button 
-                key={opt} 
+                key={`${opt}-${i}`} 
                 onClick={() => handleAnswer(opt)} 
                 disabled={answered || isAI}
                 style={{
@@ -122,7 +122,8 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
                     cursor: (answered || isAI) ? 'default' : 'pointer',
                     transition: '0.2s',
                     fontSize: '1rem',
-                    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+                    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                    fontWeight: "bold"
                 }}
               >
                 {opt}
@@ -144,9 +145,10 @@ export default function QuestionModal({ question, onAnswer, doublePoints, isAI }
               fontSize: '0.8rem',
               lineHeight: '1.5'
           }}>
+            {/* 🟢 FIXED: Proudly displays the -10 HP penalty when wrong! */}
             {selected === question.correct
-              ? `✨ CORRECT! +${doublePoints ? 20 : 10} PTS${doublePoints ? " (DOUBLE!)" : ""}!`
-              : `💔 WRONG! ANSWER: "${question.correct}"\n${timeLeft === 0 ? "⏱ TIME'S UP!" : "-10 HP"}`}
+              ? `✨ CORRECT! +${doublePoints ? 2 : 1} PT${doublePoints ? "S" : ""}!`
+              : `💔 WRONG! -10 HP \nThe correct answer was: "${question.correct}"${timeLeft === 0 ? "\n(⏱ TIME'S UP!)" : ""}`}
           </div>
         )}
       </div>
