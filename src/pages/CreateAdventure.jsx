@@ -117,15 +117,8 @@ function CreateAdventure() {
       <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom:'30px'}}>
         <p style={{color: '#ff9900', fontFamily: '"Press Start 2P"', fontSize: '0.8rem'}}>REQUIREMENTS:</p>
         <ul style={{marginTop: '10px', paddingLeft: '20px', color:'white', lineHeight:'1.6'}}>
-          <li>Minimum 10-20 Question</li>
-          <li>Maximum of 30-50 Question</li>
           <li>Supports Multiple Choice, TRUE OR FALSE, IDENTIFICATION</li>
-          <li>1000= 10 questions
-            2000= 20 questions
-            3000=30 questions
-            4000= 40 questions
-            5000= 50 questions</li>
-          <li>100 = 1 Correct Answer per Question</li>
+          <li>1 = 1 Correct Answer per Question</li>
         </ul>
       </div>
 
