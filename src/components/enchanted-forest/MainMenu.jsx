@@ -1,3 +1,4 @@
+// src/components/enchanted-forest/MainMenu.jsx
 import { useState, useEffect, useRef } from 'react'
 
 // ─── Animated rune background ─────────────────────────────────────────────────
@@ -111,7 +112,7 @@ function ModalOverlay({ title, children, onClose, accent = '#4dff91' }) {
 }
 
 // ─── Main Menu ────────────────────────────────────────────────────────────────
-export default function MainMenu({ hasCheckpoint, onContinue, onNewGame, onQuit }) {
+export default function MainMenu({ onNewGame, onQuit }) {
   const [confirmQuit, setConfirmQuit] = useState(false)
   const [showHowTo, setShowHowTo] = useState(false)
   const [titleVisible, setTitleVisible] = useState(false)
@@ -182,24 +183,14 @@ export default function MainMenu({ hasCheckpoint, onContinue, onNewGame, onQuit 
             </div>
 
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {/* 🟢 Continue Journey */}
-              <MenuBtn 
-                onClick={onContinue} 
-                disabled={!hasCheckpoint} 
-                accent="#ffd700" 
-                icon="📖" 
-                delay={0.05}
-              >
-                {hasCheckpoint ? 'Continue Journey' : 'No Save Found'}
-              </MenuBtn>
-
-              <MenuBtn onClick={onNewGame} accent="#4dff91" icon="⚔️" delay={0.1}>Start Game</MenuBtn>
               
-              {/* 🟢 How to Play Button */}
-              <MenuBtn onClick={() => setShowHowTo(true)} accent="#7ad4ff" icon="📖" delay={0.15}>How to Play</MenuBtn>
+              <MenuBtn onClick={onNewGame} accent="#4dff91" icon="⚔️" delay={0.05}>Start Game</MenuBtn>
+              
+              <MenuBtn onClick={() => setShowHowTo(true)} accent="#7ad4ff" icon="📖" delay={0.1}>How to Play</MenuBtn>
               
               <div style={{ width: '100%', height: 1, margin: '0.3rem 0', background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)' }} />
-              <MenuBtn onClick={() => setConfirmQuit(true)} accent="#ff8060" icon="🚪" danger delay={0.2}>Quit Game</MenuBtn>
+              
+              <MenuBtn onClick={() => setConfirmQuit(true)} accent="#ff8060" icon="🚪" danger delay={0.15}>Quit Game</MenuBtn>
             </div>
           </div>
         </div>
@@ -223,8 +214,8 @@ export default function MainMenu({ hasCheckpoint, onContinue, onNewGame, onQuit 
               <p style={{ margin: '4px 0' }}>Some areas are guarded by powerful spirits. Solve words quickly to strike them down before they strike you!</p>
             </div>
             <div style={{ borderLeft: '2px solid #7ad4ff', paddingLeft: '1rem' }}>
-              <strong style={{ color: '#7ad4ff', fontFamily: "'Cinzel', serif", fontSize: '0.8rem' }}>4. SAVING YOUR PROGRESS</strong>
-              <p style={{ margin: '4px 0' }}>Click the 💾 <strong>Save Progress</strong> button in the bottom-left corner at any time to save your journey.</p>
+              <strong style={{ color: '#7ad4ff', fontFamily: "'Cinzel', serif", fontSize: '0.8rem' }}>4. AUTO-SAVE</strong>
+              <p style={{ margin: '4px 0' }}>Play carefully! Your score will be automatically saved and submitted once the game is finished or your health runs out.</p>
             </div>
             <p style={{ fontStyle: 'italic', textAlign: 'center', marginTop: '0.5rem', color: '#4dff91' }}>"Let your mind be as keen as a blade."</p>
           </div>
@@ -234,7 +225,7 @@ export default function MainMenu({ hasCheckpoint, onContinue, onNewGame, onQuit 
       {/* Confirm Quit Modal */}
       {confirmQuit && (
         <ModalOverlay title="⚠️ Confirm Quit" onClose={() => setConfirmQuit(false)} accent="#ff6060">
-          <p style={{ textAlign: 'center', fontSize: '1.1rem' }}>Are you sure you want to leave the forest? Make sure you have clicked the <b>Save Progress</b> button before leaving!</p>
+          <p style={{ textAlign: 'center', fontSize: '1.1rem' }}>Are you sure you want to leave the forest? Any unfinished progress will be lost!</p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
             <button onClick={() => { setConfirmQuit(false); if (onQuit) onQuit(); else window.history.back(); }} style={{ padding: '0.6rem 1.5rem', background: '#ff6060', border: 'none', borderRadius: 6, color: '#000', fontWeight: 'bold', cursor: 'pointer' }}>Yes, Quit</button>
             <button onClick={() => setConfirmQuit(false)} style={{ padding: '0.6rem 1.5rem', background: 'rgba(255,255,255,0.1)', border: '1px solid #555', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>Stay</button>

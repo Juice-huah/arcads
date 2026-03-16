@@ -1,31 +1,35 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  GameScreen.jsx  –  Strict 1-Point Scoring, StrictMode Fix for Abilities!
-// ─────────────────────────────────────────────────────────────────────────────
+// src/defensetower/GameScreen.jsx
 import { useState, useEffect, useRef, useCallback } from "react";
-import HUD              from "../defensetower/HUD";
-import EnemyLane        from "../defensetower/EnemyLane";
-import Castle           from "../defensetower/Castle";
-import BattlefieldBackground from "../defensetower/BattlefieldBackground";
-import { AnswerTower, GameProjectile } from "../defensetower/Tower";
-import WaveAnnouncer    from "../defensetower/WaveAnnouncer";
-import { useHitEffects } from "../defensetower/HitEffect";
-import soundManager     from "../defensetower/SoundManager";
-import { GAME_CONSTANTS, getTowerLevel, ABILITIES } from "../defensetower/gameData";
+import HUD              from "./HUD";
+import EnemyLane        from "./EnemyLane";
+import Castle           from "./Castle";
+import BattlefieldBackground from "./BattlefieldBackground";
+import { AnswerTower, GameProjectile } from "./Tower";
+import WaveAnnouncer    from "./WaveAnnouncer";
+import { useHitEffects } from "./HitEffect";
+import soundManager     from "./SoundManager";
+import { GAME_CONSTANTS, getTowerLevel, ABILITIES } from "./gameData";
 
 const FONT = "'Cinzel', 'Palatino Linotype', serif";
 const FONT_B = "'Crimson Text', 'Georgia', serif";
 const BASE_SPEED = 0.16;
 let enemyIdCounter = 0;
 
-/* ─── Custom Wave Config (Exactly 30 Enemies Total) ── */
-function getCustomWaveConfig(waveNum) {
-  if (waveNum === 1) return { label: "Easy",   speedMult: 0.8, count: 6,  boxCount: 6,  isBossWave: false, spawnMs: 4000 }; 
-  if (waveNum === 2) return { label: "Medium", speedMult: 1.0, count: 6,  boxCount: 6,  isBossWave: false, spawnMs: 3500 };
-  if (waveNum === 3) return { label: "Hard",   speedMult: 1.4, count: 8,  boxCount: 8,  isBossWave: false, spawnMs: 2500 };
-  return { label: "Boss", speedMult: 1.2, count: 10, boxCount: 10, isBossWave: true, spawnMs: 2500 };
+function getDynamicWaveConfig(waveNum, waveSequence, allQuestions) {
+  const targetDiff = waveSequence[waveNum - 1] || "Easy";
+  const waveQs = allQuestions.filter(q => q.difficulty === targetDiff);
+  const count = waveQs.length > 0 ? waveQs.length : 5; 
+  const isBoss = targetDiff.toLowerCase() === "boss";
+  
+  let speedMult = 1.0;
+  if (targetDiff === "Easy") speedMult = 0.8;
+  if (targetDiff === "Medium") speedMult = 1.0;
+  if (targetDiff === "Hard") speedMult = 1.4;
+  if (targetDiff === "Boss") speedMult = 1.2;
+
+  return { label: targetDiff, speedMult, count, boxCount: count, isBossWave: isBoss, spawnMs: isBoss ? 2500 : 3500 };
 }
 
-/* ─── Enemy type pool ──────────────────────────────────────────────────── */
 const ENEMY_POOL = [
   { id:"goblin",   emoji:"👺", label:"Goblin",      speed:1.0, color:"#4ade80", size:1.0,  deathStyle:"burst",   walkStyle:"hop"    },
   { id:"skeleton", emoji:"💀", label:"Skeleton",    speed:1.3, color:"#e2e8f0", size:1.0,  deathStyle:"collapse",walkStyle:"shuffle" },
@@ -53,19 +57,20 @@ function pickEnemyType(waveNum, isBoss) {
 function makeEnemy(waveNum, isBoss, question) {
   const type = pickEnemyType(waveNum, isBoss);
   return {
-    id       : ++enemyIdCounter,
+    id         : ++enemyIdCounter,
+    questionId : question?.id || question?.question_id, 
+    hasLogged  : false,        
     type,
-    hp       : 1, 
-    maxHp    : 1,
-    position : 100,
-    frozen   : false,
-    prompt   : question?.prompt   ?? "???",
-    answer   : question?.answer   ?? "",
-    category : question?.category ?? "definition",
+    hp         : 1, 
+    maxHp      : 1,
+    position   : 100,
+    frozen     : false,
+    prompt     : question?.prompt   ?? "???",
+    answer     : question?.answer   ?? "",
+    category   : question?.category ?? "definition",
   };
 }
 
-/* ─── Floating damage number ───────────────────────────────────────────── */
 let dmgIdCounter = 0;
 function DamageNumber({ x, y, value, correct, onDone }) {
   useEffect(() => { const t = setTimeout(onDone, 1000); return () => clearTimeout(t); }, [onDone]);
@@ -83,8 +88,8 @@ function DamageNumber({ x, y, value, correct, onDone }) {
   );
 }
 
-/* ─── Main Game Screen ──────────────────────────────────────────────────── */
-export default function GameScreen({ questions = [], onGameOver, onExit, mapId = "grasslands" }) {
+// 🟢 THE FIX: Added onBossWave to the component props
+export default function GameScreen({ questions = [], waveSequence = ["Easy"], onGameOver, onExit, mapId = "grasslands", onLogAnswer, onBossWave }) {
   const [wave,         setWave]        = useState(1);
   const [phase,        setPhase]       = useState("announce");
   const [lives,        setLives]       = useState(GAME_CONSTANTS.LIVES_START);
@@ -104,13 +109,16 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
   const [dmgNums,      setDmgNums]     = useState([]);
   const [feedback,     setFeedback]    = useState(null);
 
-  const waveRef    = useRef(1);
-  const livesRef   = useRef(GAME_CONSTANTS.LIVES_START);
-  const phaseRef   = useRef("announce");
-  const shieldRef  = useRef(false);
-  const scoreRef   = useRef(0);
-  const streakRef  = useRef(0);
-  const spawnCount = useRef(0);
+  const waveRef      = useRef(1);
+  const livesRef     = useRef(GAME_CONSTANTS.LIVES_START);
+  const phaseRef     = useRef("announce");
+  const shieldRef    = useRef(false);
+  const scoreRef     = useRef(0);
+  const streakRef    = useRef(0);
+  const spawnCount   = useRef(0);
+  
+  const resolvedCount= useRef(0); 
+
   const spawnTimer = useRef(null);
   const moveTimer  = useRef(null);
 
@@ -144,14 +152,14 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
     return () => clearInterval(t);
   }, []);
 
-  const checkWaveDone = useCallback((liveEnemies) => {
-    const cfg = getCustomWaveConfig(waveRef.current);
-    if (spawnCount.current >= cfg.count && liveEnemies.length === 0 && phaseRef.current === "spawning") {
+  const checkWaveDone = useCallback(() => {
+    const cfg = getDynamicWaveConfig(waveRef.current, waveSequence, questions);
+    if (resolvedCount.current >= cfg.count && phaseRef.current === "spawning") {
       clearInterval(spawnTimer.current);
       clearInterval(moveTimer.current);
       soundManager.playWaveComplete();
       
-      if (waveRef.current >= 4) {
+      if (waveRef.current >= waveSequence.length) {
         phaseRef.current = "victory";
         setPhase("victory");
       } else {
@@ -159,22 +167,29 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
         setPhase("waveEnd");
       }
     }
-  }, []);
+  }, [waveSequence, questions]);
 
   const startMoveTicker = useCallback(() => {
     clearInterval(moveTimer.current);
     moveTimer.current = setInterval(() => {
       if (["announce","waveEnd","victory","paused"].includes(phaseRef.current)) return;
       
+      let enemiesResolvedThisTick = 0;
+
       setEnemies(prev => {
         const next = [];
         for (const e of prev) {
           if (e.frozen) { next.push(e); continue; }
-          const cfg = getCustomWaveConfig(waveRef.current);
+          const cfg = getDynamicWaveConfig(waveRef.current, waveSequence, questions);
           const spd = BASE_SPEED * cfg.speedMult * e.type.speed;
           const np  = e.position - spd;
           
           if (np <= 8) {
+            if (!e.hasLogged && e.questionId) {
+                onLogAnswer?.(e.questionId, false);
+                e.hasLogged = true;
+            }
+
             if (shieldRef.current) {
               shieldRef.current = false;
               setShieldActive(false);
@@ -186,13 +201,15 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
               triggerShake(true);
               soundManager.playCastleHit();
               showFeedback(`💔 Enemy reached the castle! (${livesRef.current} lives left)`, "damage");
+              
               if (livesRef.current <= 0) {
                 clearInterval(spawnTimer.current);
                 clearInterval(moveTimer.current);
-                setTimeout(() => onGameOver(scoreRef.current, waveRef.current, streakRef.current, 0), 400);
+                setTimeout(() => onGameOver(scoreRef.current, waveRef.current, streakRef.current), 400);
               }
             }
             setDyingEnemies(d => [...d, { ...e, position: 8 }]);
+            enemiesResolvedThisTick++; 
           } else {
             next.push({ ...e, position: np });
           }
@@ -200,25 +217,27 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
         if (next.length > 0) setTargetIdx(ti => Math.min(ti, next.length - 1));
         return next;
       });
+
+      if (enemiesResolvedThisTick > 0) {
+         resolvedCount.current += enemiesResolvedThisTick;
+         checkWaveDone();
+      }
+
     }, GAME_CONSTANTS.TICK_MS);
-  }, [showFeedback, triggerShake, onGameOver]);
+  }, [showFeedback, triggerShake, onGameOver, waveSequence, questions, onLogAnswer, checkWaveDone]);
 
   const startSpawning = useCallback((wn) => {
-    const cfg = getCustomWaveConfig(wn);
+    const cfg = getDynamicWaveConfig(wn, waveSequence, questions);
     spawnCount.current = 0;
+    resolvedCount.current = 0; 
     clearInterval(spawnTimer.current);
     
-    const safeQs = Array.isArray(questions) ? questions : [];
-    let targetDiff = wn >= 4 ? "Boss" : wn === 3 ? "Hard" : wn === 2 ? "Medium" : "Easy";
-    let availableQs = safeQs.filter(q => q.difficulty === targetDiff);
-    
-    if (availableQs.length < cfg.count) { availableQs = [...safeQs]; }
-    if (availableQs.length === 0) { availableQs = [{ prompt: "Missing Data", answer: "Missing Data" }]; }
+    const targetDiff = waveSequence[wn - 1] || "Easy";
+    const waveQs = questions.filter(q => q.difficulty === targetDiff);
 
-    const lockedQuestions = [...availableQs].sort(() => Math.random() - 0.5).slice(0, cfg.count);
+    const lockedQuestions = [...waveQs].sort(() => Math.random() - 0.5);
     const waveAnswers = lockedQuestions.map(q => q.answer).sort(() => Math.random() - 0.5);
     
-    while(waveAnswers.length < cfg.boxCount) { waveAnswers.push("---"); }
     setSlotWords(waveAnswers);
 
     let questionQueue = [...lockedQuestions].sort(() => Math.random() - 0.5);
@@ -240,14 +259,21 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
         return updated;
       });
     }, cfg.spawnMs); 
-  }, [questions]);
+  }, [questions, waveSequence]);
 
   const handleAnnounceDone = useCallback(() => {
+    const cfg = getDynamicWaveConfig(waveRef.current, waveSequence, questions);
+    
+    // 🟢 THE FIX: Ask the main component to switch the music to Boss BGM!
+    if (cfg.isBossWave && onBossWave) {
+        onBossWave();
+    }
+
     phaseRef.current = "spawning";
     setPhase("spawning");
     startMoveTicker();
     startSpawning(waveRef.current);
-  }, [startMoveTicker, startSpawning]);
+  }, [startMoveTicker, startSpawning, waveSequence, questions, onBossWave]);
 
   const tgtEnemy = enemies.length > 0 ? enemies[Math.min(targetIdx, enemies.length - 1)] : null;
 
@@ -256,6 +282,11 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
 
     const isCorrect = word === tgtEnemy.answer;
     
+    if (!tgtEnemy.hasLogged && tgtEnemy.questionId) {
+        onLogAnswer?.(tgtEnemy.questionId, isCorrect);
+        tgtEnemy.hasLogged = true; 
+    }
+
     setLastClicked(idx);
     setClickResult(isCorrect ? "correct" : "wrong");
 
@@ -290,7 +321,9 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
         setLastClicked(null);
         setClickResult(null);
         setTargetIdx(prevIdx => Math.min(prevIdx, remainingEnemies.length > 0 ? remainingEnemies.length - 1 : 0));
-        checkWaveDone(remainingEnemies);
+        
+        resolvedCount.current += 1;
+        checkWaveDone();
       }, 700);
 
     } else {
@@ -301,9 +334,8 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
       showFeedback("❌ Wrong answer! Streak reset.", "wrong", 800);
       setTimeout(() => { setLastClicked(null); setClickResult(null); }, 820);
     }
-  }, [clickResult, tgtEnemy, enemies, towerLevel, spawnDmg, spawnEffect, triggerShake, showFeedback, checkWaveDone]);
+  }, [clickResult, tgtEnemy, enemies, towerLevel, spawnDmg, spawnEffect, triggerShake, showFeedback, checkWaveDone, onLogAnswer]);
 
-  /* ── special abilities ───────────────────────────────────────────────── */
   const handleAbility = useCallback((ability) => {
     setAbilityCds(p => ({ ...p, [ability.id]: ability.cooldownMs }));
     soundManager.playAbility(ability.id);
@@ -315,16 +347,25 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
     }
     
     if (ability.id === "storm") {
-      // 🟢 STRICT SCORE FIX: Points are calculated ONCE outside of setEnemies
-      const pointsEarned = enemies.length; // 1 point per enemy currently on screen
+      const pointsEarned = enemies.length; 
       if (pointsEarned > 0) {
         scoreRef.current += pointsEarned; 
         setScore(s => s + pointsEarned);
         
+        enemies.forEach(e => {
+            if (!e.hasLogged && e.questionId) {
+                onLogAnswer?.(e.questionId, true);
+                e.hasLogged = true;
+            }
+        });
+
         setDyingEnemies(d => [...d, ...enemies]);
-        setEnemies([]); // Clear field
+        setEnemies([]); 
         
-        setTimeout(() => checkWaveDone([]), 800); 
+        setTimeout(() => {
+            resolvedCount.current += pointsEarned;
+            checkWaveDone();
+        }, 800); 
       }
       showFeedback("🏹 Arrow Storm — Field Cleared!", "ability");
     }
@@ -335,9 +376,8 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
       setTimeout(() => { shieldRef.current = false; setShieldActive(false); }, 10000);
       showFeedback("🛡️ Shield Wall active for 10s!", "ability");
     }
-  }, [showFeedback, checkWaveDone, enemies]);
+  }, [showFeedback, checkWaveDone, enemies, onLogAnswer]);
 
-  /* ── next wave ────────────────────────────────────────────────────────── */
   const handleNextWave = useCallback(() => {
     const nw = waveRef.current + 1;
     waveRef.current = nw;
@@ -346,19 +386,19 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
     setDyingEnemies([]);
     setTargetIdx(0);
     spawnCount.current = 0;
+    resolvedCount.current = 0; 
     phaseRef.current = "announce";
     setPhase("announce");
   }, []);
 
-  /* ── cleanup ─────────────────────────────────────────────────────────── */
   useEffect(() => () => {
     clearInterval(spawnTimer.current);
     clearInterval(moveTimer.current);
   }, []);
 
-  const cfg        = getCustomWaveConfig(wave);
+  const cfg        = getDynamicWaveConfig(wave, waveSequence, questions);
   const isBossWave = cfg.isBossWave ?? false;
-  const category   = cfg.category ?? "definition";
+  const category   = "definition";
 
   return (
     <div style={{
@@ -549,7 +589,7 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
               background: "linear-gradient(135deg,#ffd700,#ff8c00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
             }}>Wave {wave} Cleared!</h2>
             <p style={{ color: "#9ca3af", fontFamily: FONT, fontSize: "0.88rem", margin: 0 }}>
-              Score: <strong style={{ color: "#ffd700" }}>{score} / 30</strong> &nbsp;·&nbsp;Streak: <strong style={{ color: "#fbbf24" }}>{streak}×</strong>
+              Score: <strong style={{ color: "#ffd700" }}>{score} / {questions.length}</strong> &nbsp;·&nbsp;Streak: <strong style={{ color: "#fbbf24" }}>{streak}×</strong>
             </p>
             <button onClick={handleNextWave} style={{
               background: "linear-gradient(135deg,#b45309,#92400e)", border: "none", borderRadius: 8, color: "#fef3c7", fontFamily: FONT,
@@ -577,10 +617,10 @@ export default function GameScreen({ questions = [], onGameOver, onExit, mapId =
             }}>VICTORY!</h2>
             <p style={{ color: "#e2e8f0", fontFamily: FONT_B, fontSize: "1.2rem", fontStyle: "italic", margin: 0 }}>The Castle is safe. All waves cleared!</p>
             <p style={{ color: "#9ca3af", fontFamily: FONT, fontSize: "1rem", margin: "10px 0 20px 0" }}>
-              Final Score: <strong style={{ color: "#ffd700", fontSize: "1.4rem" }}>{score} / 30</strong>
+              Final Score: <strong style={{ color: "#ffd700", fontSize: "1.4rem" }}>{score} / {questions.length}</strong>
             </p>
             <button 
-              onClick={() => onGameOver(score, wave, streak, 100)} 
+              onClick={() => onGameOver(score, wave, streak)} 
               style={{
               background: "linear-gradient(135deg, #10b981, #059669)", border: "none", borderRadius: "10px", color: "#fff", fontFamily: FONT,
               fontSize: "1.1rem", fontWeight: "bold", padding: "15px 40px", cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase", boxShadow: "0 4px 20px rgba(16,185,129,0.5)",

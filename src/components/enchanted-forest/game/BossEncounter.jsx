@@ -1,8 +1,8 @@
+// src/components/enchanted-forest/game/BossEncounter.jsx
 import { useState, useEffect, useRef } from 'react'
 import BossSprite from '../boss/BossSprite.jsx'
 import { checkWord, partialReveal } from '../data/locations_enhanced.js'
 
-// ─── HP Orbs ─────────────────────────────────────────────────────────────────
 function HpOrbs({ total, remaining, clr }) {
   return (
     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -24,7 +24,6 @@ function HpOrbs({ total, remaining, clr }) {
   )
 }
 
-// ─── Lightning BG effect ─────────────────────────────────────────────────────
 function LightningBG({ clr }) {
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
@@ -45,7 +44,6 @@ function LightningBG({ clr }) {
   )
 }
 
-// ─── Scramble Tiles ───────────────────────────────────────────────────────────
 function ScrambleTiles({ word, accent }) {
   const letters = word.scrambled.split('')
   const maxTileW = 46 
@@ -69,11 +67,19 @@ function ScrambleTiles({ word, accent }) {
   )
 }
 
-export default function BossEncounter({ loc, boss, onDefeat }) {
+// 🟢 Accepts the onLogAnswer prop
+export default function BossEncounter({ loc, boss, onDefeat, onLogAnswer }) {
   const [phase, setPhase] = useState('entrance')
   const [introLine, setIntroLine] = useState(0)
   const [wordIdx, setWordIdx] = useState(0)
-  const [hpLeft, setHpLeft] = useState(boss.hp)
+  
+  const safeWords = (boss.words && boss.words.length > 0) 
+      ? boss.words 
+      : [{ answer: 'WIN', scrambled: 'INW', hint: 'Type WIN to proceed!' }]; 
+  const totalHp = safeWords.length;
+
+  const [hpLeft, setHpLeft] = useState(totalHp)
+  const [pointsEarned, setPointsEarned] = useState(0) 
   const [attempts, setAttempts] = useState(0)
   const [showHint, setShowHint] = useState(false)
   const [inputVal, setInputVal] = useState('')
@@ -87,7 +93,11 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
 
   const inputRef = useRef(null)
   const shakeRef = useRef(null)
-  const word = boss.words[wordIdx]
+  
+  // 🟢 Boss First-Attempt Tracker
+  const hasLoggedRef = useRef(false);
+
+  const word = safeWords[wordIdx] || safeWords[safeWords.length - 1];
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -98,6 +108,7 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
   }, [])
 
   useEffect(() => {
+    hasLoggedRef.current = false; // Reset log lock when word changes
     if (phase === 'fight') {
       setInputVal('')
       setTimeout(() => inputRef.current?.focus(), 100)
@@ -121,15 +132,27 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
     setInputVal('')
 
     if (checkWord(val, word.answer)) {
+      
+      // 🟢 LOG CORRECT ANSWER
+      if (!hasLoggedRef.current && word?.id) {
+          onLogAnswer?.(word.id, true);
+          hasLoggedRef.current = true;
+      }
+
       setIsHit(true)
       setFbMsg(`✦ "${word.answer}" — Correct!`)
       setFbType('ok')
       setTimeout(() => setIsHit(false), 700)
+      
       const newHp = hpLeft - 1
       setHpLeft(newHp)
+      
+      const newScore = pointsEarned + 1;
+      setPointsEarned(newScore);
+
       setTimeout(() => setFbMsg(''), 2000)
 
-      if (newHp <= 0) {
+      if (newHp <= 0 || wordIdx >= safeWords.length - 1) {
         setTimeout(() => {
           setPhase('defeated')
           setIsDefeated(true)
@@ -141,6 +164,13 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
         setShowHint(false)
       }
     } else {
+      
+      // 🟢 LOG WRONG ANSWER
+      if (!hasLoggedRef.current && word?.id) {
+          onLogAnswer?.(word.id, false);
+          hasLoggedRef.current = true;
+      }
+
       const na = attempts + 1
       setAttempts(na)
       if (na >= 3) setShowHint(true)
@@ -157,7 +187,7 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
 
   const advanceDefeat = () => {
     if (defeatLine < boss.defeatLines.length - 1) setDefeatLine(l => l + 1)
-    else onDefeat()
+    else onDefeat(pointsEarned) 
   }
 
   return (
@@ -170,8 +200,7 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
 
       <div style={{ position: 'absolute', inset: 0, animation: shaking ? 'screenShake 0.5s ease' : 'none' }}>
         
-        {/* ── BOSS HUD (CLEAN & AT THE BOTTOM) ── */}
-        {/* 🟢 FIXED: Moved from Top to Bottom-Right to keep the top clean */}
+        {/* ── BOSS HUD ── */}
         <div style={{
           position: 'absolute', bottom: '30px', right: '35px',
           display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
@@ -188,7 +217,7 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
             <div style={{ fontFamily: "'Cinzel', serif", fontSize: '0.7rem', color: boss.clr, opacity: 0.8 }}>HP</div>
-            <HpOrbs total={boss.hp} remaining={hpLeft} clr={boss.clr} />
+            <HpOrbs total={totalHp} remaining={hpLeft} clr={boss.clr} />
           </div>
         </div>
 
@@ -202,7 +231,7 @@ export default function BossEncounter({ loc, boss, onDefeat }) {
           </div>
         </div>
 
-        {/* ── PUZZLE / DIALOGUE BOX (Stays at the Top) ── */}
+        {/* ── PUZZLE / DIALOGUE BOX ── */}
         {(phase === 'fight' || phase === 'intro' || phase === 'defeated') && (
           <div style={{
             position: 'absolute', top: '16%', left: '50%', transform: 'translateX(-50%)',

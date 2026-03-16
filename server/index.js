@@ -9,7 +9,7 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "Kwekkwek100%", 
+  password: "Passw0rd04", 
   database: "arcads_dbs"
 });
 
@@ -319,6 +319,28 @@ app.post('/api/create-whack-a-mole', (req, res) => {
         db.query(sqlQuestions, [questionValues], (err) => {
             if (err) return res.status(500).json({ error: "Failed" });
             res.json({ message: "Whack-a-Mole created!", gameId: newGameId });
+        });
+    });
+});
+
+
+app.post('/api/create-startype', (req, res) => {
+    const { teacher_fid, class_id, words } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'startype')";
+    
+    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to create instance" });
+        const newGameId = result.insertId; 
+        
+        // Map the words. We store the Word in question_text, and the Tier in choice_a
+        const questionValues = words.map(w => {
+            return [newGameId, w.word, 'startype', w.difficulty, '', '', '', 0];
+        });
+
+        const sqlQuestions = `INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
+        db.query(sqlQuestions, [questionValues], (err, result) => {
+            if (err) return res.status(500).json({ error: "Failed to save words" });
+            res.json({ message: "StarType created!", gameId: newGameId });
         });
     });
 });

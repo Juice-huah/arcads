@@ -1,4 +1,4 @@
-// ─── src/hamsterball/GameEngine.jsx ───────────────────────────────────────────
+// src/hamsterball/GameEngine.jsx
 import { useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { BALL_RADIUS, CAM_DIST, CAM_UP, CAM_FOV, LANE_W, TRACK_W, WORLDS, SKINS, LANE_TARGETS } from "./gameData.js";
@@ -12,13 +12,12 @@ export function useGameEngine(canvasRef) {
   const trackR   = useRef({
     objects: [], platforms: [], gates: [], checkpoints: [],
     questionRings: [], movingPlatforms: [], ramps: [],
-    seeds: [], dashPads: [], // 🟢 NEW COLLECTIBLES & PADS
+    seeds: [], dashPads: [], crates: [], floaters: [], crowd: [], // 🟢 NEW: crowd added
     finishZ: -300, safetyWalls: [],
   });
   const hamR       = useRef({});
   const ballRotX   = useRef(0);
   const ballRotZ   = useRef(0);
-  const hintMeshR  = useRef(null);
   const particlesR = useRef([]);
 
   useEffect(() => {
@@ -71,7 +70,7 @@ export function useGameEngine(canvasRef) {
     return mesh;
   }
 
-  function addPlatform(px, py, pz, pw, pd, world, opts = {}) {
+  function addPlatform(px, py, pz, pw, pd, world) {
     const tr = trackR.current;
     const m = box(pw, PLAT_H, pd, world.tile, .85, .04);
     m.position.set(px, py - PLAT_H / 2 - .01, pz);
@@ -85,6 +84,24 @@ export function useGameEngine(canvasRef) {
     edge.position.set(px, py + .04, pz); addObj(edge);
     tr.platforms.push({ mesh: m, x: px, y: py, z: pz, w: pw, h: PLAT_H, d: pd, type: "static" });
     return m;
+  }
+
+  function addNarrowBridge(px, py, pz, pd, world) {
+    const tr = trackR.current;
+    const pw = LANE_W * 0.9; 
+    const m = box(pw, 0.4, pd, world.tileDark, .9, .1);
+    m.position.set(px, py - 0.2, pz);
+    m.receiveShadow = true;
+    addObj(m);
+
+    const edgeM = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: .6 });
+    const edgeL = new THREE.Mesh(new THREE.BoxGeometry(0.2, .45, pd), edgeM);
+    edgeL.position.set(px - pw/2, py - 0.18, pz); addObj(edgeL);
+    
+    const edgeR = new THREE.Mesh(new THREE.BoxGeometry(0.2, .45, pd), edgeM);
+    edgeR.position.set(px + pw/2, py - 0.18, pz); addObj(edgeR);
+
+    tr.platforms.push({ mesh: m, x: px, y: py, z: pz, w: pw, h: 0.4, d: pd, type: "static" });
   }
 
   function addRamp(px, py, pz, pw, pd, riseH, world) {
@@ -101,17 +118,13 @@ export function useGameEngine(canvasRef) {
     const ac = arrowC.getContext("2d");
     ac.fillStyle = world.color + "aa"; ac.font = "bold 32px sans-serif";
     ac.textAlign = "center"; ac.textBaseline = "middle";
-    ac.fillText(clampedRise > 0 ? "↗ RAMP" : "↘", 64, 24);
+    ac.fillText(clampedRise > 0 ? "↗ JUMP" : "↘", 64, 24);
     const arrow = new THREE.Mesh(new THREE.PlaneGeometry(2.2, .72),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(arrowC), transparent: true, side: THREE.DoubleSide }));
     arrow.position.set(px, py + .8, pz); addObj(arrow);
 
     tr.ramps.push({
-      x: px, w: pw,
-      zStart: pz - pd / 2,
-      zEnd:   pz + pd / 2,
-      yStart: py,
-      yEnd:   py + clampedRise,
+      x: px, w: pw, zStart: pz - pd / 2, zEnd: pz + pd / 2, yStart: py, yEnd: py + clampedRise,
     });
     tr.platforms.push({ mesh: null, x: px, y: py + clampedRise * .5, z: pz, w: pw, h: .2, d: pd, type: "static" });
   }
@@ -132,35 +145,52 @@ export function useGameEngine(canvasRef) {
     const out = new THREE.Mesh(new THREE.BoxGeometry(pw + .3, .5, pd + .3), outMat);
     out.position.copy(m.position); addObj(out);
 
-    const labelC = document.createElement("canvas"); labelC.width = 128; labelC.height = 48;
-    const lctx = labelC.getContext("2d");
-    lctx.fillStyle = world.color; lctx.font = "bold 28px sans-serif";
-    lctx.textAlign = "center"; lctx.textBaseline = "middle";
-    lctx.fillText(axis === "x" ? "↔ SLIDE" : "↕", 64, 24);
-    const lSign = new THREE.Mesh(new THREE.PlaneGeometry(2.0, .72),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(labelC), transparent: true, side: THREE.DoubleSide }));
-    lSign.rotation.x = -Math.PI / 2; lSign.position.set(px, py + .55, pz); addObj(lSign);
-
     const pl2 = new THREE.PointLight(col, 0.8, 8);
     pl2.position.set(px, py + 1.2, pz);
     T.current.scene.add(pl2); tr.objects.push(pl2);
 
-    const platRecord = { mesh: m, x: px, y: py, z: pz, w: pw, h: .35, d: pd, type: "moving" };
     tr.movingPlatforms.push({
-      mesh: m, outMesh: out, labelSign: lSign, lightRef: pl2,
+      mesh: m, outMesh: out, lightRef: pl2,
       axis, range, speed: Math.min(speed, 0.007),
       _t: Math.random() * Math.PI * 2,
       baseX: px, baseY: py, baseZ: pz,
     });
-    tr.platforms.push(platRecord);
-    return m;
+    tr.platforms.push({ mesh: m, x: px, y: py, z: pz, w: pw, h: .35, d: pd, type: "moving" });
+  }
+
+  function addCrate(px, py, pz) {
+    const tr = trackR.current;
+    const size = 1.6;
+    const m = box(size, size, size, 0xef4444, 0.7, 0.2); 
+    m.position.set(px, py + size/2, pz);
+    m.castShadow = true; m.receiveShadow = true;
+
+    const c = document.createElement("canvas"); c.width = 64; c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ef4444"; ctx.fillRect(0,0,64,64);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 40px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("✖", 32, 46);
+    m.material.map = new THREE.CanvasTexture(c);
+
+    addObj(m);
+    tr.crates.push({ x: px, y: py + size/2, z: pz, size });
+  }
+
+  function addFloatingHazards(pz, world) {
+    const tr = trackR.current;
+    [-1, 1].forEach(dir => {
+        const col = parseInt(world.altColor.replace("#",""), 16);
+        const m = box(1.8, 1.8, 1.8, col, 0.5, 0.5, true);
+        m.position.set(dir * (LANE_W * 2), Math.random() * 4 + 2, pz + (Math.random() * 10 - 5));
+        addObj(m);
+        tr.floaters.push({ mesh: m, speedX: Math.random()*0.02, speedY: Math.random()*0.03, baseY: m.position.y, _t: Math.random()*10 });
+    });
   }
 
   function addSafetyWall(px, py, pz, pw, pd) {
     trackR.current.safetyWalls.push({ x: px, y: py + WALL_H / 2, z: pz, w: pw, h: WALL_H, d: pd });
   }
 
-  // 🟢 NEW: Golden Seed Collectibles
   function addSeed(px, py, pz) {
     const tr = trackR.current;
     const geo = new THREE.OctahedronGeometry(0.3, 0);
@@ -172,7 +202,6 @@ export function useGameEngine(canvasRef) {
     tr.seeds.push({ mesh, x: px, y: py, z: pz, collected: false, _t: Math.random() * 10 });
   }
 
-  // 🟢 NEW: Dash Pads for Speed Boosts
   function addDashPad(px, py, pz) {
     const tr = trackR.current;
     const geo = new THREE.PlaneGeometry(1.8, 3.5);
@@ -214,20 +243,17 @@ export function useGameEngine(canvasRef) {
     });
     const door = new THREE.Mesh(new THREE.PlaneGeometry(gateW, 4.4), doorMat);
     door.position.set(0, 2.2, 0); g.add(door);
-    const ringMat = new THREE.MeshStandardMaterial({ color: col, emissive: new THREE.Color(col), emissiveIntensity: 3.2, roughness: .04 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(.95, .11, 10, 36), ringMat);
-    ring.position.set(0, 2.5, 0); g.add(ring);
-    const nc = document.createElement("canvas"); nc.width = 80; nc.height = 80;
+    
+    const nc = document.createElement("canvas"); nc.width = 128; nc.height = 80;
     const nctx = nc.getContext("2d");
-    nctx.fillStyle = world.color; nctx.font = "bold 52px 'Fredoka One',sans-serif";
-    nctx.textAlign = "center"; nctx.textBaseline = "middle"; nctx.fillText(idx + 1, 40, 40);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1),
+    nctx.fillStyle = "#ef4444"; nctx.font = "bold 32px 'Fredoka One',sans-serif";
+    nctx.textAlign = "center"; nctx.textBaseline = "middle"; nctx.fillText("🔒 LOCK", 64, 40);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.2),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, side: THREE.DoubleSide }));
     sign.position.set(0, 3.9, .15); g.add(sign);
-    const pl = new THREE.PointLight(col, 1.2, 10);
-    pl.position.set(0, 2.2, 0); g.add(pl);
+    
     g.position.set(px, py, pz); scene.add(g); tr.objects.push(g);
-    tr.gates.push({ group: g, door, ring, z: pz, idx, open: false, pl, world, gateW });
+    tr.gates.push({ group: g, door, sign, z: pz, idx, open: false, world, gateW });
   }
 
   function addQuestionRing(px, py, pz, word, world, idx) {
@@ -239,31 +265,24 @@ export function useGameEngine(canvasRef) {
       color: col, emissive: new THREE.Color(col), emissiveIntensity: 2.2,
       roughness: .05, transparent: true, opacity: .9,
     });
-    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(RING_RAD, .22, 14, 54), outerMat);
+    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(RING_RAD, .3, 14, 54), outerMat);
     outerRing.rotation.x = -Math.PI / 2; g.add(outerRing);
 
-    const circleMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .14, side: THREE.DoubleSide });
-    const circle = new THREE.Mesh(new THREE.CircleGeometry(RING_RAD - .2, 52), circleMat);
-    circle.rotation.x = -Math.PI / 2; circle.position.y = .02; g.add(circle);
-
     const innerMat = new THREE.MeshStandardMaterial({
-      color: col, emissive: new THREE.Color(col), emissiveIntensity: 1.6, roughness: .08,
-      transparent: true, opacity: .65,
+      color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 2.0, roughness: .08,
+      transparent: true, opacity: .8,
     });
-    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(RING_RAD * .65, .1, 10, 40), innerMat);
+    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(RING_RAD * .85, .15, 10, 40), innerMat);
     innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = .4; g.add(innerRing);
 
-    const pl = new THREE.PointLight(col, 1.8, 10);
+    const pl = new THREE.PointLight(col, 2.5, 12);
     pl.position.set(0, 1.5, 0); g.add(pl);
 
     g.position.set(px, py, pz); scene.add(g); tr.objects.push(g);
     tr.questionRings.push({
-      group: g, outerRing, innerRing, circle, pl,
+      group: g, outerRing, innerRing, pl,
       x: px, y: py, z: pz, r: RING_RAD,
-      word, idx,
-      active: false,
-      answered: false,
-      _t: 0,
+      word, idx, active: false, answered: false, _t: 0,
     });
   }
 
@@ -271,19 +290,12 @@ export function useGameEngine(canvasRef) {
     const { scene } = T.current; const tr = trackR.current;
     const col = 0x22d3ee;
     const arch = new THREE.Group();
-    const archMat = new THREE.MeshStandardMaterial({
-      color: col, emissive: new THREE.Color(col), emissiveIntensity: 1.8, roughness: .08,
-    });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.9, .2, 12, 44), archMat.clone());
-    ring.rotation.y = Math.PI / 2; ring.position.set(px, py + 2.9, pz); arch.add(ring);
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, 9.5, 8),
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .25 }));
-    beam.position.set(px, py + 5, pz); arch.add(beam);
-    const circle = new THREE.Mesh(new THREE.CircleGeometry(2.9, 32),
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .14, side: THREE.DoubleSide }));
-    circle.rotation.x = -Math.PI / 2; circle.position.set(px, py + .03, pz); arch.add(circle);
+    const archMat = new THREE.MeshStandardMaterial({ color: col, emissive: new THREE.Color(col), emissiveIntensity: 1.8, roughness: .08 });
+    const ring = new THREE.Mesh(new THREE.BoxGeometry(TRACK_W + 2, 0.1, 1.2), archMat);
+    ring.position.set(px, py + 0.05, pz); 
+    arch.add(ring);
     scene.add(arch); tr.objects.push(arch);
-    tr.checkpoints.push({ group: arch, ring, beam, x: px, y: py, z: pz, w: TRACK_W + 5, idx, hit: false });
+    tr.checkpoints.push({ group: arch, ring, x: px, y: py, z: pz, w: TRACK_W + 5, idx, hit: false });
   }
 
   function addTree(px, py, pz, world, size = 1.0) {
@@ -298,14 +310,72 @@ export function useGameEngine(canvasRef) {
     g.position.set(px, py, pz); T.current.scene.add(g); trackR.current.objects.push(g);
   }
 
-  const buildLevel = useCallback((lvlId, skinId = 0, teacherCfg = {}) => {
+  // 🟢 NEW: CHEERING CROWD GENERATOR
+  function addCrowdHamster(px, py, pz, skinId, angle) {
+    const { scene } = T.current;
+    const tr = trackR.current;
+    const skin = SKINS[skinId % SKINS.length];
+    const hg = new THREE.Group();
+
+    const body = new THREE.Mesh(new THREE.SphereGeometry(.35, 12, 12), new THREE.MeshStandardMaterial({ color: skin.body }));
+    body.scale.set(1, .95, 1.05); hg.add(body);
+    
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(.25, 10, 10), new THREE.MeshStandardMaterial({ color: skin.belly }));
+    belly.position.set(0, -.05, .18); belly.scale.z = .5; hg.add(belly);
+
+    [-1, 1].forEach(s => {
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 8), new THREE.MeshStandardMaterial({ color: skin.ear }));
+      ear.position.set(s * .25, .25, .08); hg.add(ear);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+      eye.position.set(s * .13, .10, .28); hg.add(eye);
+    });
+
+    hg.position.set(px, py, pz);
+    hg.rotation.y = angle;
+    scene.add(hg);
+    tr.objects.push(hg);
+    tr.crowd.push({ mesh: hg, baseY: py, _t: Math.random() * 10 });
+  }
+
+  // 🟢 NEW: 3D CONFETTI CANNON
+  const fireConfetti = useCallback((bx, by, bz) => {
+      const { scene } = T.current;
+      const colors = [0xff007f, 0x4ade80, 0x38bdf8, 0xfbbf24, 0xc084fc, 0xf97316];
+      for (let i = 0; i < 150; i++) {
+        const col = colors[Math.floor(Math.random() * colors.length)];
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.18, 0.18),
+          new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide })
+        );
+        const angle = Math.random() * Math.PI * 2;
+        const spread = Math.random() * 0.3;
+        const speed = 0.3 + Math.random() * 0.4;
+        m.position.set(bx, by, bz);
+        m.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+        scene.add(m);
+        particlesR.current.push({
+          mesh: m,
+          vx: Math.cos(angle) * spread,
+          vy: speed,
+          vz: Math.sin(angle) * spread,
+          rvx: Math.random()*0.3 - 0.15,
+          rvy: Math.random()*0.3 - 0.15,
+          life: 3.5 + Math.random() * 2.0,
+          isConfetti: true
+        });
+      }
+  }, []);
+
+  const buildLevel = useCallback((lvlId, skinId = 0, teacherCfg = {}, totalQuestions = 5) => {
     const { scene, amb, sun, fill } = T.current; const tr = trackR.current;
 
     tr.objects.forEach(o => scene.remove(o));
     Object.keys(tr).forEach(k => { if (Array.isArray(tr[k])) tr[k].length = 0; });
-    tr.finishZ = -320;
     particlesR.current.forEach(p => { if (p.mesh) scene.remove(p.mesh); });
     particlesR.current = [];
+    tr.crates = [];
+    tr.floaters = [];
+    tr.crowd = [];
 
     const world = WORLDS[lvlId - 1];
     scene.background = new THREE.Color(world.sky);
@@ -314,142 +384,110 @@ export function useGameEngine(canvasRef) {
     sun.color.setHex(world.sun);
     if (fill) { fill.color.setHex(world.sky); fill.groundColor.setHex(world.groundColor); }
 
-    if (lvlId === 5) {
-      const cnt = 450; const pos = new Float32Array(cnt * 3);
-      for (let i = 0; i < cnt; i++) { pos[i * 3] = (Math.random() - .5) * 130; pos[i * 3 + 1] = Math.random() * 32 + 2; pos[i * 3 + 2] = -Math.random() * 400; }
-      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: .18, transparent: true, opacity: .8 }));
-      scene.add(pts); tr.objects.push(pts);
-    }
-
-    const trackLen  = 300;
+    const gateCount = totalQuestions; 
+    const secLen    = 80; 
+    const trackLen  = gateCount * secLen + 60;
     const mainW     = TRACK_W + 5.5;   
-    const gateCount = world.gateCount;
-    const secLen    = (trackLen - 40) / gateCount;
 
     tr.finishZ = -(trackLen - 10);
 
     const gndMat = new THREE.MeshStandardMaterial({ color: world.groundColor, roughness: 1.0 });
     const gnd = new THREE.Mesh(new THREE.PlaneGeometry(240, trackLen + 100), gndMat);
-    gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -1.4, -(trackLen / 2 - 4));
+    gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -15, -(trackLen / 2 - 4));
     gnd.receiveShadow = true; addObj(gnd);
 
-    tr.platforms.push({ mesh: null, x: 0, y: -16, z: -(trackLen / 2), w: 600, h: 1, d: trackLen + 100, type: "static" });
-
     addPlatform(0, 0, -14, mainW + 7, 36, world);
-
     addSafetyWall(-(mainW / 2 + 1.5), 0, -(trackLen / 2), 0.5, trackLen + 60);
     addSafetyWall( (mainW / 2 + 1.5), 0, -(trackLen / 2), 0.5, trackLen + 60);
-
-    const startCol = parseInt(world.color.replace("#", ""), 16);
-    const archM = new THREE.MeshStandardMaterial({ color: startCol, emissive: new THREE.Color(startCol), emissiveIntensity: .85 });
-    [-1, 1].forEach(s => {
-      const p2 = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 5.5, 8), archM.clone());
-      p2.position.set(s * (mainW / 2 + 3), 2.75, -4); addObj(p2);
-    });
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, mainW + 7, 8), archM.clone());
-    bar.rotation.z = Math.PI / 2; bar.position.set(0, 5.5, -4); addObj(bar);
-
-    const sc2 = document.createElement("canvas"); sc2.width = 260; sc2.height = 80;
-    const sctx2 = sc2.getContext("2d");
-    sctx2.fillStyle = "rgba(0,0,0,.82)"; sctx2.roundRect(4, 4, 252, 72, 14); sctx2.fill();
-    sctx2.fillStyle = world.color; sctx2.font = "bold 36px 'Fredoka One',sans-serif";
-    sctx2.textAlign = "center"; sctx2.textBaseline = "middle"; sctx2.fillText("🏁 START", 130, 40);
-    const startSign = new THREE.Mesh(new THREE.PlaneGeometry(2.8, .9),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc2), transparent: true, side: THREE.DoubleSide }));
-    startSign.position.set(0, 6.2, -4); addObj(startSign);
 
     const startingWords = teacherCfg.startingWords || ["apple", "river", "sun", "tree", "egg"];
     let z = -36;
 
     for (let gi = 0; gi < gateCount; gi++) {
-      const segMid = z - secLen / 2;
-      const ringZ = z - secLen * .80;
+      const splitZ = z - secLen * 0.45; 
+      const obsLen = secLen * 0.4;      
 
-      addPlatform(0, 0, segMid, mainW, secLen - 2, world);
+      addPlatform(0, 0, z - secLen * 0.125, mainW, secLen * 0.25, world);
 
-      for (let d = 0; d < 6; d++) {
-        const dz = z - d * (secLen / 6) - secLen * .06;
+      if (gi % 4 === 0) {
+        addRamp(0, 0, splitZ, LANE_W * 1.2, obsLen, 0.45, world);
+        addDashPad(0, 0.45, splitZ - obsLen * 0.2); 
+        addFloatingHazards(splitZ, world); 
+      } 
+      else if (gi % 4 === 1) {
+        addMovingPlatform(0, 0, splitZ, LANE_W * 1.5, obsLen * 0.6, world, "x", LANE_W * 1.2, 0.006);
+        addFloatingHazards(splitZ, world);
+      } 
+      else if (gi % 4 === 2) {
+        addPlatform(0, 0, splitZ, LANE_W * 1.2, 8, world);
+        addDashPad(0, 0, splitZ); 
+        addPlatform(0, 0, splitZ + 14, LANE_W * 1.2, 4, world);
+        addPlatform(0, 0, splitZ - 14, LANE_W * 1.2, 4, world);
+        addFloatingHazards(splitZ, world);
+      }
+      else {
+        addPlatform(0, 0, splitZ, mainW, obsLen, world);
+        const empty1 = Math.floor(Math.random() * 3);
+        const empty2 = Math.floor(Math.random() * 3);
+        [0, 1, 2].forEach(lane => {
+            if (lane !== empty1) addCrate(LANE_TARGETS[lane], 0, splitZ + 8);
+            if (lane !== empty2) addCrate(LANE_TARGETS[lane], 0, splitZ - 8);
+        });
+      }
+
+      addPlatform(0, 0, z - secLen * 0.825, mainW, secLen * 0.35, world);
+
+      const ringZ = z - secLen * 0.80;
+      addCheckpoint(0, 0, ringZ + 6, world, gi);
+
+      const word = startingWords[gi % startingWords.length];
+      addQuestionRing(0, 0, ringZ, word, world, gi);
+      addGate(0, 0, ringZ - 4, world, gi);
+
+      for (let d = 0; d < 4; d++) {
+        const dz = z - d * (secLen / 4) - secLen * .1;
         const sz = .75 + Math.random() * .5;
         if ((d + gi) % 2 === 0) { addTree(-(mainW / 2 + 3 + Math.random() * 2), 0, dz, world, sz); }
         else { addTree(   (mainW / 2 + 3 + Math.random() * 2), 0, dz, world, sz); }
       }
 
-      // 🟢 Add Seeds (Coins) along the track
       for (let s = 0; s < 5; s++) {
-        const sz = z - Math.random() * (secLen - 5);
+        const sz = z - Math.random() * (secLen - 10);
         const laneX = LANE_TARGETS[Math.floor(Math.random() * 3)];
-        if (Math.abs(sz - ringZ) > 6) { // Don't put seeds inside the word ring
+        if (Math.abs(sz - ringZ) > 8 && Math.abs(sz - splitZ) > 8) { 
            addSeed(laneX, 0.4, sz);
         }
       }
-
-      // 🟢 Add Dash Pads occasionally
-      if (Math.random() > 0.5) {
-        const dz = z - secLen * 0.55;
-        const laneX = LANE_TARGETS[Math.floor(Math.random() * 3)];
-        addDashPad(laneX, 0, dz);
-      }
-
-      if (gi === 1) {
-        const rz = z - secLen * .35;
-        addRamp(0, 0, rz - secLen * .07, mainW * .88, secLen * .12, 0.35, world);
-        addPlatform(0, 0.35, rz - secLen * .17, mainW * .88, secLen * .09, world);
-        addRamp(0, 0.35, rz - secLen * .25, mainW * .88, secLen * .10, -0.35, world);
-      }
-
-      if (gi === 2) {
-        const gapZ = z - secLen * .38;
-        const gapLen = 1.4; 
-        addPlatform(0, 0, gapZ - gapLen / 2 - secLen * .08, mainW, secLen * .12, world); 
-        addPlatform(0, 0, gapZ + gapLen / 2 + secLen * .06, mainW, secLen * .10, world); 
-      }
-
-      if (gi === 3) {
-        const mpZ = z - secLen * .4;
-        const platW = mainW * .65; 
-        addMovingPlatform(0, 0, mpZ, platW, secLen * .12, world, "x", LANE_W * .65, 0.0045);
-      }
-
-      if (gi >= 4) {
-        const rz2 = z - secLen * .28;
-        addRamp(0, 0, rz2 - secLen * .05, mainW * .85, secLen * .09, 0.35, world);
-        addPlatform(0, 0.35, rz2 - secLen * .13, mainW * .85, secLen * .07, world);
-        addRamp(0, 0.35, rz2 - secLen * .20, mainW * .85, secLen * .08, -0.35, world);
-
-        const gapZ2 = z - secLen * .52;
-        const gapLen2 = 1.6;
-        addPlatform(0, 0, gapZ2 - gapLen2 / 2 - secLen * .06, mainW * .9, secLen * .09, world);
-        addPlatform(0, 0, gapZ2 + gapLen2 / 2 + secLen * .05, mainW * .9, secLen * .08, world);
-      }
-
-      if (gi > 0 && gi % 2 === 0) {
-        addCheckpoint(0, 0, z - secLen * .5, world, gi);
-      }
-
-      const word = startingWords[gi % startingWords.length];
-      addQuestionRing(0, 0, ringZ, word, world, gi);
-      addPlatform(0, 0, ringZ, mainW + 3, secLen * .18, world);
-
-      const gz = z - secLen * .93;
-      addGate(0, 0, gz, world, gi);
-      addPlatform(0, 0, gz - 6, mainW, 12, world);
-      addPlatform(0, 0, gz + 5, mainW, 10, world);
 
       z -= secLen;
     }
 
     addPlatform(0, 0, z - 18, mainW, 38, world);
 
+    // FINISH LINE
     const finMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: new THREE.Color(0xfbbf24), emissiveIntensity: .85 });
     const fin = new THREE.Mesh(new THREE.BoxGeometry(mainW + 6, .09, 3), finMat);
     fin.position.set(0, .06, tr.finishZ); addObj(fin);
+    
+    // Pillars
     [-1, 1].forEach(s => {
       const fp = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 5.8, 8), finMat.clone());
       fp.position.set(s * (mainW / 2 + 3), 2.9, tr.finishZ); addObj(fp);
       const fb = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, mainW + 7, 8), finMat.clone());
       fb.rotation.z = Math.PI / 2; fb.position.set(0, 5.8, tr.finishZ); addObj(fb);
     });
+
+    // 🟢 PLACE THE CHEERING CROWD AT THE FINISH LINE
+    [-1, 1].forEach(side => {
+        for (let i = 0; i < 4; i++) {
+            const randomSkin = Math.floor(Math.random() * SKINS.length);
+            const cx = side * (mainW / 2 + 1.8);
+            const cz = tr.finishZ + 4 + (i * 2.2);
+            const angle = side === -1 ? Math.PI / 2 : -Math.PI / 2;
+            addCrowdHamster(cx, 0.4, cz, randomSkin, angle);
+        }
+    });
+
     const fc = document.createElement("canvas"); fc.width = 260; fc.height = 84;
     const fctx = fc.getContext("2d");
     fctx.fillStyle = "rgba(0,0,0,.86)"; fctx.roundRect(4, 4, 252, 76, 14); fctx.fill();
@@ -458,6 +496,7 @@ export function useGameEngine(canvasRef) {
     const finSign = new THREE.Mesh(new THREE.PlaneGeometry(3.0, .95),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(fc), transparent: true, side: THREE.DoubleSide }));
     finSign.position.set(0, 6.5, tr.finishZ); addObj(finSign);
+    
     const finLight = new THREE.PointLight(0xfbbf24, 2.4, 16);
     finLight.position.set(0, 4, tr.finishZ); addObj(finLight);
   }, []);
@@ -559,6 +598,7 @@ export function useGameEngine(canvasRef) {
     if (h.legFR) h.legFR.rotation.x = Math.sin(t * ls + Math.PI) * .55;
     if (h.legBL) h.legBL.rotation.x = Math.sin(t * ls + Math.PI) * .55;
     if (h.legBR) h.legBR.rotation.x = Math.sin(t * ls) * .55;
+
     if (g.blinkTimer !== undefined) {
       g.blinkTimer -= dt;
       if (g.blinkTimer <= 0) {
@@ -568,9 +608,10 @@ export function useGameEngine(canvasRef) {
         if (!b) g.blinkTimer = 2.5 + Math.random() * 2.5;
       }
     }
+
     if (h.outerBall) {
-      h.outerBall.material.opacity = g.inRing ? .35 : g.boost > 0 ? .34 : .15;
-      h.outerBall.material.color.setHex(g.inRing ? 0xfbbf24 : g.boost > 0 ? 0xffaa44 : 0xffffff);
+      h.outerBall.material.opacity = g.inRing ? .45 : .15;
+      h.outerBall.material.color.setHex(g.inRing ? 0xfbbf24 : 0xffffff);
     }
   }, []);
 
@@ -582,11 +623,7 @@ export function useGameEngine(canvasRef) {
         new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: .95 }));
       const angle = (i / count) * Math.PI * 2, speed = .05 + Math.random() * .08;
       m.position.set(bx, by + .4, bz); scene.add(m);
-      particlesR.current.push({
-        mesh: m, vx: Math.cos(angle) * speed,
-        vy: .065 + Math.random() * .10,
-        vz: Math.sin(angle) * speed * .5, life: 1.0,
-      });
+      particlesR.current.push({ mesh: m, vx: Math.cos(angle) * speed, vy: .065 + Math.random() * .10, vz: Math.sin(angle) * speed * .5, life: 1.0 });
     }
   }, []);
 
@@ -601,18 +638,13 @@ export function useGameEngine(canvasRef) {
       if (f++ < 15) requestAnimationFrame(anim);
     };
     anim();
-    gate.ring.material.color.setHex(0x4ade80);
-    gate.ring.material.emissive.setHex(0x4ade80);
-    gate.ring.material.emissiveIntensity = 5;
-    if (gate.pl) gate.pl.color.setHex(0x4ade80);
+    if (gate.sign) gate.sign.visible = false; 
   }, []);
 
   const tickWorld = useCallback((dt, slowMo = false) => {
     const tr = trackR.current; const now = Date.now();
-    tr.gates.forEach(g => { if (!g.open) g.ring.rotation.z += .025; });
     tr.checkpoints.forEach(cp => { cp.ring.material.emissiveIntensity = 1.6 + Math.sin(now * .003 + cp.idx) * .55; });
     
-    // 🟢 Animate Seeds
     tr.seeds.forEach(s => {
         if (!s.collected) {
             s._t += dt;
@@ -621,14 +653,25 @@ export function useGameEngine(canvasRef) {
         }
     });
 
+    (tr.floaters || []).forEach(f => {
+        f._t += dt;
+        f.mesh.rotation.x += f.speedX;
+        f.mesh.rotation.y += f.speedY;
+        f.mesh.position.y = f.baseY + Math.sin(f._t * 3) * 1.5;
+    });
+
+    // 🟢 ANIMATE THE CHEERING CROWD
+    (tr.crowd || []).forEach(c => {
+        c._t += dt * 10; 
+        c.mesh.position.y = c.baseY + Math.abs(Math.sin(c._t)) * 0.35; // Jumping up and down
+    });
+
     tr.questionRings.forEach(qr => {
       qr._t += dt;
       qr.outerRing.material.emissiveIntensity = 1.8 + Math.sin(qr._t * 2.5) * .7;
       qr.outerRing.rotation.z += .018;
       qr.innerRing.rotation.z -= .022;
-      qr.pl.intensity = qr.active
-        ? 2.0 + Math.sin(qr._t * 6) * .8
-        : 1.2 + Math.sin(qr._t * 2) * .4;
+      qr.pl.intensity = qr.active ? 2.0 + Math.sin(qr._t * 6) * .8 : 1.2 + Math.sin(qr._t * 2) * .4;
     });
 
     if (!slowMo) {
@@ -638,7 +681,6 @@ export function useGameEngine(canvasRef) {
           const newX = mp.baseX + Math.sin(mp._t) * mp.range;
           mp.mesh.position.x = newX;
           mp.outMesh.position.x = newX;
-          if (mp.labelSign) mp.labelSign.position.x = newX;
           if (mp.lightRef) mp.lightRef.position.x = newX;
           const pl = tr.platforms.find(p => p.mesh === mp.mesh);
           if (pl) pl.x = newX;
@@ -648,14 +690,28 @@ export function useGameEngine(canvasRef) {
 
     for (let i = particlesR.current.length - 1; i >= 0; i--) {
       const p = particlesR.current[i];
-      p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.vy -= .004;
-      p.mesh.position.z += p.vz; p.life -= dt * 2.0;
-      p.mesh.material.opacity = Math.max(0, p.life); p.mesh.scale.setScalar(Math.max(.1, p.life));
+      p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.mesh.position.z += p.vz;
+      
+      // 🟢 3D CONFETTI PHYSICS
+      if (p.isConfetti) {
+          p.vy -= 0.008; 
+          p.mesh.rotation.x += p.rvx;
+          p.mesh.rotation.y += p.rvy;
+      } else {
+          p.vy -= 0.004;
+      }
+
+      p.life -= dt * (p.isConfetti ? 0.6 : 2.0);
+      
+      if (p.life < 1.0) {
+         p.mesh.material.opacity = Math.max(0, p.life);
+         p.mesh.material.transparent = true;
+         if(!p.isConfetti) p.mesh.scale.setScalar(Math.max(.1, p.life));
+      }
+      
       if (p.life <= 0) { T.current.scene.remove(p.mesh); particlesR.current.splice(i, 1); }
     }
-    
-    tr.objects.forEach(o => { if (o instanceof THREE.Points) o.rotation.y += .0002; });
   }, []);
 
-  return { T, trackR, hamR, ballRotX, ballRotZ, buildLevel, buildHamster, animHamster, openGate, tickWorld, spawnParticles };
+  return { T, trackR, hamR, ballRotX, ballRotZ, buildLevel, buildHamster, animHamster, openGate, tickWorld, spawnParticles, fireConfetti };
 }

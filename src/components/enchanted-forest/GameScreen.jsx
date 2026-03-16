@@ -1,3 +1,4 @@
+// src/components/enchanted-forest/GameScreen.jsx
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { LOCATIONS, LOCATION_CHESTS, DIALOGUE_CHOICES, DIFFICULTY, checkWord } from './data/locations_enhanced.js'
 import { useAudio } from './hooks/useAudio.js'
@@ -47,14 +48,14 @@ function getTeacherSetting(key, fallback) {
 function DeathOverlay() {
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 90, // 🟢 FIXED: absolute
+      position: 'absolute', inset: 0, zIndex: 90, 
       background: 'rgba(0,0,0,0)', animation: 'deathFade 2.8s ease forwards',
       display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
     }}>
       <div style={{ textAlign: 'center', animation: 'deathShatter 2.8s ease forwards' }}>
         <div style={{ fontSize: '4rem', marginBottom: '0.8rem' }}>💀</div>
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '2rem', color: '#ff4060', letterSpacing: '0.25em', textShadow: '0 0 30px #ff406080' }}>DEFEATED</div>
-        <div style={{ fontFamily: "'Crimson Text', serif", color: '#789878', fontSize: '0.95rem', fontStyle: 'italic', marginTop: '0.5rem' }}>Returning to last checkpoint…</div>
+        <div style={{ fontFamily: "'Crimson Text', serif", color: '#789878', fontSize: '0.95rem', fontStyle: 'italic', marginTop: '0.5rem' }}>Game Over. Saving Score...</div>
       </div>
     </div>
   )
@@ -63,7 +64,7 @@ function DeathOverlay() {
 function RevealFlash({ letter, accent }) {
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 85, // 🟢 FIXED: absolute
+      position: 'absolute', inset: 0, zIndex: 85, 
       display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
     }}>
       <div style={{ fontFamily: "'Cinzel', serif", fontSize: '5rem', fontWeight: 700, color: accent, textShadow: `0 0 40px ${accent}, 0 0 80px ${accent}`, animation: 'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)', opacity: 0.9 }}>{letter}</div>
@@ -75,14 +76,14 @@ function TimedEdgeFlash({ urgent }) {
   if (!urgent) return null
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none', // 🟢 FIXED: absolute
+      position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none', 
       boxShadow: 'inset 0 0 80px rgba(255,50,50,0.35)', animation: 'timerUrgentPulse 0.6s ease-in-out infinite',
     }} />
   )
 }
 
 export default function GameScreen({
-  locIdx, inventory, score, onAreaCleared, onCorrectAnswer, onWrongAnswer, onChestOpened, onDialogueChoice, hudProps, hintCharges, skipCharges, revealCharges, onUseReveal,
+  locIdx, inventory, score, onAreaCleared, onCorrectAnswer, onWrongAnswer, onChestOpened, onDialogueChoice, hudProps, hintCharges, skipCharges, revealCharges, onUseReveal, onPlayerDeath, onLogAnswer
 }) {
   const audio = useAudio()
   const loc   = LOCATIONS[locIdx]
@@ -118,6 +119,9 @@ export default function GameScreen({
 
   const word = words[wordIdx]
 
+  // 🟢 STRICT FIRST ATTEMPT TRACKER
+  const hasLoggedRef = useRef(false);
+
   const npcReact = (emotion) => {
     if (emotion === 'happy') { setNpcHappy(true); setTimeout(() => setNpcHappy(false), 900) } 
     else if (emotion === 'shock') { setNpcShock(true); setTimeout(() => setNpcShock(false), 700) } 
@@ -133,12 +137,18 @@ export default function GameScreen({
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) {
-          stopTimer(); setAttempts(a => a + 1); setShowHint(true); setFbMsg("Time's up! The word slipped away… try again."); setPhase('fb-fail'); onWrongAnswer?.(); npcReact('shock'); return timeLimit
+          stopTimer(); 
+          // Log failure if timer runs out!
+          if (!hasLoggedRef.current && word?.id) {
+              onLogAnswer?.(word.id, false);
+              hasLoggedRef.current = true;
+          }
+          setAttempts(a => a + 1); setShowHint(true); setFbMsg("Time's up! The word slipped away… try again."); setPhase('fb-fail'); onWrongAnswer?.(); npcReact('shock'); return timeLimit
         }
         return t - 1
       })
     }, 1000)
-  }, [timeLimit, onWrongAnswer])
+  }, [timeLimit, onWrongAnswer, word, onLogAnswer])
 
   useEffect(() => {
     setPhase('entering'); setPlayerX('5%'); setWalking(false); setChoiceMade(false); setWordIdx(0); setAttempts(0); setShowHint(false); setRevealedLetter(null); setLocalCombo(0);
@@ -147,33 +157,57 @@ export default function GameScreen({
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [locIdx])
 
-  useEffect(() => { if (phase === 'puzzle') startTimer(); else stopTimer(); return stopTimer }, [phase, wordIdx])
+  useEffect(() => { 
+      hasLoggedRef.current = false; // Reset log status for new word
+      if (phase === 'puzzle') startTimer(); else stopTimer(); 
+      return stopTimer 
+  }, [phase, wordIdx])
 
   const advanceDlg = useCallback(() => { npcReact('talk'); setDlgLine(l => l + 1) }, [])
   const startPuzzle = useCallback(() => { setPhase('puzzle'); setWordIdx(0); setAttempts(0); setShowHint(false); setRevealedLetter(null) }, [])
 
   const handleDialogueChoice = useCallback((option) => {
     setChoiceMade(true); onDialogueChoice?.(option); npcReact('happy');
-    if (option.bonus?.type === 'score') setLocalScore(s => s + (option.bonus.value || 0))
     setDlgLine(l => l + 1)
   }, [onDialogueChoice])
 
   const handleSubmit = useCallback((input) => {
     audio.type?.()
     if (checkWord(input, word.answer)) {
+      // 🟢 LOG CORRECT ANSWER
+      if (!hasLoggedRef.current && word?.id) {
+          onLogAnswer?.(word.id, true);
+          hasLoggedRef.current = true;
+      }
+
       audio.correct?.(); stopTimer();
       const newCombo = localCombo + 1; setLocalCombo(newCombo);
-      const base = Math.max(120 - attempts * 18, 15); const comboBonus = newCombo >= 3 ? (diffCfg.streakBonus || 20) * Math.floor(newCombo / 2) : 0; const newScore = localScore + base + comboBonus;
+      const newScore = localScore + 1; 
+
       setLocalInv([...localInv, word.answer]); setLocalScore(newScore); setSolvedCount(s => s + 1); setRevealedLetter(null);
       onCorrectAnswer?.(word.answer); npcReact('happy'); const msgs = loc.success; setFbMsg(msgs[Math.floor(Math.random() * msgs.length)]); setPhase('fb-ok');
     } else {
+      // 🟢 LOG WRONG ANSWER
+      if (!hasLoggedRef.current && word?.id) {
+          onLogAnswer?.(word.id, false);
+          hasLoggedRef.current = true;
+      }
+
       audio.wrong?.(); stopTimer();
       const na = attempts + 1; setAttempts(na); if (na >= diffCfg.hintAfter) setShowHint(true);
       setLocalCombo(0); onWrongAnswer?.();
-      if (hudProps?.lives !== undefined && hudProps.lives - 1 <= 0) { setShowDeath(true); setTimeout(() => setShowDeath(false), 2900) }
+      
+      if (hudProps?.lives !== undefined && hudProps.lives - 1 <= 0) { 
+        setShowDeath(true); 
+        setTimeout(() => {
+          setShowDeath(false);
+          if (onPlayerDeath) onPlayerDeath(localScore); 
+        }, 2900);
+      }
+      
       npcReact('shock'); const msgs = loc.fail; setFbMsg(msgs[Math.min(Math.floor(na / 2), msgs.length - 1)]); setPhase('fb-fail');
     }
-  }, [word, localInv, localScore, localCombo, attempts, loc, audio, diffCfg, onCorrectAnswer, onWrongAnswer, hudProps])
+  }, [word, localInv, localScore, localCombo, attempts, loc, audio, diffCfg, onCorrectAnswer, onWrongAnswer, hudProps, onPlayerDeath, onLogAnswer])
 
   const handleSkip = useCallback(() => {
     if ((skipCharges || 0) <= 0) return
@@ -189,7 +223,6 @@ export default function GameScreen({
 
   const handleChestOpen = useCallback((id, reward) => {
     setOpenedChests(prev => new Set([...prev, id])); onChestOpened?.(id, reward);
-    if (reward === 'score_boost') setLocalScore(s => s + 50)
   }, [onChestOpened])
 
   const dismissFb = useCallback(() => {
@@ -199,7 +232,10 @@ export default function GameScreen({
     } else { setPhase('puzzle'); startTimer() }
   }, [phase, wordIdx, words.length, audio, startTimer])
 
-  const handleBossDefeated = useCallback(() => { setPhase('area-complete') }, [])
+  const handleBossDefeated = useCallback((bossScoreEarned = 0) => { 
+    if (bossScoreEarned > 0) setLocalScore(s => s + bossScoreEarned);
+    setPhase('area-complete') 
+  }, [])
 
   const handleProceed = useCallback(() => {
     if (loc.postBoss === 'VICTORY') { audio.victory?.(); onAreaCleared(localInv, localScore, true) } 
@@ -212,7 +248,6 @@ export default function GameScreen({
   const showChoice   = choiceNode && dlgLine === choiceNode.afterLine && !choiceMade && phase === 'dialogue'
 
   return (
-    // 🟢 FIXED: Changed from position: fixed to position: absolute!
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
 
       <div style={{ position: 'absolute', inset: 0, background: loc.bg, transition: 'background 1.2s ease', zIndex: 0 }} />
@@ -243,11 +278,18 @@ export default function GameScreen({
       <HUD loc={loc} inventory={localInv} score={localScore} {...hudProps} timedMode={!!timeLimit} timerSeconds={phase === 'puzzle' ? timeLeft : null} timerTotal={timeLimit || 30} hintCharges={hintCharges ?? 3} maxHintCharges={getTeacherSetting('hintCharges', 3)} skipCharges={skipCharges ?? 0} onSkip={handleSkip} onUseHint={() => { setShowHint(true); hudProps?.onUseHint?.() }} revealCharges={revealCharges ?? 0} onReveal={handleReveal} />
 
       {phase === 'dialogue' && ( <DialogueBox loc={loc} lineIdx={dlgLine} onNext={advanceDlg} onStartPuzzle={startPuzzle} choiceNode={showChoice ? choiceNode : null} onChoice={handleDialogueChoice} choiceMade={choiceMade} /> )}
+      
       {phase === 'puzzle' && ( <WordPuzzle loc={loc} word={word} attempts={attempts} onSubmit={handleSubmit} showHint={showHint} revealedLetter={revealedLetter} skipCharges={skipCharges ?? 0} onSkip={handleSkip} revealCharges={revealCharges ?? 0} onReveal={handleReveal} timedMode={!!timeLimit} timeLeft={timeLeft} /> )}
+      
       {showRevealFlash && revealedLetter && ( <RevealFlash letter={revealedLetter} accent={loc.accent} /> )}
-      {(phase === 'fb-ok' || phase === 'fb-fail') && ( <Feedback type={phase === 'fb-ok' ? 'correct' : 'wrong'} message={fbMsg} accent={loc.accent} glow={loc.glow} onDismiss={dismissFb} combo={localCombo} showComboBonus={phase === 'fb-ok' && localCombo >= 3} /> )}
-      {phase === 'boss' && ( <BossEncounter loc={loc} boss={{ ...loc.boss, words: bossWords }} onDefeat={handleBossDefeated} /> )}
+      
+      {(phase === 'fb-ok' || phase === 'fb-fail') && ( <Feedback type={phase === 'fb-ok' ? 'correct' : 'wrong'} message={fbMsg} accent={loc.accent} glow={loc.glow} onDismiss={dismissFb} combo={localCombo} showComboBonus={false} /> )}
+      
+      {/* 🟢 Boss Encounter gets the logger too */}
+      {phase === 'boss' && ( <BossEncounter loc={loc} boss={{ ...loc.boss, words: bossWords }} onDefeat={handleBossDefeated} onLogAnswer={onLogAnswer} /> )}
+      
       {phase === 'area-complete' && ( <AreaComplete loc={loc} onProceed={handleProceed} postBossText={loc.postBoss} /> )}
+      
       {showDeath && <DeathOverlay />}
 
       {phase === 'transitioning' && (

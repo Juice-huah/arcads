@@ -4,36 +4,32 @@ import React from 'react';
 const FONT = "'Cinzel', 'Palatino Linotype', serif";
 const FONT_B = "'Crimson Text', 'Georgia', serif";
 
-export default function Scoreboard({ score, wave, streak, onRestart, onMenu, onSaveScore, isScoreSaved }) {
-  // Determine performance grade based on SCORE (out of 30) instead of accuracy
+export default function Scoreboard({ score, maxScore, wave, streak, onMenu, isScoreSaved }) {
+  
+  // 🟢 DYNAMIC GRADE CALCULATION: Based on the exact number of questions
+  const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  
   let grade = "D";
   let color = "#ef4444";
   let message = "Study Harder!";
 
-  if (score >= 27) { // 90% of 30
+  if (percentage >= 90) { 
     grade = "S";
     color = "#ffd700";
     message = "Outstanding Scholar!";
-  } else if (score >= 22) { // 75% of 30
+  } else if (percentage >= 75) { 
     grade = "A";
     color = "#10b981";
     message = "Great Defender!";
-  } else if (score >= 18) { // 60% of 30
+  } else if (percentage >= 60) { 
     grade = "B";
     color = "#3b82f6";
     message = "Solid Effort!";
-  } else if (score >= 12) { // 40% of 30
+  } else if (percentage >= 40) { 
     grade = "C";
     color = "#f59e0b";
     message = "Keep Practicing!";
   }
-
-  // 🟢 FIXED: This now triggers the actual database save!
-  const handleSaveScore = async () => {
-      if (isScoreSaved) return;
-      await onSaveScore();
-      alert("Score saved successfully!");
-  };
 
   return (
     <div style={{
@@ -68,16 +64,16 @@ export default function Scoreboard({ score, wave, streak, onRestart, onMenu, onS
       }}>
         
         {/* Header */}
-        <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>{wave >= 4 && score > 0 ? "👑" : "💀"}</div>
+        <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>{percentage >= 90 ? "👑" : "💀"}</div>
         <h1 style={{
           margin: "0 0 20px 0",
           fontFamily: FONT,
           fontSize: "2.2rem",
-          color: wave >= 4 && score > 0 ? "#ffd700" : "#f59e0b",
+          color: percentage >= 90 ? "#ffd700" : "#f59e0b",
           textShadow: "0 2px 10px rgba(0,0,0,0.5)",
           textAlign: "center"
         }}>
-          {wave >= 4 && score > 0 ? "LEGENDARY BATTLE" : "CASTLE FALLEN"}
+          {percentage >= 90 ? "LEGENDARY BATTLE" : "BATTLE CONCLUDED"}
         </h1>
 
         {/* Score */}
@@ -93,7 +89,7 @@ export default function Scoreboard({ score, wave, streak, onRestart, onMenu, onS
           lineHeight: 1,
           marginBottom: "30px"
         }}>
-          {score} <span style={{fontSize: "2rem", color: "#6b7280"}}>/ 30</span>
+          {score} <span style={{fontSize: "2rem", color: "#6b7280"}}>/ {maxScore}</span>
         </div>
 
         {/* Center Grade Circle */}
@@ -119,8 +115,8 @@ export default function Scoreboard({ score, wave, streak, onRestart, onMenu, onS
         }}>
           <div style={statBox}>
             <span style={statIcon}>🌊</span>
-            <span style={statLabel}>WAVES SURVIVED</span>
-            <span style={statValue}>{wave}</span>
+            <span style={statLabel}>WAVES CLEARED</span>
+            <span style={statValue}>{wave - 1}</span>
           </div>
           <div style={statBox}>
             <span style={statIcon}>🔥</span>
@@ -129,46 +125,33 @@ export default function Scoreboard({ score, wave, streak, onRestart, onMenu, onS
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-          <button 
-            onClick={onRestart}
-            style={{
-              width: "100%", padding: "12px", borderRadius: "8px", border: "none",
-              background: "linear-gradient(135deg, #10b981, #059669)",
-              color: "#fff", fontFamily: FONT, fontWeight: "bold", fontSize: "1rem",
-              cursor: "pointer", boxShadow: "0 4px 15px rgba(16,185,129,0.3)"
-            }}
-          >
-            ⚔️ RETRY / PLAY AGAIN
-          </button>
-          
-          <div style={{ display: "flex", gap: "10px", width: "100%" }}>
-              <button 
-                onClick={handleSaveScore}
-                disabled={isScoreSaved}
-                style={{
-                  flex: 1, padding: "12px", borderRadius: "8px", border: "none",
-                  background: isScoreSaved ? "#374151" : "#3b82f6", 
-                  color: isScoreSaved ? "#9ca3af" : "#fff", 
-                  fontFamily: FONT, fontWeight: "bold", fontSize: "0.9rem", 
-                  cursor: isScoreSaved ? "default" : "pointer"
-                }}
-              >
-                {isScoreSaved ? "✅ SAVED" : "💾 SAVE SCORE"}
-              </button>
-              
-              <button 
+        {/* 🟢 NEW: Clean Exit System. Auto-saves and has only 1 button. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "15px", alignItems: "center", width: "100%" }}>
+            <div style={{
+                background: 'rgba(0,0,0,0.5)', 
+                padding: '15px 20px', 
+                borderRadius: '8px', 
+                border: isScoreSaved ? '2px solid #48bb78' : '2px dashed #aaa',
+                width: '100%',
+                textAlign: 'center'
+            }}>
+                <p style={{color: isScoreSaved ? '#48bb78' : '#fbd38d', fontSize: '1rem', margin: 0, fontWeight: 'bold'}}>
+                    {isScoreSaved ? '✅ PROGRESS SAVED' : '⏳ Saving results...'}
+                </p>
+            </div>
+            
+            <button 
                 onClick={onMenu}
                 style={{
-                  flex: 1, padding: "12px", borderRadius: "8px", border: "2px solid #4b5563",
+                  width: "100%", padding: "15px", borderRadius: "8px", border: "2px solid #4b5563",
                   background: "transparent", color: "#d1d5db", fontFamily: FONT, 
-                  fontWeight: "bold", fontSize: "0.9rem", cursor: "pointer"
+                  fontWeight: "bold", fontSize: "1.1rem", cursor: "pointer", transition: "all 0.2s"
                 }}
-              >
-                🚪 MAIN MENU
-              </button>
-          </div>
+                onMouseOver={(e) => { e.target.style.background = '#4b5563'; e.target.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#d1d5db'; }}
+            >
+              🚪 EXIT TO ARCADE
+            </button>
         </div>
 
       </div>

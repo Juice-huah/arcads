@@ -22,11 +22,14 @@ export function Btn({ children, onClick, color="#60a5fa", style={}, disabled=fal
   );
 }
 
-export function MenuScreen({ onPlay, onSkins, onExit, bestStreak, bestScore, unlockedSkins }) {
+export function MenuScreen({ onPlay, onExit, loading, disabled }) {
+  const [showHowTo, setShowHowTo] = useState(false);
+
   const stars = Array.from({length:55},(_,i)=>({
     left:`${(i*17.3)%100}%`, top:`${(i*13.7)%100}%`, s:i%5===0?3.5:1.5,
     d:`${(i*.12)%3}s`, t:`${1.5+(i%5)*.4}s`,
   }));
+
   return (
     <div style={{position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 38%,#0d1b2a 0%,#050c14 100%)",
       display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",zIndex:500}}>
@@ -38,6 +41,7 @@ export function MenuScreen({ onPlay, onSkins, onExit, bestStreak, bestScore, unl
             animation:`hPulse ${s.t} ${s.d} ease-in-out infinite`}} />
         ))}
       </div>
+      
       <div style={{position:"relative",zIndex:5,textAlign:"center",animation:"hSlideUp .6s ease-out"}}>
         <div style={{fontSize:108,animation:"hFloat 3.0s ease-in-out infinite",
           filter:"drop-shadow(0 0 55px rgba(74,222,128,.9)) drop-shadow(0 0 22px rgba(192,132,252,.6))",marginBottom:10}}>🐹</div>
@@ -50,45 +54,76 @@ export function MenuScreen({ onPlay, onSkins, onExit, bestStreak, bestScore, unl
           color:"rgba(255,255,255,.42)",letterSpacing:7,marginBottom:18,textTransform:"uppercase"}}>
           Word Chain Race
         </div>
-        {bestScore > 0 && (
-          <div style={{display:"inline-flex",gap:18,background:"rgba(251,191,36,.08)",
-            border:"1px solid rgba(251,191,36,.25)",borderRadius:30,padding:"6px 22px",marginBottom:28}}>
-            <span style={{fontFamily:"'Exo 2',sans-serif",fontSize:12,color:"#fbbf24"}}>🏆 {bestScore.toLocaleString()}</span>
-            <span style={{color:"rgba(255,255,255,.2)"}}>|</span>
-            <span style={{fontFamily:"'Exo 2',sans-serif",fontSize:12,color:"#4ade80"}}>🔥 ×{bestStreak} best streak</span>
-            <span style={{color:"rgba(255,255,255,.2)"}}>|</span>
-            <span style={{fontFamily:"'Exo 2',sans-serif",fontSize:12,color:"#c084fc"}}>🐹 {unlockedSkins} skins</span>
-          </div>
-        )}
       </div>
+
       <div style={{position:"relative",zIndex:5,display:"flex",flexDirection:"column",gap:10,minWidth:340}}>
         {[
-          {label:"▶  PLAY",            sub:"Roll & chain words across 5 worlds!", color:"#4ade80", fn:onPlay},
-          {label:"🐹  HAMSTER SKINS",  sub:"Unlock at streak milestones",          color:"#c084fc", fn:onSkins},
-          {label:"🚪  EXIT ARCADE",    sub:"Return to student dashboard",          color:"#ef4444", fn:onExit},
+          // 🟢 THE FIX: The start button knows if it's loading, or missing questions, or ready to play!
+          {
+            label: loading ? "⏳ LOADING..." : disabled ? "⚠️ NO QUESTIONS" : "▶ START GAME", 
+            sub: "Roll & chain words!", 
+            color: "#4ade80", 
+            fn: onPlay, 
+            disabled: loading || disabled
+          },
+          {label:"📖 HOW TO PLAY",   sub:"Learn the rules & mechanics", color:"#38bdf8", fn:() => setShowHowTo(true), disabled: false},
+          {label:"🚪 EXIT ARCADE",   sub:"Return to student dashboard", color:"#ef4444", fn:onExit, disabled: false},
         ].map((b,i)=>{
           const [h,setH] = useState(false);
           return (
-            <button key={i} onClick={b.fn} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-              style={{background:h?`${b.color}12`:"rgba(255,255,255,.04)",
-                border:`1.5px solid ${h?b.color:b.color+"44"}`,borderRadius:14,padding:"15px 22px",
-                cursor:"pointer",textAlign:"left",fontFamily:"'Exo 2',sans-serif",
-                transform:h?"translateX(8px)":"none",transition:"all .16s",
+            <button key={i} onClick={b.disabled ? null : b.fn} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+              style={{
+                background:h && !b.disabled ?`${b.color}12`:"rgba(255,255,255,.04)",
+                border:`1.5px solid ${h && !b.disabled ?b.color:b.color+"44"}`,
+                borderRadius:14,padding:"15px 22px",
+                cursor: b.disabled ? "not-allowed" : "pointer",
+                textAlign:"left",fontFamily:"'Exo 2',sans-serif",
+                transform:h && !b.disabled ?"translateX(8px)":"none",
+                transition:"all .16s",
                 animation:`hSlideUp .5s ${i*.1+.12}s ease-out both`,
-                boxShadow:h?`0 8px 32px ${b.color}22`:"none"}}>
+                boxShadow:h && !b.disabled ?`0 8px 32px ${b.color}22`:"none",
+                opacity: b.disabled ? 0.5 : 1
+              }}>
               <div style={{fontSize:15,fontWeight:700,letterSpacing:2,color:b.color}}>{b.label}</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,.35)",marginTop:3,fontFamily:"'Nunito',sans-serif"}}>{b.sub}</div>
             </button>
           );
         })}
       </div>
-      <div style={{position:"relative",zIndex:5,marginTop:22,fontFamily:"'Nunito',sans-serif",
-        fontSize:11,color:"rgba(255,255,255,.18)",letterSpacing:2,textAlign:"center",animation:"hSlideUp .5s .5s ease-out both"}}>
-        ← → STEER &nbsp;·&nbsp; SPACE / ↑ JUMP (DOUBLE JUMP ENABLED!)
-      </div>
+
+      {showHowTo && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "20px", pointerEvents: "all" }}>
+          <div style={{ background: "#111827", border: "2px solid #38bdf8", borderRadius: "20px", padding: "40px", maxWidth: "550px", width: "100%", color: "#fff", fontFamily: "'Nunito', sans-serif", boxShadow: "0 15px 50px rgba(56,189,248,0.2)" }}>
+            <h2 style={{ fontFamily: "'Fredoka One', sans-serif", color: "#38bdf8", fontSize: "2.2rem", marginBottom: "25px", textAlign: "center", marginTop: 0 }}>HOW TO PLAY</h2>
+            
+            <ul style={{ fontSize: "1.1rem", lineHeight: "1.6", paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "15px", color: "#d1d5db" }}>
+              <li><strong style={{color:"#fff"}}>🎮 Controls:</strong> Use <kbd style={kbdStyle}>A</kbd> / <kbd style={kbdStyle}>D</kbd> or <kbd style={kbdStyle}>←</kbd> / <kbd style={kbdStyle}>→</kbd> to switch lanes. Press <kbd style={kbdStyle}>Space</kbd> to Jump (Double-tap to double jump).</li>
+              <li><strong style={{color:"#fff"}}>⛓️ Word Chain:</strong> Roll into the glowing rings. Select the correct answer to unlock the gate!</li>
+              <li><strong style={{color:"#fff"}}>🛤️ Choose Your Path:</strong> Take the narrow outer bridges for safety, or risk the center gap jumps for speed boosts!</li>
+              <li><strong style={{color:"#fff"}}>💰 1-UP Coins:</strong> Collect 10 glowing seeds to gain an extra life!</li>
+              <li><strong style={{color:"#fff"}}>💥 Hazards:</strong> Falling off the track or picking the wrong answer will cost you 1 Life!</li>
+            </ul>
+
+            <button 
+              onClick={() => setShowHowTo(false)}
+              style={{ width: "100%", padding: "16px", marginTop: "35px", background: "#38bdf8", color: "#111827", border: "none", borderRadius: "12px", fontSize: "1.2rem", fontFamily: "'Fredoka One', sans-serif", cursor: "pointer", transition: "transform 0.1s" }}
+              onMouseDown={(e) => e.target.style.transform = "scale(0.97)"}
+              onMouseUp={(e) => e.target.style.transform = "scale(1)"}
+            >
+              GOT IT!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const kbdStyle = {
+  background: "#374151", border: "1px solid #4b5563", borderRadius: "4px",
+  padding: "2px 6px", fontSize: "0.9rem", color: "#f3f4f6",
+  fontFamily: "monospace", boxShadow: "0 2px 0 #1f2937"
+};
 
 export function WorldScreen({ scores, onSelect, onBack }) {
   return (
@@ -117,7 +152,7 @@ export function WorldScreen({ scores, onSelect, onBack }) {
               </div>
               <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:15,color:w.color,marginBottom:5}}>{w.name}</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,.45)",fontFamily:"'Nunito',sans-serif",lineHeight:1.5,marginBottom:8}}>{w.desc}</div>
-              {sc && <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:11,color:"#fbbf24"}}>🏆 {sc.score?.toLocaleString()} &nbsp;·&nbsp; 🔥×{sc.streak}</div>}
+              {sc && <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:11,color:"#fbbf24"}}>🏆 {sc.score?.toLocaleString()}  ·  🔥×{sc.streak}</div>}
               <div style={{position:"absolute",top:10,right:10,fontSize:10,color:w.color,
                 background:w.color+"22",padding:"2px 7px",borderRadius:5,fontFamily:"'Exo 2',sans-serif",fontWeight:700}}>✓ FREE</div>
             </div>
@@ -203,10 +238,9 @@ export function CountdownScreen({ count, world }) {
 }
 
 export function GameHUD({ hud }) {
-  const { score, lives, hp, combo, timerSec, worldName, worldColor, worldEmoji, activePowerups, streak, gameTime } = hud;
+  const { score, timerSec, worldName, worldColor, worldEmoji, gameTime } = hud;
   const timerPct = Math.min(100,(timerSec/(gameTime||120))*100);
   const tc = timerPct>50?"#4ade80":timerPct>25?"#fbbf24":"#f87171";
-  const hpC = hp>60?"linear-gradient(90deg,#4ade80,#22d3ee)":hp>30?"linear-gradient(90deg,#fbbf24,#f97316)":"linear-gradient(90deg,#ef4444,#f43f5e)";
   const mins=Math.floor(timerSec/60), secs=Math.floor(timerSec%60);
 
   return (
@@ -214,37 +248,20 @@ export function GameHUD({ hud }) {
       <div style={{position:"absolute",top:0,left:0,right:0,padding:"10px 16px 14px",
         background:"linear-gradient(180deg,rgba(4,6,18,.95) 0%,rgba(4,6,18,.55) 75%,transparent 100%)",
         display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
-        <div style={{minWidth:130}}>
-          <div style={{display:"flex",gap:5,marginBottom:6}}>
-            {[0,1,2].map(i=>(
-              <div key={i} style={{fontSize:20,opacity:i<lives?1:.15,filter:i<lives?"drop-shadow(0 0 10px #4ade80)":"none",transition:"all .3s"}}>
-                {i<lives?"🐹":"💀"}
-              </div>
-            ))}
-          </div>
-          <div style={{width:120,height:8,background:"rgba(255,255,255,.09)",borderRadius:5,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${hp}%`,background:hpC,borderRadius:5,transition:"width .22s"}} />
-          </div>
-          <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:9,color:"rgba(255,255,255,.3)",letterSpacing:2,marginTop:3}}>ENERGY {hp}%</div>
-        </div>
+        
+        <div style={{minWidth:130}}></div>
+
         <div style={{textAlign:"center"}}>
-          <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:10,color:worldColor,letterSpacing:2,
-            background:worldColor+"22",border:`1px solid ${worldColor}44`,padding:"3px 12px",borderRadius:20,display:"inline-block",marginBottom:6}}>
+          <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:12,color:worldColor,letterSpacing:2,
+            background:worldColor+"22",border:`1px solid ${worldColor}44`,padding:"5px 15px",borderRadius:20,display:"inline-block",marginBottom:6}}>
             {worldEmoji} {worldName}
           </div>
-          {streak >= 3 && (
-            <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:14,
-              color:streak>=10?"#c084fc":streak>=6?"#38bdf8":"#f97316",
-              background:"rgba(0,0,0,.65)",borderRadius:10,padding:"3px 12px",
-              animation:"hBounce .6s ease-in-out infinite",display:"inline-block"}}>
-              🔥 {streak} STREAK!
-            </div>
-          )}
         </div>
+
         <div style={{textAlign:"right",minWidth:130}}>
-          <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:9,color:"rgba(255,255,255,.35)",letterSpacing:3}}>SCORE</div>
-          <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:28,color:"#fbbf24",lineHeight:1,textShadow:"0 0 24px #fbbf2488"}}>{score.toLocaleString()}</div>
-          <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:22,color:tc,lineHeight:1.2,
+          <div style={{fontFamily:"'Exo 2',sans-serif",fontSize:10,color:"rgba(255,255,255,.45)",letterSpacing:3}}>SCORE</div>
+          <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:32,color:"#fbbf24",lineHeight:1,textShadow:"0 0 24px #fbbf2488"}}>{score.toLocaleString()}</div>
+          <div style={{fontFamily:"'Fredoka One',sans-serif",fontSize:22,color:tc,lineHeight:1.2, marginTop: '8px',
             animation:timerPct<25?"hPulse .5s ease-in-out infinite":"none"}}>
             ⏱ {String(mins).padStart(2,"0")}:{String(secs).padStart(2,"0")}
           </div>
@@ -252,34 +269,12 @@ export function GameHUD({ hud }) {
             <div style={{height:"100%",width:`${timerPct}%`,background:tc,transition:"width .5s,background .5s"}} />
           </div>
         </div>
-      </div>
-      {combo >= 2 && (
-        <div style={{position:"absolute",top:76,left:"50%",transform:"translateX(-50%)",
-          fontFamily:"'Fredoka One',sans-serif",fontSize:combo>=10?26:combo>=6?22:18,
-          color:combo>=10?"#f43f5e":combo>=6?"#f97316":"#fbbf24",textShadow:"0 0 28px currentColor",
-          background:"rgba(0,0,0,.7)",border:`2px solid ${combo>=10?"#f43f5e":combo>=6?"#f97316":"#fbbf2488"}`,
-          borderRadius:14,padding:"5px 18px",animation:"hBounce .55s ease-in-out infinite"}}>
-          ✨ ×{combo} COMBO
-        </div>
-      )}
-      <div style={{position:"absolute",bottom:220,left:14,display:"flex",flexDirection:"column",gap:5}}>
-        {Object.entries(activePowerups||{}).map(([id,t])=>{
-          if(!t||t<=0) return null;
-          const colors={boost:"#f97316",double:"#c084fc"}; const c=colors[id]||"#fff";
-          return (
-            <div key={id} style={{background:"rgba(0,0,0,.8)",border:`1px solid ${c}`,borderRadius:8,
-              padding:"4px 10px",display:"flex",alignItems:"center",gap:6,color:c,
-              fontFamily:"'Exo 2',sans-serif",fontSize:11,fontWeight:700,animation:"hGlow .9s ease-in-out infinite"}}>
-              {id==="boost"?"⚡":"✨"} {id.toUpperCase()} {Math.ceil(t)}s
-            </div>
-          );
-        })}
+
       </div>
     </div>
   );
 }
 
-// 🟢 NEW: 4-CHOICE CHAIN LINK OVERLAY 
 export function WordPromptOverlay({ promptData, onSubmit, flash, worldColor }) {
   const [selected, setSelected] = useState(null);
 
@@ -314,14 +309,6 @@ export function WordPromptOverlay({ promptData, onSubmit, flash, worldColor }) {
       }} />
 
       <div style={{
-        position: "absolute", top: 78, left: 14, pointerEvents: "none",
-        background: "rgba(251,191,36,.13)", border: "1.5px solid rgba(251,191,36,.55)",
-        borderRadius: 10, padding: "5px 13px",
-        fontFamily: "'Exo 2',sans-serif", fontSize: 10, color: "#fbbf24",
-        letterSpacing: 2, animation: "hPulse 1s ease-in-out infinite",
-      }}>🐢 SLOW MOTION</div>
-
-      <div style={{
         position: "absolute", top: "14%", left: "50%",
         transform: "translateX(-50%)",
         width: "min(560px, 94vw)",
@@ -334,9 +321,7 @@ export function WordPromptOverlay({ promptData, onSubmit, flash, worldColor }) {
         animation: isWrong ? "hShake .5s ease-in-out" : isCorrect ? "hCorrect .5s ease-in-out" : "hRingEntry .4s cubic-bezier(.2,1.3,.5,1) both",
       }}>
 
-        {/* 🟢 THEMED AS A PHYSICAL CHAIN LINK! */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          
           <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, color: "rgba(255,255,255,.45)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
             Build the Chain!
           </div>
@@ -364,7 +349,6 @@ export function WordPromptOverlay({ promptData, onSubmit, flash, worldColor }) {
           </div>
         </div>
 
-        {/* 4 BUTTON GRID */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {options.map((opt, idx) => {
                 let btnBg = `${col}1c`;
@@ -421,7 +405,7 @@ export function WordPromptOverlay({ promptData, onSubmit, flash, worldColor }) {
           transition: "color .2s",
         }}>
           {isCorrect && "✓ Correct! Path cleared — keep rolling!"}
-          {isWrong   && "✗ Not quite — try again!"}
+          {isWrong   && "✗ Not quite — -1 LIFE!"}
         </div>
       </div>
     </div>
@@ -515,8 +499,8 @@ export function EndScreen({ won, data, onRetry, onMenu, onNext }) {
           {[
             {label:"Score",    value:data?.score?.toLocaleString()||0, icon:"🏆", c:"#fbbf24"},
             {label:"Streak",   value:`×${data?.maxStreak||0}`,         icon:"🔥", c:"#f97316"},
-            {label:"Words",    value:data?.chainLen||0,                 icon:"📝", c:"#4ade80"},
-            {label:"Accuracy", value:`${data?.accuracy||0}%`,           icon:"🎯", c:"#38bdf8"},
+            {label:"Words",    value:data?.chainLen||0,                icon:"📝", c:"#4ade80"},
+            {label:"Accuracy", value:`${data?.accuracy||0}%`,          icon:"🎯", c:"#38bdf8"},
           ].map(s=>(
             <div key={s.label} style={{background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
               <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>

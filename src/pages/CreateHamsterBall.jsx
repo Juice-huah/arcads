@@ -1,3 +1,4 @@
+// src/pages/CreateHamsterBall.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -9,18 +10,15 @@ function CreateHamsterBall() {
   const [user, setUser] = useState(null);
   const [classes, setClasses] = useState([]);
   
-  // Game Configuration States
-  const [selectedClass, setSelectedClass] = useState('');
-  const [category, setCategory] = useState('all');
-  const [minLength, setMinLength] = useState(2);
-  const [gameTime, setGameTime] = useState(120);
-  const [wrongPenalty, setWrongPenalty] = useState(8);
-  const [showHints, setShowHints] = useState(true);
-  const [startingWords, setStartingWords] = useState("apple\nriver\nsun\ntree\negg");
-  const [customWords, setCustomWords] = useState("");
+  // 🟢 NEW: Array to hold multiple selected classes
+  const [selectedClasses, setSelectedClasses] = useState([]);
+  const [gameTitle, setGameTitle] = useState('HamsterBall Word Chain');
+  
+  const [questions, setQuestions] = useState([
+      { prompt: 'APPLE', choice_a: '', choice_b: '', choice_c: '', choice_d: '', correct: '0' }
+  ]);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Accent color for HamsterBall
   const themeColor = "#ff007f"; 
 
   useEffect(() => {
@@ -29,7 +27,7 @@ function CreateHamsterBall() {
         setUser(currentUser);
         fetchClasses(currentUser.uid);
       } else {
-        navigate('/login');
+        navigate('/teacher-login');
       }
     });
     return () => unsubscribe();
@@ -45,51 +43,91 @@ function CreateHamsterBall() {
     }
   };
 
-  const parseWords = (txt) => txt.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  // 🟢 NEW: Handle checking/unchecking classes
+  const handleClassToggle = (classId) => {
+      setSelectedClasses(prev => 
+          prev.includes(classId) 
+              ? prev.filter(id => id !== classId) 
+              : [...prev, classId]
+      );
+  };
+
+  const handleQuestionCountChange = (e) => {
+      const newCount = parseInt(e.target.value, 10);
+      if (isNaN(newCount) || newCount < 1 || newCount > 30) return;
+
+      if (newCount > questions.length) {
+          const extra = Array.from({ length: newCount - questions.length }, () => ({
+              prompt: '', choice_a: '', choice_b: '', choice_c: '', choice_d: '', correct: '0'
+          }));
+          setQuestions([...questions, ...extra]);
+      } else {
+          setQuestions(questions.slice(0, newCount));
+      }
+  };
+
+  const handleQuestionChange = (index, field, value) => {
+      const updated = [...questions];
+      updated[index][field] = value;
+      setQuestions(updated);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedClass) return alert("Please select a class to assign this game to!");
+    if (selectedClasses.length === 0) return alert("Please select at least one class to assign this game to!");
     
+    const isInvalid = questions.some(q => 
+        !q.prompt.trim() || !q.choice_a.trim() || !q.choice_b.trim() || !q.choice_c.trim() || !q.choice_d.trim()
+    );
+
+    if (isInvalid) {
+        return alert("Validation Failed: Please fill in all prompts and multiple-choice options before saving.");
+    }
+
     setIsSubmitting(true);
     
-    const startWordsList = parseWords(startingWords);
-    const customWordsList = parseWords(customWords);
-
-    // Package the configuration exactly how HamsterBall expects it
-    const gameConfig = {
-      category,
-      minLength: Number(minLength),
-      gameTime: Number(gameTime),
-      wrongPenalty: Number(wrongPenalty),
-      showHints,
-      startingWords: startWordsList.length > 0 ? startWordsList : ["apple", "river", "sun"],
-      customWords: customWordsList
-    };
-
     try {
-      // Sends the creation request to your backend
-      const res = await fetch('http://localhost:8081/api/create-game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher_fid: user.uid,
-          class_id: selectedClass,
-          game_type: 'HamsterBall',
-          // Storing the config as a JSON string in your database's game_data or questions column
-          game_data: JSON.stringify(gameConfig) 
-        })
-      });
+      // 🟢 NEW: Loop through EVERY selected class and deploy the game
+      for (const classId of selectedClasses) {
+          // 1. Create the Game Room for this specific class
+          const gameRes = await fetch('http://localhost:8081/api/create-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              teacher_fid: user.uid,
+              class_id: classId,
+              game_type: 'HamsterBall',
+              game_title: gameTitle
+            })
+          });
 
-      if (res.ok) {
-        alert("HamsterBall Game created and assigned successfully!");
-        navigate('/teacher-menu');
-      } else {
-        alert("Failed to create game. Please check your server.");
+          const gameData = await gameRes.json();
+          if (!gameRes.ok) throw new Error(gameData.error);
+          const newGameId = gameData.game_id;
+
+          // 2. Upload all questions for this specific game
+          for (let q of questions) {
+              await fetch('http://localhost:8081/api/add-question', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      game_id: newGameId,
+                      question_text: q.prompt,
+                      choice_a: q.choice_a,
+                      choice_b: q.choice_b,
+                      choice_c: q.choice_c,
+                      choice_d: q.choice_d,
+                      correct_answer: q.correct
+                  })
+              });
+          }
       }
+
+      alert(`HamsterBall Game successfully assigned to ${selectedClasses.length} class(es)!`);
+      navigate('/teacher-menu');
     } catch (err) {
       console.error("Error saving game:", err);
-      alert("Server Error");
+      alert("Server Error while saving game.");
     } finally {
       setIsSubmitting(false);
     }
@@ -98,143 +136,118 @@ function CreateHamsterBall() {
   return (
     <div className="teacher-dashboard" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px' }}>
       
-      <div style={{ maxWidth: '800px', width: '100%', background: '#0a0f1a', borderRadius: '16px', border: `2px solid ${themeColor}`, padding: '30px', boxShadow: `0 0 30px ${themeColor}44` }}>
+      <div style={{ maxWidth: '900px', width: '100%', background: '#0a0f1a', borderRadius: '16px', border: `2px solid ${themeColor}`, padding: '30px', boxShadow: `0 0 30px ${themeColor}44` }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '20px', marginBottom: '20px' }}>
           <div>
             <h1 style={{ color: themeColor, fontSize: '2rem', margin: 0, fontFamily: "'Fredoka One', sans-serif", letterSpacing: '2px' }}>
               🐹 CREATE HAMSTERBALL
             </h1>
-            <p style={{ color: '#aaa', margin: '5px 0 0 0', fontSize: '0.9rem' }}>Assign a 3D Word Chain race to your class.</p>
+            <p style={{ color: '#aaa', margin: '5px 0 0 0', fontSize: '0.9rem' }}>Build a 3D Word Chain Race</p>
           </div>
-          <button onClick={() => navigate('/teacher-menu')} style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={() => navigate('/teacher-menu')} style={{ background: 'transparent', border: '1px solid #ff4757', color: '#ff4757', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
             ✕ CANCEL
           </button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* CLASS SELECTION */}
-          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-            <label style={{ display: 'block', color: themeColor, fontWeight: 'bold', marginBottom: '10px' }}>Assign to Class *</label>
-            <select 
-              value={selectedClass} 
-              onChange={(e) => setSelectedClass(e.target.value)} 
-              required
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', background: '#111827', color: '#fff', border: '1px solid #374151', fontSize: '1rem' }}
-            >
-              <option value="" disabled>Select a class...</option>
-              {classes.map(cls => (
-                <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
+          {/* GENERAL SETTINGS */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
+                <label style={{ display: 'block', color: themeColor, fontWeight: 'bold', marginBottom: '10px' }}>Game Title</label>
+                <input 
+                  type="text" value={gameTitle} onChange={(e) => setGameTitle(e.target.value)} required
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* 🟢 NEW: Checkbox List for Multiple Class Selection */}
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
+                <label style={{ display: 'block', color: themeColor, fontWeight: 'bold', marginBottom: '10px' }}>Assign to Classes *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '120px', overflowY: 'auto', paddingRight: '10px' }}>
+                    {classes.length === 0 && <p style={{color: '#aaa', fontSize: '0.9rem'}}>No classes found.</p>}
+                    {classes.map(cls => (
+                        <label key={cls.class_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#fff', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={selectedClasses.includes(cls.class_id)}
+                                onChange={() => handleClassToggle(cls.class_id)}
+                                style={{ width: '18px', height: '18px', accentColor: themeColor, cursor: 'pointer' }}
+                            />
+                            {cls.class_name}
+                        </label>
+                    ))}
+                </div>
+              </div>
+          </div>
+
+          {/* QUESTION BUILDER HEADER */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '15px 20px', borderRadius: '12px', marginTop: '10px' }}>
+              <h2 style={{ color: '#fff', fontSize: '1.2rem', margin: 0 }}>⛓️ Word Chain Questions</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <label style={{ color: '#aaa', fontSize: '0.9rem' }}>Number of Questions:</label>
+                  <input 
+                      type="number" min="1" max="30" value={questions.length} onChange={handleQuestionCountChange}
+                      style={{ width: '60px', padding: '8px', borderRadius: '6px', background: '#111827', color: '#fff', border: '1px solid #374151', textAlign: 'center' }}
+                  />
+              </div>
+          </div>
+
+          {/* QUESTIONS LIST */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '500px', overflowY: 'auto', paddingRight: '10px' }}>
+              {questions.map((q, idx) => (
+                  <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${themeColor}55`, padding: '20px', borderRadius: '12px', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '-10px', left: '-10px', background: themeColor, width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff' }}>
+                          {idx + 1}
+                      </div>
+                      
+                      <div style={{ marginBottom: '15px' }}>
+                          <label style={{ color: '#aaa', fontSize: '0.85rem' }}>Previous Word (Prompt)</label>
+                          <input type="text" placeholder="e.g. APPLE" value={q.prompt} onChange={(e) => handleQuestionChange(idx, 'prompt', e.target.value)} style={inputStyle} required />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div>
+                              <label style={{ color: q.correct === '0' ? '#4ade80' : '#aaa', fontSize: '0.8rem' }}>
+                                  <input type="radio" name={`correct_${idx}`} checked={q.correct === '0'} onChange={() => handleQuestionChange(idx, 'correct', '0')} style={{marginRight: '5px'}}/> Choice A (Starts with E)
+                              </label>
+                              <input type="text" placeholder="EGG" value={q.choice_a} onChange={(e) => handleQuestionChange(idx, 'choice_a', e.target.value)} style={{...inputStyle, borderColor: q.correct === '0' ? '#4ade80' : '#374151'}} required />
+                          </div>
+                          <div>
+                              <label style={{ color: q.correct === '1' ? '#4ade80' : '#aaa', fontSize: '0.8rem' }}>
+                                  <input type="radio" name={`correct_${idx}`} checked={q.correct === '1'} onChange={() => handleQuestionChange(idx, 'correct', '1')} style={{marginRight: '5px'}}/> Choice B
+                              </label>
+                              <input type="text" placeholder="DOG" value={q.choice_b} onChange={(e) => handleQuestionChange(idx, 'choice_b', e.target.value)} style={{...inputStyle, borderColor: q.correct === '1' ? '#4ade80' : '#374151'}} required />
+                          </div>
+                          <div>
+                              <label style={{ color: q.correct === '2' ? '#4ade80' : '#aaa', fontSize: '0.8rem' }}>
+                                  <input type="radio" name={`correct_${idx}`} checked={q.correct === '2'} onChange={() => handleQuestionChange(idx, 'correct', '2')} style={{marginRight: '5px'}}/> Choice C
+                              </label>
+                              <input type="text" placeholder="CAT" value={q.choice_c} onChange={(e) => handleQuestionChange(idx, 'choice_c', e.target.value)} style={{...inputStyle, borderColor: q.correct === '2' ? '#4ade80' : '#374151'}} required />
+                          </div>
+                          <div>
+                              <label style={{ color: q.correct === '3' ? '#4ade80' : '#aaa', fontSize: '0.8rem' }}>
+                                  <input type="radio" name={`correct_${idx}`} checked={q.correct === '3'} onChange={() => handleQuestionChange(idx, 'correct', '3')} style={{marginRight: '5px'}}/> Choice D
+                              </label>
+                              <input type="text" placeholder="BIRD" value={q.choice_d} onChange={(e) => handleQuestionChange(idx, 'choice_d', e.target.value)} style={{...inputStyle, borderColor: q.correct === '3' ? '#4ade80' : '#374151'}} required />
+                          </div>
+                      </div>
+                  </div>
               ))}
-            </select>
           </div>
 
-          {/* GAME RULES GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: '#fff', marginBottom: '10px', fontSize: '0.9rem' }}>Word Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
-                <option value="all">All Words (Mixed)</option>
-                <option value="animals">Animals</option>
-                <option value="nature">Nature</option>
-                <option value="objects">Objects</option>
-                <option value="actions">Actions</option>
-                <option value="places">Places</option>
-              </select>
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: '#fff', marginBottom: '10px', fontSize: '0.9rem' }}>Minimum Word Length</label>
-              <select value={minLength} onChange={(e) => setMinLength(e.target.value)} style={selectStyle}>
-                <option value="2">2+ Letters (Beginner)</option>
-                <option value="3">3+ Letters (Normal)</option>
-                <option value="4">4+ Letters (Challenging)</option>
-                <option value="5">5+ Letters (Hard)</option>
-              </select>
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: '#fff', marginBottom: '10px', fontSize: '0.9rem' }}>Game Time Limit</label>
-              <select value={gameTime} onChange={(e) => setGameTime(e.target.value)} style={selectStyle}>
-                <option value="60">60 Seconds</option>
-                <option value="90">90 Seconds</option>
-                <option value="120">120 Seconds (Standard)</option>
-                <option value="180">180 Seconds</option>
-              </select>
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: '#fff', marginBottom: '10px', fontSize: '0.9rem' }}>Wrong Answer Penalty</label>
-              <select value={wrongPenalty} onChange={(e) => setWrongPenalty(e.target.value)} style={selectStyle}>
-                <option value="5">-5 HP (Gentle)</option>
-                <option value="8">-8 HP (Normal)</option>
-                <option value="12">-12 HP (Challenging)</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* TOGGLE OPTIONS */}
-          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <input 
-              type="checkbox" 
-              id="showHints" 
-              checked={showHints} 
-              onChange={(e) => setShowHints(e.target.checked)} 
-              style={{ width: '20px', height: '20px', accentColor: themeColor }}
-            />
-            <label htmlFor="showHints" style={{ color: '#fff', fontSize: '1rem', cursor: 'pointer' }}>
-              Enable Auto-Hints (Shows a helpful word if the student takes too long)
-            </label>
-          </div>
-
-          {/* WORD LISTS */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: themeColor, fontWeight: 'bold', marginBottom: '10px' }}>Starting Words</label>
-              <p style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '10px' }}>The seed words that appear on the glowing ring signs. Separate with new lines.</p>
-              <textarea 
-                value={startingWords} 
-                onChange={(e) => setStartingWords(e.target.value)} 
-                rows="5"
-                style={textareaStyle}
-              />
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
-              <label style={{ display: 'block', color: themeColor, fontWeight: 'bold', marginBottom: '10px' }}>Custom Word Bank (Optional)</label>
-              <p style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '10px' }}>Restrict valid answers to ONLY these words. Leave blank to use the massive built-in dictionary.</p>
-              <textarea 
-                value={customWords} 
-                onChange={(e) => setCustomWords(e.target.value)} 
-                placeholder="cat&#10;dog&#10;rabbit"
-                rows="5"
-                style={textareaStyle}
-              />
-            </div>
-          </div>
-
-          {/* SUBMIT */}
           <button 
             type="submit" 
-            disabled={isSubmitting}
+            disabled={isSubmitting || selectedClasses.length === 0}
             style={{
-              background: themeColor,
-              color: '#fff',
-              border: 'none',
-              padding: '16px',
-              fontSize: '1.2rem',
-              fontWeight: 'bold',
-              borderRadius: '12px',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              marginTop: '10px',
-              opacity: isSubmitting ? 0.7 : 1,
-              boxShadow: `0 6px 20px ${themeColor}66`
+              background: `linear-gradient(135deg, ${themeColor}, #ff0055)`,
+              color: '#fff', border: 'none', padding: '16px', fontSize: '1.2rem',
+              fontWeight: 'bold', borderRadius: '12px', cursor: (isSubmitting || selectedClasses.length === 0) ? 'not-allowed' : 'pointer',
+              marginTop: '10px', opacity: (isSubmitting || selectedClasses.length === 0) ? 0.7 : 1, boxShadow: `0 6px 20px ${themeColor}66`
             }}
           >
-            {isSubmitting ? 'SAVING...' : '💾 ASSIGN GAME'}
+            {isSubmitting ? 'SAVING GAME...' : `💾 ASSIGN GAME TO ${selectedClasses.length} CLASS(ES)`}
           </button>
 
         </form>
@@ -243,26 +256,9 @@ function CreateHamsterBall() {
   );
 }
 
-// Reusable inline styles for the form inputs
-const selectStyle = {
-  width: '100%',
-  padding: '12px',
-  borderRadius: '8px',
-  background: '#1f2937',
-  color: '#fff',
-  border: '1px solid #4b5563',
-  fontSize: '0.95rem'
-};
-
-const textareaStyle = {
-  width: '100%',
-  padding: '12px',
-  borderRadius: '8px',
-  background: '#1f2937',
-  color: '#fff',
-  border: '1px solid #4b5563',
-  fontSize: '0.95rem',
-  resize: 'vertical'
+const inputStyle = {
+  width: '100%', padding: '12px', borderRadius: '8px', background: '#111827',
+  color: '#fff', border: '1px solid #374151', fontSize: '0.95rem', marginTop: '5px'
 };
 
 export default CreateHamsterBall;

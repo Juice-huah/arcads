@@ -11,7 +11,6 @@ export default function CreateTowerDefense() {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState('');
     
-    // Wave Builder State - 🟢 Defaults to 6 pairs now for Easy!
     const [waveLevel, setWaveLevel] = useState('Easy');
     const [pairs, setPairs] = useState(
         Array.from({ length: 6 }, () => ({ prompt: '', answer: '' }))
@@ -20,24 +19,13 @@ export default function CreateTowerDefense() {
     const [savedSets, setSavedSets] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
 
-    // 🟢 Exact Pair Requirements matching our new game configuration!
-    const getPairsForWave = (level) => {
-        switch (level) {
-            case 'Easy': return 6;
-            case 'Medium': return 6;
-            case 'Hard': return 8;
-            case 'Boss': return 10;
-            default: return 6;
-        }
-    };
-
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
                 fetchClasses(currentUser.uid);
             } else {
-                navigate('/teacher-login');
+                navigate('/login');
             }
         });
         return () => unsubscribe();
@@ -53,21 +41,22 @@ export default function CreateTowerDefense() {
         }
     };
 
-    // Automatically adjust the number of rows based on dropdown selection
-    const handleWaveLevelChange = (e) => {
-        const newLevel = e.target.value;
-        setWaveLevel(newLevel);
-        const requiredPairs = getPairsForWave(newLevel);
-        
-        if (pairs.length < requiredPairs) {
-            // Add new empty rows if expanding
-            const diff = requiredPairs - pairs.length;
+    // 🟢 NEW: Allows the teacher to freely adjust the number of questions per wave!
+    const handlePairCountChange = (e) => {
+        const newCount = parseInt(e.target.value, 10);
+        if (isNaN(newCount) || newCount < 3 || newCount > 15) return; 
+
+        if (newCount > pairs.length) {
+            const diff = newCount - pairs.length;
             const extraPairs = Array.from({ length: diff }, () => ({ prompt: '', answer: '' }));
             setPairs([...pairs, ...extraPairs]);
-        } else if (pairs.length > requiredPairs) {
-            // Shrink the rows if selecting a lower difficulty
-            setPairs(pairs.slice(0, requiredPairs));
+        } else if (newCount < pairs.length) {
+            setPairs(pairs.slice(0, newCount));
         }
+    };
+
+    const handleWaveLevelChange = (e) => {
+        setWaveLevel(e.target.value);
     };
 
     const handlePairChange = (index, field, value) => {
@@ -79,10 +68,15 @@ export default function CreateTowerDefense() {
     const handleSaveWaveSet = (e) => {
         e.preventDefault();
         
-        // Validate all fields are filled
         const isValid = pairs.every(p => p.prompt.trim() !== '' && p.answer.trim() !== '');
         if (!isValid) {
             alert("Please fill out all Prompts and Answers before saving the wave.");
+            return;
+        }
+
+        // Prevent duplicate wave difficulties
+        if (savedSets.some(s => s.difficulty === waveLevel)) {
+            alert(`You already have a ${waveLevel} wave! Please choose a different difficulty or delete the old one.`);
             return;
         }
 
@@ -93,10 +87,8 @@ export default function CreateTowerDefense() {
         };
 
         setSavedSets([...savedSets, newSet]);
-        
-        // Reset form to Easy defaults (6 pairs)
         setPairs(Array.from({ length: 6 }, () => ({ prompt: '', answer: '' })));
-        setWaveLevel('Easy');
+        setWaveLevel('Medium');
     };
 
     const removeSavedSet = (setId) => {
@@ -191,22 +183,15 @@ export default function CreateTowerDefense() {
             <div className="td-requirement-banner">
                 <i className="fas fa-info-circle info-icon"></i>
                 <div className="req-text">
-                    <strong>WAVE CONFIGURATION REQUIREMENT:</strong><br/>
-                    Create groups of questions organized by <strong>Wave Difficulty</strong>. The number of pairs is strictly set:
-                    <ul>
-                        <li><strong>Easy Wave:</strong> 6 pairs</li> {/* 🟢 UPDATED UI TEXT */}
-                        <li><strong>Medium Wave:</strong> 6 pairs</li>
-                        <li><strong>Hard Wave:</strong> 8 pairs</li>
-                        <li><strong>Boss Wave:</strong> 10 pairs</li>
-                    </ul>
-                    The game will automatically mix the answers within that wave to create the wrong choices for the student.
+                    <strong>WAVE CONFIGURATION:</strong><br/>
+                    Adjust the number of questions to define how many enemies will spawn in each wave. (Min: 3, Max: 15).
                 </div>
             </div>
 
             <div className="create-td-layout">
                 {/* LEFT COLUMN: Wave Builder */}
                 <div className="td-builder-panel">
-                    <div className="panel-header">
+                    <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <h2>⚔️ Wave Builder</h2>
                         <select 
                             className="wave-select" 
@@ -218,6 +203,19 @@ export default function CreateTowerDefense() {
                             <option value="Hard">Hard (Late Waves)</option>
                             <option value="Boss">Boss (Special)</option>
                         </select>
+
+                        {/* 🟢 NEW: Custom Question Count Input */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                            <label style={{ fontSize: '0.9rem', color: '#8b949e', fontWeight: 'bold' }}>Questions:</label>
+                            <input 
+                                type="number" 
+                                min="3" 
+                                max="15"
+                                value={pairs.length}
+                                onChange={handlePairCountChange}
+                                style={{ width: '60px', padding: '8px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#fff', textAlign: 'center' }}
+                            />
+                        </div>
                     </div>
                     
                     <form onSubmit={handleSaveWaveSet} className="td-form">
@@ -302,8 +300,8 @@ export default function CreateTowerDefense() {
                                                 {set.difficulty} Wave
                                             </span>
                                             <div className="header-actions">
-                                                <span className="pair-count">{set.pairs.length} Pairs</span>
-                                                <button onClick={() => removeSavedSet(set.id)} className="btn-remove-set" title="Delete Wave">✕ Delete Wave</button>
+                                                <span className="pair-count">{set.pairs.length} Enemies</span>
+                                                <button onClick={() => removeSavedSet(set.id)} className="btn-remove-set" title="Delete Wave">✕ Delete</button>
                                             </div>
                                         </div>
                                         <div className="wave-set-preview">

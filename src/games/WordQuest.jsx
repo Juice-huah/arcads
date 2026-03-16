@@ -4,7 +4,6 @@ import "./WordQuest.css";
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 
-// --- AUDIO IMPORTS ---
 import bgmMenu from "../assets/wordquest/sounds/bgm_menu.wav";
 import bgmGame from "../assets/wordquest/sounds/bgm_game.wav";
 import sfxClick from "../assets/wordquest/sounds/click.wav";
@@ -16,11 +15,9 @@ import {
 } from "../constants/gameData";
 
 import Starfield       from "../components/Starfield";
-import MainMenu        from "../components/MainMenu";
 import ModeSelect      from "../components/ModeSelect";
 import CharacterSelect from "../components/CharacterSelect";
 import GameScreen      from "../components/GameScreen";
-
 import { isQuestionTile } from "../components/Board";
 
 export default function WordQuest() {
@@ -51,10 +48,15 @@ export default function WordQuest() {
   const playersRef = useRef(null);
   useEffect(() => { playersRef.current = players; }, [players]);
 
+  // 🟢 STRICT QUESTION SEQUENCING REFS
   const allQsRef = useRef([]);       
-  const availableQsRef = useRef([]); 
+  const userDeckRef = useRef([]);   // Human deck (Strictly ordered)
+  const aiDeckRef = useRef([]);     // AI deck (Shuffled)
+  const answerLog = useRef([]);     
   
-  // --- AUDIO REFS & GLOBAL SFX ---
+  // 🟢 ANTI-DOUBLE-CLICK GUARD
+  const answerHandledRef = useRef(false);
+
   const bgmRef = useRef(null);
   const activeBgmRef = useRef(bgmMenu);
 
@@ -108,10 +110,18 @@ export default function WordQuest() {
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const formattedQs = data.map(q => {
+          
+          // 🟢 THE INVINCIBLE SORTER: Guarantees chronological creation order!
+          const sortedData = [...data].sort((a, b) => {
+              const numA = parseInt(a.question_number || a.id || a.question_id || 0, 10);
+              const numB = parseInt(b.question_number || b.id || b.question_id || 0, 10);
+              return numA - numB;
+          });
+
+          const formattedQs = sortedData.map(q => {
             const opts = [q.choice_a, q.choice_b, q.choice_c, q.choice_d].slice(0, 4);
             return {
-              id: q.question_id || Math.random(),
+              id: q.id || q.question_id, 
               question: q.question_text,
               options: opts,
               correct: opts[q.correct_answer] || opts[0], 
@@ -121,45 +131,58 @@ export default function WordQuest() {
           });
           
           setQuestions(formattedQs);
-          const pristineQs = JSON.parse(JSON.stringify(formattedQs));
-          allQsRef.current = pristineQs;
-          availableQsRef.current = JSON.parse(JSON.stringify(pristineQs));
+          allQsRef.current = formattedQs;
         }
       } catch(e) { console.error("Error fetching questions:", e); }
     };
     if (gameId) fetchQuestions();
   }, [gameId]);
 
-  const handleSaveScore = async () => {
-    if (scoreSaved || !auth.currentUser || !winner) return;
-    try {
-        await fetch('http://localhost:8081/api/save-score', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                student_fid: auth.currentUser.uid,
-                game_id: gameId,
-                score: winner.score,
-                time_taken: 0
-            })
-        });
-        setScoreSaved(true);
-        alert("Score saved successfully!");
-    } catch (e) {
-        console.error(e);
-        alert("Failed to save score.");
-    }
-  };
+  useEffect(() => {
+      if (screen === SCREENS.WIN && winner && !scoreSaved) {
+          const autoSave = async () => {
+              if (!auth.currentUser || !gameId || !players) return;
+              try {
+                  const humanAcademicScore = players[0].correctAnswers;
+                  const maxPossibleQuestions = allQsRef.current.length || 1;
+                  const cappedScore = Math.min(humanAcademicScore, maxPossibleQuestions);
+
+                  await fetch('http://localhost:8081/api/save-score', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          student_fid: auth.currentUser.uid,
+                          game_id: gameId,
+                          score: cappedScore, 
+                          time_taken: 0
+                      })
+                  });
+
+                  if (answerLog.current.length > 0) {
+                      await fetch('http://localhost:8081/api/save-answers', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ answers: answerLog.current })
+                      });
+                  }
+
+                  setScoreSaved(true);
+              } catch (e) {
+                  console.error("Error saving score:", e);
+              }
+          };
+          autoSave();
+      }
+  }, [screen, winner, scoreSaved, gameId, players]);
 
   const handleGameEnd = (finalPlayers) => {
     setTimeout(() => setScreen(SCREENS.WIN), 600);
   };
 
-  const handleSelectMode = (selectedMode) => {
+  const handleSelectMode = () => {
     if (questions.length === 0) return alert("Loading questions from server, please wait...");
-    setMode(selectedMode);
-    if (selectedMode === MODES.VS_AI) setScreen("difficulty");
-    else setScreen(SCREENS.CHAR);
+    setMode(MODES.VS_AI);
+    setScreen("difficulty");
   };
 
   const handleDifficultySelect = (diff) => {
@@ -169,18 +192,25 @@ export default function WordQuest() {
 
   const handleCharConfirm = (chars) => {
     setCharSel(chars);
+    
+    // 🟢 INITIALIZE DECKS
+    userDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current));
+    aiDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current)).sort(() => Math.random() - 0.5);
+    
+    answerLog.current = []; 
+    answerHandledRef.current = false;
+
     const ps = chars.map((charObj, idx) => ({
         id: idx,
-        name: mode === MODES.VS_AI && idx === 1 ? "Computer" : `Player ${idx + 1}`,
+        name: idx === 1 ? "Computer" : `Student`,
         char: charObj, 
         score: 0,
-        health: 100, // 🟢 ADDED: Players now start with 100 HP!
+        correctAnswers: 0, 
+        health: 100, 
         pos: 1,
         streak: 0,
         skipTurn: false
     }));
-    
-    availableQsRef.current = JSON.parse(JSON.stringify(allQsRef.current));
 
     setPlayers(ps);
     setCurrentPlayer(0);
@@ -192,32 +222,38 @@ export default function WordQuest() {
     setWinner(null); 
     setScoreSaved(false); 
     setScreen(SCREENS.GAME);
-    addLog("⚔️ The adventure begins!");
+    addLog("⚔️ The adventure begins! Race to Tile 100!");
   };
 
-  const restart = useCallback(() => {
-    handleCharConfirm(charSel);
-  }, [charSel, mode]);
+  const checkDeath = (ps) => {
+    if (ps[0].health <= 0) { setWinner(ps[1]); handleGameEnd(ps); return true; }
+    if (ps[1].health <= 0) { setWinner(ps[0]); handleGameEnd(ps); return true; }
+    return false;
+  };
 
   function applyPowerUp(ps, idx, eff) {
     const p = ps[idx];
-    if (eff.includes("15 HP") || eff.includes("10 HP") || eff.includes("20 points")) p.score += 1;
+    if (eff.includes("15 HP")) p.health = Math.min(100, p.health + 15);
+    if (eff.includes("10 HP")) p.health = Math.min(100, p.health + 10);
+    // Removed Points Inflation
     if (eff.includes("forward 3")) p.pos = Math.min(100, p.pos + 3);
   }
+  
   function applyTrap(ps, idx, eff) {
     const p = ps[idx];
-    if (eff.includes("15 HP") || eff.includes("10 points")) p.score = Math.max(0, p.score - 1);
+    if (eff.includes("15 HP")) p.health = Math.max(0, p.health - 15);
+    // Removed Points Deflation
     if (eff.includes("back 3"))    p.pos   = Math.max(1, p.pos - 3);
     if (eff.includes("Skip"))      p.skipTurn = true;
   }
+  
   function applyWild(ps, idx, eff) {
     const p = ps[idx]; const opp = ps[1 - idx];
     switch (eff.effect) {
       case "forward5": p.pos   = Math.min(100, p.pos + 5);    break;
-      case "heal20":   p.score += 1; break;
-      case "double":   setDoubleNext(true);                   break;
+      case "heal20":   p.health = Math.min(100, p.health + 20); break;
       case "back3":    p.pos   = Math.max(1, p.pos - 3);      break;
-      case "damage15": p.score = Math.max(0, p.score - 1);    break;
+      case "damage15": p.health = Math.max(0, p.health - 15);    break;
       case "swap": { const t = p.pos; p.pos = opp.pos; opp.pos = t; break; }
       default: break;
     }
@@ -246,40 +282,50 @@ export default function WordQuest() {
 
   const afterTileEvent = useCallback((ps, playerIdx) => {
     const tile = ps[playerIdx].pos;
-    
     const isDoubleOrTrap = DOUBLE_TILES.includes(tile) || TRAP_TILES.includes(tile);
 
     if (isQuestionTile(tile) || isDoubleOrTrap) {
-        if (availableQsRef.current.length === 0) {
-            if (allQsRef.current.length === 0) {
-                endTurn(playerIdx, ps); 
-                return;
+        
+        let q;
+        if (playerIdx === 0) {
+            // 🟢 HUMAN PEEK: Strictly looks at Index without removing it!
+            if (userDeckRef.current.length === 0) {
+                 userDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current));
             }
-            availableQsRef.current = JSON.parse(JSON.stringify(allQsRef.current));
-            addLog("🔄 Question pile refilled!");
+            q = userDeckRef.current[0]; 
+        } else {
+            // 🔴 AI PEEK
+            if (aiDeckRef.current.length === 0) {
+                aiDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current)).sort(() => Math.random() - 0.5);
+            }
+            q = aiDeckRef.current[0]; 
         }
-
-        const q = availableQsRef.current.shift();
-        const dbl = DOUBLE_TILES.includes(tile) || doubleNext;
-        setDoubleNext(false);
 
         const pristineQ = JSON.parse(JSON.stringify(q));
         pristineQ.options = pristineQ.options.slice(0, 4);
 
-        setModal({ type: "question", question: pristineQ, doublePoints: dbl, playerIdx, ps: [...ps], originalId: pristineQ.id });
+        setModal({ type: "question", question: pristineQ, playerIdx, ps: [...ps], originalId: pristineQ.id });
     } else {
         endTurn(playerIdx, ps);
     }
-  }, [doubleNext, endTurn]);
+  }, [endTurn]);
 
   const processTile = useCallback((ps, playerIdx) => {
     const p = ps[playerIdx]; const tile = p.pos;
 
+    // 🟢 SAFE CLOSE GUARD: Prevents double-clicks on Event Modals
+    let eventHandled = false;
+    const closeEvent = () => {
+        if (eventHandled) return;
+        eventHandled = true;
+        setModal(null);
+        afterTileEvent(ps, playerIdx);
+    };
+
     if (tile >= 100) { 
         ps[playerIdx].pos = 100;
-        ps[playerIdx].score += 5;
-        addLog(`🏆 ${ps[playerIdx].name} reached the goal! Finish Bonus: +5 PTS!`);
-        
+        // 🟢 REMOVED +5 PTS BONUS
+        addLog(`🏆 ${ps[playerIdx].name} reached the castle! Game Finished!`);
         setPlayers([...ps]); 
         setWinner(ps[playerIdx]); 
         handleGameEnd([...ps]); 
@@ -292,113 +338,165 @@ export default function WordQuest() {
     if (ladderDest) {
       addLog(`🪜 ${p.name} climbs ladder ${tile}→${ladderDest}!`);
       ps[playerIdx].pos = ladderDest; setPlayers([...ps]); setHighlightTile(ladderDest);
-      setModal({ type:"event", event:{icon:"🪜",title:"Ladder Boost!",desc:`Climbing to tile ${ladderDest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      setModal({ type:"event", event:{icon:"🪜",title:"Ladder Boost!",desc:`Climbing to tile ${ladderDest}!`}, onClose: closeEvent });
       return;
     }
     
     if (snakeDest) {
-      addLog(`🐍 ${p.name} bitten! ${tile}→${snakeDest}`);
+      ps[playerIdx].health = Math.max(0, ps[playerIdx].health - 10);
+      addLog(`🐍 ${p.name} bitten! ${tile}→${snakeDest} (-10 HP)`);
       ps[playerIdx].pos = snakeDest;
       setPlayers([...ps]); setHighlightTile(snakeDest);
-      setModal({ type:"event", event:{icon:"🐍",title:"Snake Bite!",desc:`Oh no! Sliding down to tile ${snakeDest}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      if (checkDeath(ps)) return;
+      setModal({ type:"event", event:{icon:"🐍",title:"Snake Bite!",desc:`Oh no! Sliding down to tile ${snakeDest} and lost 10 HP!`}, onClose: closeEvent });
       return;
     }
 
     if (POWER_UP_TILES.includes(tile)) {
       const eff = POWER_UP_EFFECTS[Math.floor(Math.random() * POWER_UP_EFFECTS.length)];
       applyPowerUp(ps, playerIdx, eff); addLog(`⚡ ${p.name}: Power up!`);
-      setModal({ type:"event", event:{icon:"⚡",title:"Power Up!",desc:"You found an item!"}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      setPlayers([...ps]);
+      setModal({ type:"event", event:{icon:"⚡",title:"Power Up!",desc:eff}, onClose: closeEvent });
       return;
     }
     
     if (TRAP_TILES.includes(tile)) {
-      ps[playerIdx].skipTurn = true; 
-      addLog(`💀 ${p.name} trapped! Misses next turn.`);
-      setModal({ 
-        type:"event", 
-        event:{
-          icon:"💀",
-          title:"Trap Sprung!",
-          desc:"You are stuck in a trap! You will skip your next turn. Answer this question to at least earn 1 point!"
-        }, 
-        onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} 
-      });
+      const eff = TRAP_EFFECTS[Math.floor(Math.random() * TRAP_EFFECTS.length)];
+      applyTrap(ps, playerIdx, eff); addLog(`💀 ${p.name}: Trap! ${eff}`);
+      setPlayers([...ps]);
+      if (checkDeath(ps)) return;
+      setModal({ type:"event", event:{icon:"💀",title:"Trap Sprung!",desc:eff}, onClose: closeEvent });
       return;
     }
     
     if (DOUBLE_TILES.includes(tile)) { 
-      setDoubleNext(true); 
-      addLog(`×2 ${p.name} lands on Double!`); 
-      setModal({ type:"event", event:{icon:"✨",title:"Double Points!",desc:`You found a Bonus Question worth 2 points!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      // 🟢 NO MORE DOUBLE POINTS - JUST A REGULAR BONUS QUESTION NOW
+      addLog(`✨ ${p.name} lands on a Bonus Question!`); 
+      setModal({ type:"event", event:{icon:"✨",title:"Bonus Question!",desc:`Answer carefully to gain 1 extra point!`}, onClose: closeEvent });
       return;
     }
     
     if (WILD_TILES.includes(tile)) {
       const eff = WILD_EFFECTS[Math.floor(Math.random() * WILD_EFFECTS.length)];
       applyWild(ps, playerIdx, eff); addLog(`🃏 ${p.name}: ${eff.label}`);
-      setModal({ type:"event", event:{icon:"🃏",title:eff.label,desc:"A wild magic effect occurred!"}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      setPlayers([...ps]);
+      if (checkDeath(ps)) return;
+      setModal({ type:"event", event:{icon:"🃏",title:eff.label,desc:eff.desc}, onClose: closeEvent });
       return;
     }
+
     if (STEAL_TILES.includes(tile)) {
       const opp = ps[1-playerIdx];
-      opp.score = Math.max(0, opp.score - 1); p.score += 1;
-      addLog(`💉 ${p.name} steals 1 PT from ${opp.name}!`); setPlayers([...ps]);
-      setModal({ type:"event", event:{icon:"💉",title:"Drain!",desc:`Stole 1 PT from ${opp.name}!`}, onClose:()=>{setModal(null);afterTileEvent(ps,playerIdx);} });
+      opp.health = Math.max(0, opp.health - 5); 
+      p.health = Math.min(100, p.health + 5);
+      addLog(`💉 ${p.name} steals 5 HP from ${opp.name}!`); 
+      setPlayers([...ps]);
+      if (checkDeath(ps)) return;
+      setModal({ type:"event", event:{icon:"💉",title:"Drain!",desc:`Stole 5 HP from ${opp.name}!`}, onClose: closeEvent });
       return;
     }
     afterTileEvent(ps, playerIdx);
   }, [afterTileEvent]);
 
-  const handleAnswer = useCallback((correctOrSignal) => {
-    setModal(prev => {
-      if (!prev) return null;
-      const { playerIdx, ps, doublePoints, originalId } = prev;
-      const updated = ps.map(p => ({ ...p }));
-      const p = updated[playerIdx];
+  // 🟢 SAFE ANSWER GUARD: Prevents double-clicks & Finally shifts the question out of the deck!
+  const handleAnswer = (correctOrSignal) => {
+    if (!modal || answerHandledRef.current) return;
+    answerHandledRef.current = true; // Locks the answer logic
 
-      let correct;
-      if (correctOrSignal === "__ai_resolve__") {
-        correct = Math.random() < (aiDifficulty?.accuracy ?? 0.5);
-        addLog(`🤖 AI ${correct ? "answered correctly!" : "got it wrong!"}`);
-      } else {
-        correct = correctOrSignal;
+    const { playerIdx, ps, originalId } = modal;
+    
+    // 🟢 THE SHIFT: Now the question is actually removed so we can move to Question 2!
+    if (playerIdx === 0) {
+        userDeckRef.current.shift();
+    } else {
+        aiDeckRef.current.shift();
+    }
+
+    const updated = ps.map(p => ({ ...p }));
+    const p = updated[playerIdx];
+
+    let correct;
+    if (correctOrSignal === "__ai_resolve__") {
+      correct = Math.random() < (aiDifficulty?.accuracy ?? 0.5);
+      addLog(`🤖 AI ${correct ? "answered correctly!" : "got it wrong!"}`);
+    } else {
+      correct = correctOrSignal;
+      
+      if (auth.currentUser && gameId) {
+          answerLog.current.push({
+              student_fid: auth.currentUser.uid,
+              game_id: parseInt(gameId),
+              question_id: originalId,
+              is_correct: correct ? 1 : 0
+          });
       }
+    }
 
-      if (correct) {
-        const pts = doublePoints ? 2 : 1; 
-        p.score += pts;
-        p.streak = (p.streak || 0) + 1;
-        if (correctOrSignal !== "__ai_resolve__")
-          addLog(`✅ ${p.name} correct! +${pts} pt${pts > 1 ? 's' : ''}${p.streak >= 3 ? ` 🔥×${p.streak}` : ""}`);
-      } else {
-        p.streak = 0;
-        
-        // 🟢 ADDED: Subtracts exactly 10 HP when they get it wrong!
-        p.health = Math.max(0, p.health - 10);
-        
-        if (correctOrSignal !== "__ai_resolve__") {
-          addLog(`❌ ${p.name} answered incorrectly! Lost 10 HP.`);
-        }
-
-        const pristineDatabaseQ = allQsRef.current.find(x => x.id === originalId);
-        if (pristineDatabaseQ) {
-            availableQsRef.current.push(JSON.parse(JSON.stringify(pristineDatabaseQ)));
-        }
+    if (correct) {
+      // 🟢 STRICTLY 1 POINT PER CORRECT ANSWER (Removed Double Points!)
+      p.score += 1; 
+      if (playerIdx === 0) p.correctAnswers += 1; 
+      p.streak = (p.streak || 0) + 1;
+      if (correctOrSignal !== "__ai_resolve__")
+        addLog(`✅ ${p.name} correct! +1 pt ${p.streak >= 3 ? ` 🔥×${p.streak}` : ""}`);
+    } else {
+      p.streak = 0;
+      p.health = Math.max(0, p.health - 10);
+      
+      if (correctOrSignal !== "__ai_resolve__") {
+        addLog(`❌ ${p.name} answered incorrectly! Lost 10 HP.`);
       }
-      setPlayers([...updated]);
-      setTimeout(() => endTurn(playerIdx, updated), 200);
-      return null;
-    });
-  }, [endTurn, aiDifficulty]);
+    }
+    
+    setModal(null); 
+    setPlayers(updated);
+
+    if (checkDeath(updated)) return; 
+
+    // 🟢 GAME OVER: If the Student finishes all 5 questions, the game ends immediately!
+    if (playerIdx === 0 && userDeckRef.current.length === 0) {
+        setTimeout(() => {
+            const finalWinner = updated[0].score >= updated[1].score ? updated[0] : updated[1];
+            setWinner(finalWinner);
+            handleGameEnd(updated);
+        }, 500);
+        return;
+    }
+
+    setTimeout(() => {
+        answerHandledRef.current = false; 
+        endTurn(playerIdx, updated);
+    }, 200);
+  };
 
   const handleSkip = useCallback(() => {
-    setModal(prev => {
-      if (!prev) return null;
-      addLog(`⏭ ${players[prev.playerIdx].name} skipped.`);
-      setTimeout(() => endTurn(prev.playerIdx, players), 100);
-      return null;
-    });
-  }, [players, endTurn]);
+    if (!modal || answerHandledRef.current) return;
+    answerHandledRef.current = true;
+
+    const { playerIdx, ps } = modal;
+    
+    // Shift the deck so they don't get stuck on the skipped question
+    if (playerIdx === 0) userDeckRef.current.shift();
+    else aiDeckRef.current.shift();
+
+    addLog(`⏭ ${ps[playerIdx].name} skipped.`);
+    setModal(null);
+
+    // End Game if they skipped the very last question!
+    if (playerIdx === 0 && userDeckRef.current.length === 0) {
+        setTimeout(() => {
+            const finalWinner = ps[0].score >= ps[1].score ? ps[0] : ps[1];
+            setWinner(finalWinner);
+            handleGameEnd(ps);
+        }, 500);
+        return;
+    }
+
+    setTimeout(() => {
+        answerHandledRef.current = false;
+        endTurn(playerIdx, ps);
+    }, 100);
+  }, [modal, endTurn]);
 
   const executeTurn = useCallback((playerIdx, currentPlayersState) => {
     const roll = Math.floor(Math.random() * 6) + 1;
@@ -477,14 +575,57 @@ export default function WordQuest() {
   }, [currentPlayer, mode]); 
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '85vh' }}>
+    <div className="screen" style={{ padding: 0 }}>
       <Starfield />
       
       <audio ref={bgmRef} src={bgmMenu} loop autoPlay />
 
-      {screen === SCREENS.MENU && <MainMenu onSelectMode={handleSelectMode} onExit={() => navigate('/student-menu')} />}
+      {screen === SCREENS.MENU && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ maxWidth: '450px' }}>
+            <h1 className="game-title">WORD QUEST</h1>
+            <p className="game-subtitle">Snakes & Ladders Adventure</p>
+            
+            <button className="btn" onClick={() => { playSfx(sfxClick); handleSelectMode(); }}>
+              START GAME
+            </button>
+            
+            <button className="btn ghost" onClick={() => { playSfx(sfxClick); setScreen('INSTRUCTIONS'); }}>
+              HOW TO PLAY
+            </button>
+
+            <button className="btn ghost" onClick={() => { playSfx(sfxClick); navigate('/student-menu'); }} style={{ borderColor: '#e53e3e', color: '#e53e3e' }}>
+              EXIT TO ARCADE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {screen === 'INSTRUCTIONS' && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ maxWidth: '550px', textAlign: 'left' }}>
+             <h2 className="game-title" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '25px', color: '#f6ad55' }}>
+               HOW TO PLAY
+             </h2>
+             <ul style={{fontSize: '1rem', color: 'white', lineHeight: '1.8', margin: 0, paddingLeft: '20px', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
+                <li>1. Roll the dice to move across the board.</li>
+                <li>2. Land on <b style={{color: '#3b82f6'}}>❓ Tiles</b> to answer a question.</li>
+                <li>3. Correct answers reward points and streaks.</li>
+                <li>4. Watch out for Snakes (go down) and Traps.</li>
+                <li>5. The game ends when someone reaches Tile 100 or their HP hits 0!</li>
+                <li><b style={{color: '#ffd700'}}>6. The game also ends once you finish answering all your questions!</b></li>
+             </ul>
+             <div style={{marginTop: '30px'}}>
+               <button className="btn" onClick={() => { playSfx(sfxClick); setScreen(SCREENS.MENU); }}>
+                 BACK
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {screen === "difficulty" && <ModeSelect onConfirm={handleDifficultySelect} onBack={() => setScreen(SCREENS.MENU)} />}
-      {screen === SCREENS.CHAR && <CharacterSelect mode={mode} onConfirm={handleCharConfirm} onBack={() => setScreen(mode === MODES.VS_AI ? "difficulty" : SCREENS.MENU)} />}
+      {screen === SCREENS.CHAR && <CharacterSelect mode={mode} onConfirm={handleCharConfirm} onBack={() => setScreen("difficulty")} />}
       
       {screen === SCREENS.GAME && players && (
         <GameScreen 
@@ -503,52 +644,55 @@ export default function WordQuest() {
           onRoll={rollDice} 
           onAnswer={handleAnswer} 
           onSkip={handleSkip} 
-          onRestart={restart} 
-          onGoMenu={() => { 
-            setScreen(SCREENS.MENU); 
-            setPlayers(null); 
-            setMode(null); 
-            setAiDifficulty(null); 
-          }} 
+          onRestart={() => {}} 
+          onGoMenu={() => {}} 
         />
       )}
       
       {screen === SCREENS.WIN && players && winner && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 15, 30, 0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
             <div className="card" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                
-                {mode === MODES.VS_AI && winner.id === 1 ? (
+
+                <h2 style={{ color: '#aaa', fontSize: '1rem', marginBottom: '5px', letterSpacing: '2px' }}>GAME FINISHED!</h2>
+
+                {winner.id === 1 ? (
                     <>
-                        <h1 style={{ color: '#ef4444', fontSize: '3.5rem', textShadow: '2px 2px #000', marginBottom: '10px' }}>DEFEATED!</h1>
-                        <p style={{ color: '#fbbf24', fontSize: '1.5rem', marginBottom: '20px' }}>Computer Reached the Castle!</p>
+                        <h1 className="game-title" style={{ color: '#ef4444', fontSize: '2.5rem', marginBottom: '10px' }}>DEFEATED!</h1>
+                        <p className="game-subtitle" style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '20px' }}>
+                            {players[0].health <= 0 ? "You lost all your HP!" : "Computer Reached the Castle!"}
+                        </p>
                     </>
                 ) : (
                     <>
-                        <h1 style={{ color: '#4ade80', fontSize: '3.5rem', textShadow: '2px 2px #000', marginBottom: '10px' }}>VICTORY!</h1>
-                        <p style={{ color: '#ffd700', fontSize: '1.5rem', marginBottom: '20px' }}>{winner.name} Reached the Castle!</p>
+                        <h1 className="game-title" style={{ color: '#4ade80', fontSize: '2.5rem', marginBottom: '10px' }}>VICTORY!</h1>
+                        <p className="game-subtitle" style={{ color: '#ffd700', fontSize: '1.2rem', marginBottom: '20px' }}>
+                            {players[1].health <= 0 ? "The Computer lost all its HP!" : `${winner.name} scored the most points!`}
+                        </p>
                     </>
                 )}
                 
-                <div style={{ fontSize: '2rem', color: '#fff', marginBottom: '30px' }}>
-                    Final Score: <span style={{ fontWeight: 'bold', color: '#ffd700', fontSize: '2.5rem' }}>{winner.score}</span> PTS
+                <div style={{ fontSize: '1.5rem', color: '#fff', marginBottom: '20px', fontFamily: "'Press Start 2P', cursive" }}>
+                    SCORE: <span style={{ color: '#ffd700' }}>{winner.score}</span>
+                </div>
+
+                <div style={{
+                    background: 'rgba(0,0,0,0.5)', 
+                    padding: '15px 20px', 
+                    borderRadius: '8px', 
+                    marginBottom: '30px',
+                    border: scoreSaved ? '2px solid #48bb78' : '2px dashed #aaa',
+                    width: '100%'
+                }}>
+                    <p style={{color: scoreSaved ? '#48bb78' : '#fbd38d', fontSize: '1rem', margin: 0, fontFamily: "'Segoe UI', Tahoma, sans-serif", fontWeight: 'bold'}}>
+                        {scoreSaved ? '✅ SCORE SAVED' : '⏳ Saving results...'}
+                    </p>
                 </div>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '300px' }}>
-                    <button className="btn" onClick={() => { restart(); setScreen(SCREENS.GAME); }} style={{ background: '#3b82f6', border: '2px solid #fff' }}>
-                        ⚔️ PLAY AGAIN
-                    </button>
-                    <button 
-                        className="btn" 
-                        onClick={handleSaveScore} 
-                        disabled={scoreSaved}
-                        style={{ background: scoreSaved ? '#4b5563' : '#10b981', color: '#fff', border: '2px solid #fff' }}
-                    >
-                        {scoreSaved ? '✅ SCORE SAVED' : '💾 SAVE SCORE'}
-                    </button>
-                    <button className="btn" onClick={() => { 
+                <div style={{ width: '100%' }}>
+                    <button className="btn ghost" onClick={() => { 
                         setScreen(SCREENS.MENU); setPlayers(null); setMode(null); setAiDifficulty(null); navigate('/student-menu'); 
-                    }} style={{ background: '#ef4444', border: '2px solid #fff' }}>
-                        🚪 MAIN MENU
+                    }} style={{ borderColor: '#ef4444', color: '#ef4444' }}>
+                        EXIT TO MENU
                     </button>
                 </div>
             </div>

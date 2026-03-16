@@ -1,9 +1,8 @@
 // src/components/Board.jsx
 import React from "react";
-import { BOARD_SIZE, TILE_SIZE, LADDERS, SNAKES } from "../constants/gameData";
-import { getTileType, tileIcon, tileCenter } from "../utils/helpers";
+import { BOARD_SIZE, TILE_SIZE, LADDERS, SNAKES, POWER_UP_TILES, TRAP_TILES, WILD_TILES, DOUBLE_TILES, STEAL_TILES } from "../constants/gameData";
 
-// 🟢 FIXED: Exactly 40 Question Tiles (4 per row), perfectly jumbled!
+// 🟢 RESTORED: Exactly 40 Question Tiles perfectly placed around the board
 const QUESTION_TILES = new Set([
   2, 4, 6, 9,
   11, 15, 17, 20,
@@ -19,6 +18,40 @@ const QUESTION_TILES = new Set([
 
 export const isQuestionTile = (t) => QUESTION_TILES.has(t);
 
+const getTileType = (tileNum) => {
+    if (SNAKES[tileNum]) return 'snake';
+    if (LADDERS[tileNum]) return 'ladder';
+    if (POWER_UP_TILES.includes(tileNum)) return 'power-up';
+    if (TRAP_TILES.includes(tileNum)) return 'trap';
+    if (WILD_TILES.includes(tileNum)) return 'wild';
+    if (DOUBLE_TILES.includes(tileNum)) return 'double';
+    if (STEAL_TILES.includes(tileNum)) return 'steal';
+    return 'normal';
+};
+
+const tileIcon = (tileNum) => {
+    if (SNAKES[tileNum]) return { icon: "🐍", label: `→${SNAKES[tileNum]}` };
+    if (LADDERS[tileNum]) return { icon: "🪜", label: `→${LADDERS[tileNum]}` };
+    if (POWER_UP_TILES.includes(tileNum)) return { icon: "⚡", label: "POWER" };
+    if (TRAP_TILES.includes(tileNum)) return { icon: "💀", label: "TRAP" };
+    if (WILD_TILES.includes(tileNum)) return { icon: "🃏", label: "WILD" };
+    if (DOUBLE_TILES.includes(tileNum)) return { icon: "×2", label: "DOUBLE" };
+    if (STEAL_TILES.includes(tileNum)) return { icon: "💉", label: "STEAL" };
+    return { icon: null, label: null };
+};
+
+const getTileCenter = (tileNum) => {
+  const zeroIndexed = tileNum - 1;
+  const row = Math.floor(zeroIndexed / BOARD_SIZE); 
+  const col = zeroIndexed % BOARD_SIZE; 
+  const visualRow = (BOARD_SIZE - 1) - row;
+  const visualCol = col;
+  return {
+    x: visualCol * TILE_SIZE + (TILE_SIZE / 2),
+    y: visualRow * TILE_SIZE + (TILE_SIZE / 2)
+  };
+};
+
 export default function Board({ players, highlightTile, movingPlayer }) {
   const orderedRows = [];
   for (let row = BOARD_SIZE - 1; row >= 0; row--) {
@@ -32,8 +65,8 @@ export default function Board({ players, highlightTile, movingPlayer }) {
   const svgLines = [];
   
   Object.entries(LADDERS).forEach(([from, to]) => {
-    const f = tileCenter(Number(from));
-    const t = tileCenter(Number(to));
+    const f = getTileCenter(Number(from));
+    const t = getTileCenter(Number(to));
     const dx = t.x - f.x;
     const dy = t.y - f.y;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -54,8 +87,8 @@ export default function Board({ players, highlightTile, movingPlayer }) {
   });
 
   Object.entries(SNAKES).forEach(([from, to]) => {
-    const f  = tileCenter(Number(from));
-    const t  = tileCenter(Number(to));
+    const f  = getTileCenter(Number(from));
+    const t  = getTileCenter(Number(to));
     const dx = t.x - f.x;
     const dy = t.y - f.y;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -99,7 +132,7 @@ export default function Board({ players, highlightTile, movingPlayer }) {
       transition: 'all 0.3s ease'
     };
 
-    // Highlight the 40 Question Tiles
+    // 🟢 RESTORED: Blue highlight for Question Tiles
     if (isQuestionTile(tileNum)) {
         baseStyle.backgroundColor = 'rgba(59, 130, 246, 0.15)'; 
         baseStyle.border = '1px solid rgba(59, 130, 246, 0.4)';
@@ -149,7 +182,7 @@ export default function Board({ players, highlightTile, movingPlayer }) {
             const type = getTileType(tileNum);
             let { icon, label } = tileIcon(tileNum);
 
-            // Render the ❓ icon perfectly on the 40 tiles
+            // 🟢 RESTORED: Add the Question Mark Icon
             if (isQuestionTile(tileNum) && !icon) {
                 icon = "❓";
             }

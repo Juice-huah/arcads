@@ -2,7 +2,8 @@
 // BOARD TILE MAPS
 // ═══════════════════════════════════════════════
 export const LADDERS        = { 3: 22, 8: 30, 28: 55, 50: 75 };
-export const SNAKES         = { 27: 5, 43: 18, 66: 45, 92: 70 };
+// 🟢 FIXED: The snake now starts at 99!
+export const SNAKES         = { 27: 5, 43: 18, 66: 45, 99: 70 }; 
 export const POWER_UP_TILES = [12, 33, 48, 71];
 export const TRAP_TILES     = [19, 40, 62, 84];
 export const WILD_TILES     = [25, 60, 85];
@@ -35,27 +36,6 @@ export const CHARACTERS = [
   { id: "pirate", name: "Pirate", emoji: "🏴‍☠️", color: "#ff9800", aura: "#ff980044", stat: "Luck +2",   lore: "Fortune favours the bold." },
   { id: "knight", name: "Knight", emoji: "⚔️",  color: "#e0e0e0", aura: "#e0e0e044", stat: "Defense +2", lore: "Honour above all else." },
   { id: "mage",   name: "Mage",   emoji: "🧙",  color: "#ce93d8", aura: "#ce93d844", stat: "Magic +2",  lore: "Knowledge is power." },
-];
-
-// ═══════════════════════════════════════════════
-// QUESTIONS
-// ═══════════════════════════════════════════════
-export const DEFAULT_QUESTIONS = [
-  { id: 1,  question: "What is the synonym of 'joyful'?",                                         options: ["sad","happy","angry","tired"],                                  correct: "happy",                         category: "Vocabulary",  difficulty: "easy"   },
-  { id: 2,  question: "Complete: She _____ to the market yesterday.",                              options: ["go","went","gone","going"],                                     correct: "went",                          category: "Grammar",     difficulty: "easy"   },
-  { id: 3,  question: "What is the antonym of 'difficult'?",                                       options: ["easy","hard","complex","tricky"],                               correct: "easy",                          category: "Vocabulary",  difficulty: "easy"   },
-  { id: 4,  question: "Which figure of speech is in 'The wind whispered through the trees'?",     options: ["Simile","Metaphor","Personification","Alliteration"],           correct: "Personification",               category: "Literature",  difficulty: "medium" },
-  { id: 5,  question: "Choose the correct article: ___ university is a place of learning.",       options: ["A","An","The","No article"],                                    correct: "A",                             category: "Grammar",     difficulty: "medium" },
-  { id: 6,  question: "What does the idiom 'Break a leg' mean?",                                  options: ["Get injured","Good luck","Run fast","Work hard"],               correct: "Good luck",                     category: "Idioms",      difficulty: "medium" },
-  { id: 7,  question: "Which word is a conjunction?",                                             options: ["quickly","beautiful","although","writer"],                      correct: "although",                      category: "Grammar",     difficulty: "easy"   },
-  { id: 8,  question: "What is the plural of 'ox'?",                                              options: ["oxes","oxen","oxs","ox"],                                       correct: "oxen",                          category: "Vocabulary",  difficulty: "medium" },
-  { id: 9,  question: "Which sentence uses the passive voice?",                                   options: ["The dog bit the man.","The man was bitten by the dog.","The man bit the dog.","A dog bit him."], correct: "The man was bitten by the dog.", category: "Grammar", difficulty: "hard" },
-  { id: 10, question: "What literary device is 'Peter Piper picked a peck of pickled peppers'?", options: ["Assonance","Alliteration","Onomatopoeia","Hyperbole"],           correct: "Alliteration",                  category: "Literature",  difficulty: "medium" },
-  { id: 11, question: "Which word means 'to make something less severe'?",                        options: ["intensify","mitigate","amplify","worsen"],                      correct: "mitigate",                      category: "Vocabulary",  difficulty: "hard"   },
-  { id: 12, question: "Choose: Neither the students nor the teacher _____ ready.",                options: ["were","are","is","was"],                                        correct: "was",                           category: "Grammar",     difficulty: "hard"   },
-  { id: 13, question: "What is the tone of a sad poem about loss?",                               options: ["Jovial","Melancholic","Satirical","Ironic"],                    correct: "Melancholic",                   category: "Literature",  difficulty: "medium" },
-  { id: 14, question: "What does 'verbose' mean?",                                                options: ["Silent","Using too many words","Brief","Unclear"],              correct: "Using too many words",          category: "Vocabulary",  difficulty: "hard"   },
-  { id: 15, question: "Which is an example of a simile?",                                         options: ["He is a lion in battle.","Her eyes were stars.","He ran like the wind.","The flowers danced."], correct: "He ran like the wind.", category: "Literature", difficulty: "easy" },
 ];
 
 // ═══════════════════════════════════════════════

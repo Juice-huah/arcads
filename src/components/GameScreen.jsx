@@ -213,12 +213,6 @@ export default function GameScreen({
               </div>
             </div>
 
-            {/* 5. UTILITY BUTTONS */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
-              <button onClick={onRestart} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid #555', color: '#aaa', padding: '10px', borderRadius: '5px', cursor: 'pointer', fontFamily: "'Cinzel', serif" }}>RESTART</button>
-              <button onClick={onGoMenu} style={{ flex: 1, background: 'rgba(255,68,68,0.1)', border: '1px solid #ff4444', color: '#ff4444', padding: '10px', borderRadius: '5px', cursor: 'pointer', fontFamily: "'Cinzel', serif" }}>EXIT GAME</button>
-            </div>
-
           </div>
         )}
       </div>

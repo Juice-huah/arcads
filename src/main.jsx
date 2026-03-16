@@ -21,6 +21,7 @@ import EnchantedForest from './games/EnchantedForest.jsx';
 import WhackAMole from './games/WhackAMole.jsx';
 import TowerDefense from './games/TowerDefense.jsx'; 
 import HamsterBall from './games/HamsterBall.jsx';
+import StarType from './games/StarType.jsx'; // 🟢 NEW: StarType Game Import
 
 // --- GAME CREATION PAGES ---
 import CreateMazeGame from './pages/CreateMazeGame.jsx';
@@ -30,6 +31,7 @@ import CreateEnchantedForest from './pages/CreateEnchantedForest.jsx';
 import CreateWhackAMole from './pages/CreateWhackAMole.jsx';
 import CreateTowerDefense from './pages/CreateTowerDefense.jsx';
 import CreateHamsterBall from './pages/CreateHamsterBall.jsx';
+import CreateStarType from './pages/CreateStarType.jsx'; // 🟢 NEW: StarType Creator Import
 
 import './index.css';
 
@@ -81,6 +83,10 @@ const router = createBrowserRouter([
       // --- HAMSTERBALL ROUTES ---
       { path: "/teacher/create-hamsterball", element: <CreateHamsterBall /> },
       { path: "/student/play-hamsterball/:gameId", element: <HamsterBall /> },
+
+      // --- STARTYPE ROUTES ---
+      { path: "/teacher/create-startype", element: <CreateStarType /> }, // 🟢 NEW
+      { path: "/student/play-startype/:gameId", element: <StarType /> }, // 🟢 NEW
     ],
   },
 ]);

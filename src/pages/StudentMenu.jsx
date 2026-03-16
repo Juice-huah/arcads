@@ -16,7 +16,7 @@ const StudentMenu = () => {
   const [activeTab, setActiveTab] = useState('classes'); // 'classes', 'grades', 'leaderboard'
   const [selectedClass, setSelectedClass] = useState(null); 
   
-  // Join Class State (RESTORED & MATCHED)
+  // Join Class State
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [classCodeInput, setClassCodeInput] = useState('');
   const [joinMsg, setJoinMsg] = useState('');
@@ -104,7 +104,7 @@ const StudentMenu = () => {
       }
   };
 
-  // 🟢 REPOSITORY VERSION: Bulletproof Game Router Function
+  // 🟢 FIXED: Game Router Function now recognizes StarType
   const getGameRoute = (gameType, gameId) => {
       const type = String(gameType).toLowerCase().replace(/\s+/g, '_');
       if (type.includes('adventure')) return `/student/play-adventure/${gameId}`;
@@ -113,7 +113,8 @@ const StudentMenu = () => {
       if (type.includes('whack_a_mole')) return `/student/play-whack-a-mole/${gameId}`;
       if (type.includes('tower_defense')) return `/student/play-tower-defense/${gameId}`;
       if (type.includes('hamsterball')) return `/student/play-hamsterball/${gameId}`;
-      return `/student/play/${gameId}`; 
+      if (type.includes('startype')) return `/student/play-startype/${gameId}`; // 🟢 NEW
+      return `/student/play/${gameId}`; // Fallback to Maze Game
   };
 
   const switchTab = (tab) => {
@@ -148,7 +149,7 @@ const StudentMenu = () => {
       <div className="content-area">
         {loading ? <p>Loading...</p> : (
             <>
-                {/* TAB 1: MY CLASSES (Uses Router Logic) */}
+                {/* TAB 1: MY CLASSES */}
                 {activeTab === 'classes' && !selectedClass && (
                     <>
                         <div className="section-header">
@@ -196,7 +197,7 @@ const StudentMenu = () => {
                     </>
                 )}
 
-                {/* TAB 2: MY GRADES (RESTORED LOCAL LOGIC) */}
+                {/* TAB 2: MY GRADES */}
                 {activeTab === 'grades' && !selectedClass && (
                     <>
                         <div className="section-header"><h2>MY GRADES</h2></div>
@@ -297,7 +298,7 @@ const StudentMenu = () => {
         )}
       </div>
 
-      {/* JOIN CLASS MODAL (RESTORED) */}
+      {/* JOIN CLASS MODAL */}
       {showJoinModal && (
         <div className="modal-overlay">
           <div className="modal-box">
