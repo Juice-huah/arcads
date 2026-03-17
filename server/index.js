@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 Updated Database Connection for Cloud
+// 🟢 Updated Database Connection for Cloud with SSL Fix
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -17,7 +17,8 @@ const db = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   ssl: {
-    rejectUnauthorized: true // 🟢 Required for Aiven/Cloud MySQL
+    // 🟢 Set to false to solve the "self-signed certificate" error on Render
+    rejectUnauthorized: false 
   }
 });
 
