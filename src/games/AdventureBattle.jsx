@@ -46,10 +46,15 @@ const AdventureBattle = () => {
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   
-  // Auto-Save Tracking States
+  // Auto-Save & Timer States
   const [saveStatus, setSaveStatus] = useState("");
   const [isScoreSaved, setIsScoreSaved] = useState(false);
   const answerLog = useRef([]);
+
+  // 🟢 NEW: SCHEDULING STATES
+  const [timeLimit, setTimeLimit] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
 
   // --- AUDIO REFS ---
   const menuMusic = useRef(new Audio(SOUNDS.menu));
@@ -68,12 +73,24 @@ const AdventureBattle = () => {
     s.play().catch(e=>{});
   };
 
-  // 1. FETCH DATA
+  // 1. FETCH DATA & SCHEDULING
   useEffect(() => {
     const fetchGame = async () => {
       try {
+        // Fetch Questions
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
+        
+        // 🟢 NEW: Fetch Game Time Limit
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                setTimeLimit(currentGame.time_limit);
+            }
+        }
+
         if (Array.isArray(data) && data.length > 0) {
           setOriginalQuestions(data); 
           setQuestions(shuffleArray([...data])); 
@@ -87,6 +104,24 @@ const AdventureBattle = () => {
     };
     fetchGame();
   }, [gameId, navigate]);
+
+  // 🟢 NEW: TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+      if ((screen === 'BATTLE' || screen === 'DIALOGUE') && timeLeft !== null) {
+          if (timeLeft <= 0) {
+              handleTimeUp();
+              return;
+          }
+          const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+      }
+  }, [screen, timeLeft]);
+
+  const handleTimeUp = () => {
+      setScreen('TIMEUP'); 
+      setShowTimeUp(true);
+      if (gameMusic.current) gameMusic.current.pause();
+  };
 
   // 2. BACKGROUND MUSIC LOGIC
   useEffect(() => {
@@ -107,7 +142,7 @@ const AdventureBattle = () => {
             gameMusic.current.play().catch(e => {});
         }
     } 
-    else if (screen === 'WIN' || screen === 'LOSE') {
+    else if (screen === 'WIN' || screen === 'LOSE' || screen === 'TIMEUP') {
         menuMusic.current.pause();
         gameMusic.current.pause();
     }
@@ -118,15 +153,15 @@ const AdventureBattle = () => {
     };
   }, [screen]);
 
-  // --- 🟢 NEW: AUTO SAVE LOGIC (Triggered on WIN/LOSE) ---
+  // --- AUTO SAVE LOGIC ---
   useEffect(() => {
-    if ((screen === 'WIN' || screen === 'LOSE') && !isScoreSaved) {
+    // 🟢 Modified to include TIMEUP screen
+    if ((screen === 'WIN' || screen === 'LOSE' || screen === 'TIMEUP') && !isScoreSaved) {
         const autoSave = async () => {
             if (!auth.currentUser || !gameId) return;
             setSaveStatus("⏳ Saving results to database...");
             
             try {
-                // 1. Save Final Score
                 const resScore = await fetch('http://localhost:8081/api/save-score', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -134,11 +169,10 @@ const AdventureBattle = () => {
                         student_fid: auth.currentUser.uid,
                         game_id: gameId,
                         score: score,
-                        time_taken: 0 // Turned-based game
+                        time_taken: 0 
                     })
                 });
 
-                // 2. Save Item Analysis (Answer Log)
                 if (answerLog.current.length > 0) {
                     await fetch('http://localhost:8081/api/save-answers', {
                         method: 'POST',
@@ -172,7 +206,10 @@ const AdventureBattle = () => {
           <div style={{...bgStyle, backgroundImage: 'url(/assets/bg.png)'}}></div>
           <div style={overlayStyle}>
             <h1 style={titleStyle}>⚔️ ADVENTURE BATTLE ⚔️</h1>
-            <button onClick={() => { playClick(); setScreen('CHAR_SELECT'); }} style={mainBtnStyle}>START GAME</button>
+            <button onClick={() => { 
+                playClick(); 
+                setScreen('CHAR_SELECT'); 
+            }} style={mainBtnStyle}>START GAME</button>
             <button onClick={() => { playClick(); setScreen('INSTRUCTIONS'); }} style={subBtnStyle}>INSTRUCTIONS</button>
             <button onClick={() => { playClick(); navigate('/student-menu'); }} style={{...subBtnStyle, background:'#e53e3e'}}>EXIT</button>
           </div>
@@ -233,7 +270,11 @@ const AdventureBattle = () => {
             </div>
             <div style={{marginTop:'40px', display:'flex', gap:'20px', justifyContent:'center'}}>
               <button onClick={() => { playClick(); setScreen('MENU'); }} style={{...mainBtnStyle, background:'#718096'}}>BACK</button>
-              <button onClick={() => { playClick(); setScreen('DIALOGUE'); }} style={mainBtnStyle}>CONFIRM</button>
+              <button onClick={() => { 
+                  playClick(); 
+                  if (timeLimit > 0) setTimeLeft(timeLimit * 60); // 🟢 Start the clock!
+                  setScreen('DIALOGUE'); 
+              }} style={mainBtnStyle}>CONFIRM</button>
             </div>
           </div>
         </div>
@@ -246,6 +287,12 @@ const AdventureBattle = () => {
       <div style={pageStyle}>
         <div style={gameBoxStyle}>
           <DialogueScene heroId={selectedHero.id} onFinish={() => setScreen('BATTLE')} playClick={playClick} />
+          {/* 🟢 GLOBAL TIMER RENDER */}
+          {timeLeft !== null && (
+            <div style={{ position: 'absolute', top: 15, left: 15, background: 'rgba(0,0,0,0.6)', padding: '8px 15px', borderRadius: '8px', border: '2px solid #0ac8f0', color: '#fff', fontSize: '1.2rem', fontWeight: 'bold', zIndex: 100 }}>
+                ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -254,7 +301,7 @@ const AdventureBattle = () => {
   if (screen === 'BATTLE') {
     return (
       <div style={pageStyle}>
-        <div style={{width: '800px'}}>
+        <div style={{width: '800px', position: 'relative'}}>
           <BattleEngine 
             gameId={gameId}
             questions={questions}
@@ -272,21 +319,33 @@ const AdventureBattle = () => {
               else playSoundEffect('lose');
             }}
           />
+          {/* 🟢 GLOBAL TIMER RENDER */}
+          {timeLeft !== null && (
+            <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.8)', padding: '5px 15px', borderRadius: '8px', border: '2px solid #0ac8f0', color: '#0ac8f0', fontSize: '1rem', fontWeight: 'bold', zIndex: 100 }}>
+                ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // 🟢 The NEW Game Over screen (Auto-Saves, NO Retry button)
-  if (screen === 'WIN' || screen === 'LOSE') {
+  if (screen === 'WIN' || screen === 'LOSE' || screen === 'TIMEUP') {
       return (
         <div style={pageStyle}>
           <div style={gameBoxStyle}>
             <div style={{...bgStyle, background:'#1a202c'}}></div>
             <div style={overlayStyle}>
-              <h1 style={{fontSize: '3.5rem', margin: '0 0 10px 0', color: screen === 'WIN' ? '#48bb78' : '#e53e3e', textShadow:'3px 3px #000'}}>
-                {screen === 'WIN' ? 'VICTORY!' : 'DEFEATED'}
-              </h1>
+              
+              {/* 🟢 DYNAMIC TITLE RENDERING */}
+              {showTimeUp ? (
+                  <h1 style={{fontSize: '3.5rem', margin: '0 0 10px 0', color: '#ff4c4c', textShadow:'3px 3px #000'}}>TIME'S UP!</h1>
+              ) : (
+                  <h1 style={{fontSize: '3.5rem', margin: '0 0 10px 0', color: screen === 'WIN' ? '#48bb78' : '#e53e3e', textShadow:'3px 3px #000'}}>
+                    {screen === 'WIN' ? 'VICTORY!' : 'DEFEATED'}
+                  </h1>
+              )}
+
               <p style={{fontSize: '2rem', color:'#fff', margin: '10px 0 20px 0', fontWeight: 'bold'}}>
                   Final Score: <span style={{color: '#fbd38d'}}>{score}</span> / {maxScore}
               </p>
@@ -318,7 +377,7 @@ const AdventureBattle = () => {
 };
 
 // ==========================================
-// SCENE: DIALOGUE (Smooth Backup Version)
+// SCENE: DIALOGUE 
 // ==========================================
 const DialogueScene = ({ heroId, onFinish, playClick }) => {
   const [text, setText] = useState('');
@@ -398,7 +457,7 @@ const DialogueScene = ({ heroId, onFinish, playClick }) => {
 };
 
 // ==========================================
-// SCENE: BATTLE ENGINE (Smooth Backup Version)
+// SCENE: BATTLE ENGINE
 // ==========================================
 const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonsterHp, maxScore, answerLog, onGameEnd, playClick, playSoundEffect }) => {
   const canvasRef = useRef(null);
@@ -463,7 +522,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       const state = animState.current;
       ctx.clearRect(0, 0, 800, 400);
 
-      // --- PHYSICS UPDATE ---
       if (state.phase === 'hero_attack') {
         if (heroData.type === 'melee') {
           if (state.heroX < 500) {
@@ -545,7 +603,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       if (state.shake > 0) ctx.translate(Math.random()*8 - 4, Math.random()*8 - 4);
       if (bg.complete) ctx.drawImage(bg, 0, 0, 800, 400);
 
-      // Hero
       let currentHero = heroIdle;
       if (heroState === 'dead') currentHero = heroDead; 
       else if (heroState === 'attack') currentHero = heroAtk;
@@ -555,7 +612,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       if (state.phase === 'idle' && heroState !== 'dead') hY += Math.sin(frame*0.05)*3; 
       if (currentHero.complete) ctx.drawImage(currentHero, state.heroX, hY, 120, 120);
 
-      // Monster
       let currentMon = monIdle;
       if (monState === 'attack') currentMon = monAtk;
       if (monState === 'hit') currentMon = monHit; 
@@ -564,7 +620,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       const mY = state.monY + (state.phase === 'idle' ? Math.sin(frame*0.04)*3 : 0);
       if (currentMon.complete) ctx.drawImage(currentMon, state.monX, mY, 150, 150);
 
-      // Projectiles
       if (state.projActive) {
         if (state.phase === 'hero_attack') {
            let pImg = heroData.id === 'hero_2' ? mageEffect : archerEffect;
@@ -575,7 +630,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
         }
       }
 
-      // Particles
       state.particles.forEach((p) => {
         p.x += p.vx; p.y += p.vy; p.life -= 0.05;
         ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
@@ -589,7 +643,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
     return () => cancelAnimationFrame(animId);
   }, [heroData, monsterHp, heroState, monState]);
 
-  // Answer Logic
   const handleAnswer = (val) => {
     if (buttonsDisabled) return;
     const q = questions[qIndex];
@@ -601,7 +654,6 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       if (parseInt(val) === q.correct_answer) correct = true;
     }
 
-    // 🟢 Record to Item Analysis Log
     if (q.id && auth.currentUser) {
         answerLog.current.push({
             student_fid: auth.currentUser.uid,
@@ -620,7 +672,7 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
       
       setTimeout(() => {
         setMonsterHp(h => h - 1); 
-        setScore(s => s + 1); // Exact 1 point given
+        setScore(s => s + 1); 
         nextTurn(true);
       }, 2000); 
     } else {
@@ -640,14 +692,12 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
     const newPlayerHp = wasCorrect ? playerHp : playerHp - 1;
     const newMonsterHp = wasCorrect ? monsterHp - 1 : monsterHp;
     
-    // --- CHECK FOR DEFEAT ---
     if (newPlayerHp <= 0) { 
         setHeroState('dead'); 
         setTimeout(() => onGameEnd(false, score), 2000); 
         return; 
     }
     
-    // --- CHECK FOR VICTORY ---
     if (newMonsterHp <= 0) { 
         playSoundEffect('death'); 
         setTimeout(() => onGameEnd(true, score + 1), 2000); 
@@ -679,25 +729,19 @@ const BattleEngine = ({ gameId, questions, setQuestions, heroData, initialMonste
   };
 
   const currentQ = questions[qIndex];
-
   if (!currentQ) return <div style={{color:'white'}}>Victory Impending...</div>;
 
   return (
     <div style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
-      {/* GAME BOX */}
       <div style={{position: 'relative', width:'800px', height:'400px', border:'4px solid #4a5568', borderRadius:'12px 12px 0 0', overflow:'hidden', boxShadow:'0 0 30px rgba(0,0,0,0.8)'}}>
-        
-        {/* HUD */}
         <div style={{width:'100%', display:'flex', justifyContent:'space-between', padding:'10px', position:'absolute', top:0, left:0, zIndex:10, boxSizing:'border-box'}}>
           <div style={{color:'#9ae6b4', fontSize:'1.2rem', fontWeight:'bold', textShadow:'2px 2px 0 #000'}}>HERO: {'❤️'.repeat(Math.max(0, playerHp))}</div>
           <div style={{color:'#ffd166', fontSize:'1.2rem', fontWeight:'bold', textShadow:'2px 2px 0 #000'}}>SCORE: {score} / {maxScore}</div>
           <div style={{color:'#ff6b6b', fontSize:'1.2rem', fontWeight:'bold', textShadow:'2px 2px 0 #000'}}>BOSS: {'💀'.repeat(Math.max(0, monsterHp))}</div>
         </div>
-
         <canvas ref={canvasRef} width={800} height={400} />
       </div>
 
-      {/* QUESTION BOX */}
       {currentQ && monsterHp > 0 && playerHp > 0 && (
         <div style={{width:'800px', background:'#2d3748', padding:'20px', border:'4px solid #4a5568', borderTop:'none', borderRadius:'0 0 12px 12px', textAlign:'center', boxSizing:'border-box'}}>
           <h3 style={{margin:'0 0 15px 0', color:'#fff', fontSize:'1.1rem'}}>{currentQ.question_text}</h3>

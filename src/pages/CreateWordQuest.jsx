@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import './GamesCSS.css'; // We reuse your existing styles
+import './GamesCSS.css'; 
 
 const CreateWordQuest = () => {
   const navigate = useNavigate();
@@ -9,6 +9,19 @@ const CreateWordQuest = () => {
   const [loading, setLoading] = useState(false);
   const [availableClasses, setAvailableClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
+
+  // Custom Modal States
+  const [alertData, setAlertData] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+
+  // Scheduling Data
+  const [openDate, setOpenDate] = useState('');
+  const [openTime, setOpenTime] = useState('');
+  const [noCloseDate, setNoCloseDate] = useState(true);
+  const [closeDate, setCloseDate] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [unlimitedTime, setUnlimitedTime] = useState(true);
+  const [timeLimit, setTimeLimit] = useState(15); 
 
   // Default Questions State
   const [questions, setQuestions] = useState([
@@ -49,17 +62,29 @@ const CreateWordQuest = () => {
     setQuestions(newQs);
   };
 
-  const handleSubmit = async () => {
-    if (!selectedClass) return alert("Select a class!");
+  const handleSubmitClick = () => {
+    if (!selectedClass) return setAlertData({ title: "ATTENTION", message: "Select a class!", color: "#ff9900" });
     
-    // Validation: Ensure all questions have a correct answer selected
     for (let i=0; i<questions.length; i++) {
         if (!questions[i].correct || questions[i].correct === "") {
-            return alert(`Question ${i+1} needs a correct answer selected.`);
+            return setAlertData({ title: "ATTENTION", message: `Question ${i+1} needs a correct answer selected.`, color: "#ff9900" });
         }
     }
 
+    setConfirmData({
+        title: "CONFIRM CREATION",
+        message: "Create and assign this Word Quest to the selected class?"
+    });
+  };
+
+  const executeCreateGame = async () => {
+    setConfirmData(null);
     setLoading(true);
+
+    let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
+    let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
+    const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
+
     try {
         const res = await fetch('http://localhost:8081/api/create-word-quest', {
             method: 'POST',
@@ -67,21 +92,25 @@ const CreateWordQuest = () => {
             body: JSON.stringify({
                 teacher_fid: auth.currentUser.uid,
                 class_id: selectedClass,
-                questions: questions
+                questions: questions,
+                open_datetime: formattedOpenDate,
+                close_datetime: formattedCloseDate,
+                time_limit: finalTimeLimit
             })
         });
 
         if (res.ok) {
             setTimeout(() => {
-                alert("Word Quest Created Successfully!");
-                navigate('/teacher-menu');
+                setLoading(false);
+                setAlertData({ title: "SUCCESS", message: "Word Quest Created Successfully!", color: "#14a014", navigate: true });
             }, 1000);
         } else {
-            alert("Error creating game");
+            setAlertData({ title: "ERROR", message: "Error creating game", color: "#ff4c4c" });
             setLoading(false);
         }
     } catch (e) {
         console.error(e);
+        setAlertData({ title: "ERROR", message: "Server Error", color: "#ff4c4c" });
         setLoading(false);
     }
   };
@@ -90,17 +119,22 @@ const CreateWordQuest = () => {
 
   const renderIntro = () => (
     <div className="game-card">
-      <h2 style={{color: '#ce93d8'}}>CREATE WORD QUEST</h2>
-      <p>A multiplayer board game where students roll dice and answer questions.</p>
-      <div style={{textAlign:'left', background:'#0c0e17', padding:'20px', borderRadius:'8px', marginBottom:'20px'}}>
-        <p style={{color:'#ce93d8', fontSize:'0.8rem'}}>GAMEPLAY:</p>
-        <ul style={{fontSize:'0.8rem', color:'#aaa', marginTop:'10px'}}>
-          <li>Create A 40 minimum question 50 max Questions</li>
-          <li>Classic Snakes & Ladders mechanics</li>
-          <li>Power-ups, Traps, and AI Opponent</li>
-          <li>Questions appear after every move</li>
+      <h2 style={{color: '#ce93d8', marginBottom: '20px'}}>CREATE WORD QUEST</h2>
+      
+      {/* 🟢 NEW: Enhanced Instructions with Pixel Font */}
+      <div style={{textAlign:'left', background:'#0c0e17', padding:'20px', borderRadius:'8px', border: '1px dashed #ce93d8', marginBottom:'20px'}}>
+        <h3 style={{ color: '#ce93d8', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
+        <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
+            Word Quest is a classic Snakes & Ladders style board game. Students play against an AI opponent, rolling dice and answering questions to climb to the finish line.
+        </p>
+        <p style={{color:'#ce93d8', fontSize:'0.8rem', fontWeight: 'bold', fontFamily: '"Press Start 2P", cursive', marginTop: '20px'}}>CREATION CHECKLIST:</p>
+        <ul style={{fontSize:'0.75rem', color:'white', marginTop:'15px', lineHeight: '1.8', fontFamily: '"Press Start 2P", cursive'}}>
+            <li style={{marginBottom: '10px'}}>Add multiple-choice questions (we recommend at least 10 for a good game length).</li>
+            <li style={{marginBottom: '10px'}}>Set your opening, closing, and time limits in the Schedule step.</li>
+            <li>Assign the board game to your active classes!</li>
         </ul>
       </div>
+
       <div className="btn-group">
         <button className="btn-secondary" onClick={() => navigate('/teacher-menu')}>CANCEL</button>
         <button className="btn-primary" onClick={() => setStep(2)} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>START CONFIG</button>
@@ -154,8 +188,44 @@ const CreateWordQuest = () => {
       </div>
       <div className="btn-group">
         <button className="btn-secondary" onClick={addQuestion}>+ ADD QUESTION</button>
-        <button className="btn-primary" onClick={() => setStep(3)} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>NEXT: ASSIGN</button>
+        <button className="btn-primary" onClick={() => setStep(3)} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>NEXT: SCHEDULE</button>
       </div>
+    </div>
+  );
+
+  const renderSchedule = () => (
+    <div className="game-card">
+        <h2 style={{color: '#ce93d8'}}>SCHEDULE ACTIVITY</h2>
+        <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+            <label style={{display: 'block', color: '#ce93d8', marginBottom: '5px'}}>OPENING:</label>
+            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                <input type="date" className="game-input" value={openDate} onChange={e => setOpenDate(e.target.value)} />
+                <input type="time" className="game-input" value={openTime} onChange={e => setOpenTime(e.target.value)} />
+            </div>
+            <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={noCloseDate} onChange={e => setNoCloseDate(e.target.checked)} /> No Closing Date
+            </label>
+            {!noCloseDate && (
+                <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                    <input type="date" className="game-input" value={closeDate} onChange={e => setCloseDate(e.target.value)} />
+                    <input type="time" className="game-input" value={closeTime} onChange={e => setCloseTime(e.target.value)} />
+                </div>
+            )}
+            <label style={{display: 'block', color: '#ff9900', marginBottom: '5px', marginTop: '10px'}}>TIME LIMIT:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={unlimitedTime} onChange={e => setUnlimitedTime(e.target.checked)} /> Unlimited
+            </label>
+            {!unlimitedTime && (
+                <select className="game-select" value={timeLimit} onChange={e => setTimeLimit(e.target.value)}>
+                    {[5, 10, 15, 30, 60].map(m => <option key={m} value={m}>{m} Minutes</option>)}
+                </select>
+            )}
+        </div>
+        <div className="btn-group">
+            <button className="btn-secondary" onClick={() => setStep(2)}>BACK</button>
+            <button className="btn-primary" onClick={() => setStep(4)} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>NEXT: ASSIGN</button>
+        </div>
     </div>
   );
 
@@ -176,8 +246,8 @@ const CreateWordQuest = () => {
         ))}
       </div>
       <div className="btn-group">
-        <button className="btn-secondary" onClick={() => setStep(2)}>BACK</button>
-        <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>
+        <button className="btn-secondary" onClick={() => setStep(3)}>BACK</button>
+        <button className="btn-primary" onClick={handleSubmitClick} disabled={loading} style={{background:'#ce93d8', color:'#1a0d2e', boxShadow:'0 6px 0 #8e24aa'}}>
             {loading ? "CREATING..." : "CREATE GAME"}
         </button>
       </div>
@@ -188,7 +258,35 @@ const CreateWordQuest = () => {
     <div className="create-game-container">
       {step === 1 && renderIntro()}
       {step === 2 && renderQuestions()}
-      {step === 3 && renderAssign()}
+      {step === 3 && renderSchedule()}
+      {step === 4 && renderAssign()}
+
+      {/* --- MODALS --- */}
+      {confirmData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#222', border: '2px solid #ce93d8', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: '#ce93d8', marginBottom: '20px'}}>{confirmData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{confirmData.message}</p>
+                  <div className="btn-group" style={{justifyContent: 'center', gap: '15px'}}>
+                      <button className="btn-primary" onClick={executeCreateGame} style={{background:'#ce93d8', color:'#1a0d2e'}}>CONFIRM</button>
+                      <button className="btn-secondary" onClick={() => setConfirmData(null)}>CANCEL</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {alertData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: alertData.color, marginBottom: '20px'}}>{alertData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{alertData.message}</p>
+                  <button className="btn-primary" onClick={() => {
+                      setAlertData(null);
+                      if (alertData.navigate) navigate('/teacher-menu');
+                  }} style={{background: alertData.color, color: '#000'}}>OK</button>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

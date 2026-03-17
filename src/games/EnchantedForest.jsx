@@ -31,13 +31,17 @@ export default function EnchantedForest() {
 
   const answerLog = useRef([]);
 
+  // 🟢 NEW: SCHEDULING STATES
+  const [timeLimit, setTimeLimit] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
+
   // 🟢 AUDIO REFERENCES
   const bgmMenuR = useRef(null);
   const bgmGameR = useRef(null);
   const victoryAudioR = useRef(null);
-  const clickAudioR = useRef(null); // 🟢 CLICK AUDIO REF
+  const clickAudioR = useRef(null); 
 
-  // 🟢 SETUP AUDIO OBJECTS
   useEffect(() => {
     bgmMenuR.current = new Audio(menuBGM);
     bgmMenuR.current.loop = true;
@@ -51,7 +55,7 @@ export default function EnchantedForest() {
     victoryAudioR.current.volume = 0.8;
 
     clickAudioR.current = new Audio(clickSFX);
-    clickAudioR.current.volume = 0.6; // 🟢 INIT CLICK SOUND
+    clickAudioR.current.volume = 0.6; 
 
     return () => {
         if (bgmMenuR.current) { bgmMenuR.current.pause(); bgmMenuR.current = null; }
@@ -61,25 +65,16 @@ export default function EnchantedForest() {
     };
   }, []);
 
-  // 🟢 GLOBAL CLICK SOUND LISTENER
-  // This automatically plays the click sound on ANY button or clickable element in the entire game!
   useEffect(() => {
     const handleGlobalClick = (e) => {
-      // Check if the clicked target is a button OR has "cursor: pointer" applied via CSS
       const isClickable = e.target.closest('button') || window.getComputedStyle(e.target).cursor === 'pointer';
-      
       if (isClickable && clickAudioR.current) {
-        clickAudioR.current.currentTime = 0; // Reset sound instantly for fast clicking
-        clickAudioR.current.play().catch(() => {}); // Play safely
+        clickAudioR.current.currentTime = 0; 
+        clickAudioR.current.play().catch(() => {}); 
       }
     };
-
-    // Attach to the window to catch EVERYTHING
     window.addEventListener('click', handleGlobalClick, true);
-    
-    return () => {
-      window.removeEventListener('click', handleGlobalClick, true);
-    };
+    return () => { window.removeEventListener('click', handleGlobalClick, true); };
   }, []);
 
   // 🟢 MUSIC CONTROLLER
@@ -109,12 +104,23 @@ export default function EnchantedForest() {
     }
   }, [screen]);
 
+  // 1. FETCH DATA & SCHEDULE
   useEffect(() => {
     const fetchGameData = async () => {
       try {
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         
+        // 🟢 Fetch time limit
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                setTimeLimit(currentGame.time_limit);
+            }
+        }
+
         const sortedData = [...data].sort((a, b) => parseInt(a.id || 0) - parseInt(b.id || 0));
         const locationsMap = {};
         for (let i = 0; i < 6; i++) { locationsMap[i] = { words: [], bossWords: [] }; }
@@ -152,6 +158,24 @@ export default function EnchantedForest() {
     if (gameId) fetchGameData();
   }, [gameId]);
 
+  // 🟢 NEW: TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+      if ((screen === 'map' || screen === 'game') && timeLeft !== null && !showTimeUp) {
+          if (timeLeft <= 0) {
+              handleTimeUp();
+              return;
+          }
+          const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+      }
+  }, [screen, timeLeft, showTimeUp]);
+
+  const handleTimeUp = () => {
+      setShowTimeUp(true);
+      setScreen('game_over'); // Triggers auto-save naturally below
+  };
+
+  // --- AUTO SAVE LOGIC ---
   useEffect(() => {
       if (screen === 'game_over' && !scoreSaved) {
           const autoSave = async () => {
@@ -219,11 +243,22 @@ export default function EnchantedForest() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100vw', height: '100vh', backgroundColor: '#0a0f16', padding: '20px' }}>
       <div style={{ width: '100%', maxWidth: '1200px', height: '80vh', position: 'relative', borderRadius: '15px', overflow: 'hidden', border: '2px solid rgba(77,255,145,0.4)', boxShadow: '0 15px 50px rgba(0,0,0,0.9)' }}>
         
+        {/* 🟢 GLOBAL TIMER RENDER */}
+        {timeLeft !== null && (screen === 'map' || screen === 'game') && (
+            <div style={{position: 'absolute', top: 20, right: 30, background: 'rgba(0,0,0,0.8)', border: '2px solid #4dff91', padding: '10px 20px', borderRadius: '10px', color: '#4dff91', zIndex: 900, fontSize: '1.2rem', fontWeight: 'bold', fontFamily: "monospace"}}>
+                ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </div>
+        )}
+
         {screen === 'menu' && (
           <MainMenu 
             hasCheckpoint={false}
             onContinue={() => {}}
-            onNewGame={() => { setMaxUnlockedIdx(0); setScore(0); setInventory([]); setScoreSaved(false); answerLog.current = []; setScreen('intro'); }} 
+            onNewGame={() => { 
+                setMaxUnlockedIdx(0); setScore(0); setInventory([]); setScoreSaved(false); answerLog.current = []; 
+                if (timeLimit > 0) setTimeLeft(timeLimit * 60); // 🟢 Start the clock!
+                setScreen('intro'); 
+            }} 
             onQuit={() => navigate('/student-menu')}
           />
         )}
@@ -264,9 +299,17 @@ export default function EnchantedForest() {
         
         {screen === 'game_over' && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 15, 30, 0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-             <h1 style={{ color: '#4dff91', fontSize: '3.5rem', fontFamily: "'Cinzel', serif", textShadow: '0 0 20px rgba(77,255,145,0.5)', marginBottom: '10px' }}>
-                GAME FINISHED
-             </h1>
+             
+             {/* 🟢 DYNAMIC TITLE RENDERING */}
+             {showTimeUp ? (
+                 <h1 style={{ color: '#ff4c4c', fontSize: '3.5rem', fontFamily: "'Cinzel', serif", textShadow: '0 0 20px rgba(255, 76, 76, 0.5)', marginBottom: '10px' }}>
+                    TIME'S UP!
+                 </h1>
+             ) : (
+                 <h1 style={{ color: '#4dff91', fontSize: '3.5rem', fontFamily: "'Cinzel', serif", textShadow: '0 0 20px rgba(77,255,145,0.5)', marginBottom: '10px' }}>
+                    GAME FINISHED
+                 </h1>
+             )}
              
              <div style={{ background: 'rgba(0,0,0,0.6)', padding: '20px 40px', borderRadius: '12px', border: '1px solid #30363d', textAlign: 'center', marginBottom: '30px' }}>
                  <h2 style={{ color: '#8b949e', fontSize: '1.2rem', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Final Score</h2>

@@ -6,7 +6,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { LOCATIONS } from '../data/locations_enhanced.js'; 
 import '../components/TeacherMenu.css';
 
-// Helper function to auto-jumble a word
 const shuffleWord = (word) => {
   if (!word) return '';
   const arr = word.toUpperCase().split('');
@@ -23,21 +22,28 @@ function CreateEnchantedForest() {
   const [user, setUser] = useState(null);
   const [classes, setClasses] = useState([]);
 
-  // Form State
   const [gameTitle, setGameTitle] = useState('Enchanted Forest - Vocabulary');
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [alertData, setAlertData] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+
+  const [openDate, setOpenDate] = useState('');
+  const [openTime, setOpenTime] = useState('');
+  const [noCloseDate, setNoCloseDate] = useState(true);
+  const [closeDate, setCloseDate] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [unlimitedTime, setUnlimitedTime] = useState(true);
+  const [timeLimit, setTimeLimit] = useState(15);
   
-  // Tab State for Locations
   const [activeLocTab, setActiveLocTab] = useState(0);
 
-  // Initialize location data strictly as empty lists so they are OPTIONAL
   const [locationData, setLocationData] = useState(() => {
     return LOCATIONS.map(loc => ({
       id: loc.id,
       name: loc.name,
       bossName: loc.boss.name,
-      words: [],      // Starts empty!
-      bossWords: []   // Starts empty!
+      words: [],      
+      bossWords: []   
     }));
   });
 
@@ -97,7 +103,6 @@ function CreateEnchantedForest() {
     setLocationData(newData);
   };
 
-  // Adjusts the exact number of blank question slots based on the teacher's input
   const handleWordCountChange = (locIdx, isBoss, newCount) => {
     if (newCount < 0 || newCount > 50) return; 
     const newData = [...locationData];
@@ -114,26 +119,38 @@ function CreateEnchantedForest() {
     setLocationData(newData);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmitClick = (e) => {
     e.preventDefault();
-    if (!selectedClassId) return alert("Please select a class!");
+    if (!selectedClassId) return setAlertData({ title: "ATTENTION", message: "Please select a class!", color: "#ff9900" });
 
-    // 🟢 SMART FILTER: Removes empty questions and fully empty locations!
     const activeLocations = locationData
       .map(loc => ({
         ...loc,
-        // Strip out any accidental blank rows the teacher forgot to fill
         words: loc.words.filter(w => w.answer.trim() !== ''),
         bossWords: loc.bossWords.filter(w => w.answer.trim() !== '')
       }))
-      // ONLY KEEP locations that actually have at least 1 question
       .filter(loc => loc.words.length > 0 || loc.bossWords.length > 0);
 
     if (activeLocations.length === 0) {
-      return alert("You must add at least one question to a location before saving!");
+      return setAlertData({ title: "ATTENTION", message: "You must add at least one question to a location before saving!", color: "#ff9900" });
     }
 
+    setConfirmData({
+        title: "CONFIRM CREATION",
+        message: "Create and assign this Enchanted Forest game?",
+        activeLocations: activeLocations
+    });
+  };
+
+  const executeCreateGame = async () => {
+    const activeLocations = confirmData.activeLocations;
+    setConfirmData(null);
+
     const selectedClass = classes.find(c => c.class_id.toString() === selectedClassId.toString());
+    
+    let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
+    let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
+    const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
     const gamePayload = {
       teacher_fid: user.uid,
@@ -141,8 +158,10 @@ function CreateEnchantedForest() {
       class_name: selectedClass ? selectedClass.class_name : 'Unknown Class',
       game_type: 'ENCHANTED_FOREST',
       game_title: gameTitle,
-      // Only the populated locations will be sent to the database!
-      game_data: JSON.stringify({ locations: activeLocations }) 
+      game_data: JSON.stringify({ locations: activeLocations }),
+      open_datetime: formattedOpenDate,
+      close_datetime: formattedCloseDate,
+      time_limit: finalTimeLimit
     };
 
     try {
@@ -152,21 +171,19 @@ function CreateEnchantedForest() {
         body: JSON.stringify(gamePayload)
       });
       if (res.ok) {
-        alert("Enchanted Forest game created and assigned successfully!");
-        navigate('/teacher-menu');
+        setAlertData({ title: "SUCCESS", message: "Enchanted Forest game created and assigned successfully!", color: "#14a014", navigate: true });
       } else {
-        alert("Failed to create game.");
+        setAlertData({ title: "ERROR", message: "Failed to create game.", color: "#ff4c4c" });
       }
     } catch (err) {
       console.error(err);
-      alert("Server Error.");
+      setAlertData({ title: "ERROR", message: "Server Error.", color: "#ff4c4c" });
     }
   };
 
   return (
     <div className="teacher-dashboard" style={{ flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       
-      {/* --- HEADER --- */}
       <div className="section-header" style={{ padding: '20px 40px', borderBottom: '1px solid rgba(77,255,145,0.2)', background: '#0a0f16' }}>
         <h2 style={{ color: '#4dff91', margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.4rem' }}>
           🌳 CREATE ENCHANTED FOREST
@@ -178,7 +195,6 @@ function CreateEnchantedForest() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', background: '#0d1117' }}>
         
-        {/* --- SIDEBAR TABS --- */}
         <div className="sidebar" style={{ width: '300px', overflowY: 'auto', borderRight: '1px solid rgba(77,255,145,0.2)', background: '#0a0f16', padding: '20px 10px' }}>
           <h3 style={{ color: '#aaa', fontSize: '0.8rem', letterSpacing: '1px', marginBottom: '15px', paddingLeft: '10px' }}>GAME LOCATIONS</h3>
           {locationData.map((loc, idx) => {
@@ -195,14 +211,13 @@ function CreateEnchantedForest() {
                   borderLeft: activeLocTab === idx ? '4px solid #4dff91' : '4px solid transparent',
                   borderRadius: '0 8px 8px 0',
                   cursor: 'pointer', transition: 'all 0.2s',
-                  opacity: isActive || activeLocTab === idx ? 1 : 0.6 // Dim unused locations
+                  opacity: isActive || activeLocTab === idx ? 1 : 0.6 
                 }}
                 onClick={() => setActiveLocTab(idx)}
               >
                 <div style={{ fontWeight: 'bold', fontSize: '1rem', color: activeLocTab === idx ? '#4dff91' : '#fff' }}>
                   {loc.name}
                 </div>
-                {/* 🟢 NEW: Active Question Counter */}
                 <div style={{ fontSize: '0.75rem', color: isActive ? '#4dff91' : '#777', marginTop: '6px', fontWeight: isActive ? 'bold' : 'normal' }}>
                   {totalQuestions > 0 ? `✅ ${totalQuestions} Question${totalQuestions !== 1 ? 's' : ''}` : 'Optional (0 Questions)'}
                 </div>
@@ -211,12 +226,19 @@ function CreateEnchantedForest() {
           })}
         </div>
 
-        {/* --- MAIN CONTENT FORM --- */}
         <div className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
-          <form onSubmit={handleSubmit} style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <form onSubmit={handleSubmitClick} style={{ maxWidth: '1000px', margin: '0 auto' }}>
             
-            {/* GENERAL SETTINGS CARD */}
-            <div style={{ background: '#161b22', padding: '25px', borderRadius: '12px', marginBottom: '40px', border: '1px solid #30363d', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+            {/* INSTRUCTIONS */}
+            <div style={{ background: 'rgba(77, 255, 145, 0.05)', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid rgba(77, 255, 145, 0.3)' }}>
+              <h3 style={{ color: '#4dff91', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
+              <p style={{ color: '#c9d1d9', fontSize: '0.75rem', lineHeight: '1.8', margin: 0, fontFamily: '"Press Start 2P", cursive' }}>
+                Enchanted Forest is a map-exploration game. Students travel to different locations and unscramble words to progress.<br/><br/>
+                What to do: Select a location from the left sidebar. Add target words, their scrambled versions, and hints. Boss encounters are harder questions at the end of a zone. Leave a location completely empty if you want to skip it.
+              </p>
+            </div>
+
+            <div style={{ background: '#161b22', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #30363d', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
               <h3 style={{ color: '#fff', margin: '0 0 20px 0', fontSize: '1.2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>General Settings</h3>
               
               <div style={{ display: 'flex', gap: '30px' }}>
@@ -246,7 +268,49 @@ function CreateEnchantedForest() {
               </div>
             </div>
 
-            {/* LOCATION CONFIGURATION */}
+            <div style={{ background: '#161b22', padding: '25px', borderRadius: '12px', marginBottom: '40px', border: '1px solid #30363d', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+              <h3 style={{ color: '#fff', margin: '0 0 20px 0', fontSize: '1.2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>Schedule Settings</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#8b949e', fontWeight: 'bold' }}>Opening Date & Time</label>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <input type="date" value={openDate} onChange={e => setOpenDate(e.target.value)} style={{ padding: '10px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', width: '50%' }} />
+                    <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} style={{ padding: '10px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', width: '50%' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#8b949e', fontWeight: 'bold' }}>Closing Date & Time</label>
+                  <label style={{fontSize: '0.75rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '5px'}}>
+                      <input type="checkbox" checked={noCloseDate} onChange={e => setNoCloseDate(e.target.checked)} /> No Closing Date
+                  </label>
+                  {!noCloseDate && (
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <input type="date" value={closeDate} onChange={e => setCloseDate(e.target.value)} required={!noCloseDate} style={{ padding: '10px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', width: '50%' }} />
+                      <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} required={!noCloseDate} style={{ padding: '10px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', width: '50%' }} />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#8b949e', fontWeight: 'bold' }}>Time Limit (Duration)</label>
+                  <label style={{fontSize: '0.75rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '5px'}}>
+                      <input type="checkbox" checked={unlimitedTime} onChange={e => setUnlimitedTime(e.target.checked)} /> Unlimited
+                  </label>
+                  {!unlimitedTime && (
+                      <select value={timeLimit} onChange={e => setTimeLimit(e.target.value)} style={{ padding: '10px', borderRadius: '6px', background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9' }}>
+                          <option value="5">5 Minutes</option>
+                          <option value="10">10 Minutes</option>
+                          <option value="15">15 Minutes</option>
+                          <option value="30">30 Minutes</option>
+                          <option value="60">60 Minutes</option>
+                      </select>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', borderBottom: '2px solid rgba(77,255,145,0.3)', paddingBottom: '10px' }}>
               <h2 style={{ color: '#4dff91', fontSize: '1.6rem', margin: 0 }}>
                 📍 {locationData[activeLocTab].name}
@@ -256,7 +320,6 @@ function CreateEnchantedForest() {
               </span>
             </div>
             
-            {/* Regular Words */}
             <WordSection 
               title="🗣️ Regular Encounters" 
               words={locationData[activeLocTab].words} 
@@ -269,7 +332,6 @@ function CreateEnchantedForest() {
 
             <div style={{ height: '40px' }} />
 
-            {/* Boss Words */}
             <WordSection 
               title={`⚔️ Boss Encounter: ${locationData[activeLocTab].bossName}`} 
               accent="#ff6b6b"
@@ -281,7 +343,6 @@ function CreateEnchantedForest() {
               onCountChange={(newCount) => handleWordCountChange(activeLocTab, true, newCount)}
             />
 
-            {/* SUBMIT BUTTON */}
             <div style={{ marginTop: '50px', padding: '20px 0', borderTop: '1px solid #30363d', display: 'flex', justifyContent: 'flex-end' }}>
               <button 
                 type="submit" 
@@ -298,18 +359,42 @@ function CreateEnchantedForest() {
           </form>
         </div>
       </div>
+
+      {confirmData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(10, 15, 22, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#161b22', border: '2px solid #4dff91', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: '#4dff91', margin: '0 0 20px 0'}}>{confirmData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{confirmData.message}</p>
+                  <div style={{display: 'flex', justifyContent: 'center', gap: '15px'}}>
+                      <button className="btn-primary" onClick={executeCreateGame} style={{background: '#4dff91', color: '#000', border: 'none', padding: '10px 20px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer'}}>CONFIRM</button>
+                      <button className="btn-secondary" onClick={() => setConfirmData(null)} style={{background: 'transparent', color: '#fff', border: '1px solid #fff', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer'}}>CANCEL</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {alertData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(10, 15, 22, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#161b22', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: alertData.color, margin: '0 0 20px 0'}}>{alertData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{alertData.message}</p>
+                  <button className="btn-primary" onClick={() => {
+                      setAlertData(null);
+                      if (alertData.navigate) navigate('/teacher-menu');
+                  }} style={{background: alertData.color, color: '#000', border: 'none', padding: '10px 30px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer'}}>OK</button>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
 
-// --- CLEAN CARD-BASED WORD ROWS ---
 function WordSection({ title, accent = '#4dff91', words, onAdd, onRemove, onChange, onScramble, onCountChange }) {
   return (
     <div style={{ marginBottom: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h3 style={{ color: accent, margin: 0, fontSize: '1.2rem' }}>{title}</h3>
         
-        {/* Controls for defining number of questions easily */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <label style={{ color: '#8b949e', fontSize: '0.85rem', fontWeight: 'bold' }}>Number of Questions:</label>
@@ -344,7 +429,6 @@ function WordSection({ title, accent = '#4dff91', words, onAdd, onRemove, onChan
               #{idx + 1}
             </div>
 
-            {/* Answer Field */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '0.8rem', color: '#8b949e', fontWeight: 'bold' }}>Answer (Target Word)</label>
               <input 
@@ -357,7 +441,6 @@ function WordSection({ title, accent = '#4dff91', words, onAdd, onRemove, onChan
               />
             </div>
 
-            {/* Scrambled Field with Inline Button */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <label style={{ fontSize: '0.8rem', color: '#8b949e', fontWeight: 'bold' }}>Scrambled</label>
@@ -379,7 +462,6 @@ function WordSection({ title, accent = '#4dff91', words, onAdd, onRemove, onChan
               />
             </div>
 
-            {/* Hint Field */}
             <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '0.8rem', color: '#8b949e', fontWeight: 'bold' }}>Player Hint</label>
               <input 
@@ -392,7 +474,6 @@ function WordSection({ title, accent = '#4dff91', words, onAdd, onRemove, onChan
               />
             </div>
 
-            {/* Delete Button */}
             <div style={{ paddingTop: '24px' }}>
               <button 
                 type="button" 

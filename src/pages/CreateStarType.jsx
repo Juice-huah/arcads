@@ -6,23 +6,27 @@ import '../components/TeacherMenu.css';
 function CreateStarType() {
   const navigate = useNavigate();
   
-  // --- STATE ---
-  const [step, setStep] = useState(1); // 1=Intro, 2=Config, 3=Assign
+  const [step, setStep] = useState(1); 
   const [classes, setClasses] = useState([]);
-  
-  // 🟢 CHANGED: selectedClasses is now an array to hold multiple IDs
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Game Details State
+  const [alertData, setAlertData] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+
+  const [openDate, setOpenDate] = useState('');
+  const [openTime, setOpenTime] = useState('');
+  const [noCloseDate, setNoCloseDate] = useState(true);
+  const [closeDate, setCloseDate] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [unlimitedTime, setUnlimitedTime] = useState(true);
+  const [timeLimit, setTimeLimit] = useState(15); 
+
   const [title, setTitle] = useState('');
-  
-  // Word Input State
   const [wordInput, setWordInput] = useState('');
   const [difficulty, setDifficulty] = useState('Easy');
   const [wordsList, setWordsList] = useState([]);
 
-  // --- 1. FETCH CLASSES ON LOAD ---
   useEffect(() => {
     const fetchClasses = async () => {
         if (auth.currentUser) {
@@ -36,7 +40,6 @@ function CreateStarType() {
     fetchClasses();
   }, []);
 
-  // --- HANDLERS: BULK ADD LOGIC ---
   const handleAddWord = () => {
       const inputStr = wordInput.trim().toUpperCase();
       if (!inputStr) return;
@@ -64,7 +67,7 @@ function CreateStarType() {
       setWordInput('');
       
       if (duplicateCount > 0 && addedCount === 0) {
-          alert("All those words are already in your fleet!");
+          setAlertData({ title: "ATTENTION", message: "All those words are already in your fleet!", color: "#ff9900" });
       }
   };
 
@@ -79,48 +82,43 @@ function CreateStarType() {
       setWordsList(wordsList.filter(w => w.id !== id));
   };
 
-  const handleNextToAssign = () => {
-      if (!title.trim()) {
-          alert("⚠️ Please enter a Mission Title (e.g., 'Space Vocabulary').");
-          return;
-      }
-      
-      if (wordsList.length === 0 && wordInput.trim().length > 0) {
-          alert("⚠️ You typed words into the box but forgot to add them! Please click '+ ADD WORDS' first.");
-          return;
-      }
-
-      if (wordsList.length === 0) {
-          alert("⚠️ Please add at least one word to your Mission Fleet before continuing.");
-          return;
-      }
-
+  const handleNextToSchedule = () => {
+      if (!title.trim()) return setAlertData({ title: "ATTENTION", message: "Please enter a Mission Title.", color: "#ff9900" });
+      if (wordsList.length === 0 && wordInput.trim().length > 0) return setAlertData({ title: "ATTENTION", message: "You typed words into the box but forgot to add them! Please click '+ ADD WORDS' first.", color: "#ff9900" });
+      if (wordsList.length === 0) return setAlertData({ title: "ATTENTION", message: "Please add at least one word to your Mission Fleet.", color: "#ff9900" });
       setStep(3);
   };
 
-  // 🟢 NEW: Toggle class selection
   const toggleClassSelection = (classId) => {
       if (selectedClasses.includes(classId)) {
-          setSelectedClasses(selectedClasses.filter(id => id !== classId)); // Remove if already selected
+          setSelectedClasses(selectedClasses.filter(id => id !== classId));
       } else {
-          setSelectedClasses([...selectedClasses, classId]); // Add to selection
+          setSelectedClasses([...selectedClasses, classId]);
       }
   };
 
-  // --- SUBMIT LOGIC ---
-  const handleSubmit = async () => {
-    if (selectedClasses.length === 0) return alert("Please select at least one class.");
-    
+  const handleSubmitClick = () => {
+      if (selectedClasses.length === 0) return setAlertData({ title: "ATTENTION", message: "Please select at least one class.", color: "#ff9900" });
+      setConfirmData({
+          title: "CONFIRM ASSIGNMENT",
+          message: `Assign this StarType Mission to ${selectedClasses.length} class(es)?`
+      });
+  };
+
+  const executeCreateGame = async () => {
+    setConfirmData(null);
     setLoading(true);
 
+    let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
+    let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
+    const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
+
     try {
-        // 🟢 Format words to pass directly to our new backend route
         const wordsPayload = wordsList.map(w => ({
             word: w.word,
             difficulty: w.difficulty
         }));
 
-        // 🟢 Loop through every selected class and create a game for each
         for (const classId of selectedClasses) {
             await fetch('http://localhost:8081/api/create-startype', {
                 method: 'POST',
@@ -129,38 +127,41 @@ function CreateStarType() {
                     teacher_fid: auth.currentUser.uid,
                     class_id: classId, 
                     title: title.trim(),
-                    words: wordsPayload // Passed directly
+                    words: wordsPayload,
+                    open_datetime: formattedOpenDate,
+                    close_datetime: formattedCloseDate,
+                    time_limit: finalTimeLimit
                 })
             });
         }
 
         setTimeout(() => {
             setLoading(false);
-            alert("🚀 StarType Mission Assigned Successfully to all selected classes!");
-            navigate('/teacher-menu');
+            setAlertData({ title: "SUCCESS", message: "🚀 StarType Mission Assigned Successfully!", color: "#14a014", navigate: true });
         }, 1000);
 
     } catch (err) {
-        console.error("Error saving StarType games:", err);
-        alert("Server Error. Failed to save the games.");
+        console.error(err);
+        setAlertData({ title: "ERROR", message: "Server Error. Failed to save the games.", color: "#ff4c4c" });
         setLoading(false);
     }
   };
 
-  // --- RENDER STEPS ---
-
-  // STEP 1: INTRO 
   const renderStep1_Intro = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#00f5ff', fontFamily: '"Orbitron", sans-serif', marginBottom:'20px'}}>CREATE NEW STARTYPE MISSION</h2>
-      <p style={{marginBottom: '20px', color:'#ccc'}}>This template allows you to create a Galactic Typing Combat game.</p>
       
+      {/* INSTRUCTIONS */}
       <div style={{textAlign: 'left', backgroundColor: '#020d24', padding: '20px', borderRadius: '8px', border: '1px dashed #00f5ff', marginBottom:'30px'}}>
-        <p style={{color: '#00f5ff', fontFamily: '"Orbitron", sans-serif', fontSize: '0.8rem'}}>REQUIREMENTS & FEATURES:</p>
-        <ul style={{marginTop: '10px', paddingLeft: '20px', color:'white', lineHeight:'1.6'}}>
-          <li><b>Bulk Add:</b> You can copy/paste entire lists of words at once!</li>
-          <li>Spaces will automatically split words into separate targets.</li>
-          <li>Assign difficulties to control which wave they appear in.</li>
+        <h3 style={{ color: '#00f5ff', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
+        <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
+            StarType is a galactic typing combat game. Enemy ships fly towards the player, and they must quickly type the attached vocabulary words to destroy them before losing health.
+        </p>
+        <p style={{color: '#00f5ff', fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem', marginTop: '20px'}}>CREATION CHECKLIST:</p>
+        <ul style={{marginTop: '15px', paddingLeft: '20px', color:'white', lineHeight:'1.8', fontFamily: '"Press Start 2P", cursive', fontSize: '0.75rem'}}>
+            <li style={{marginBottom: '10px'}}><b>Bulk Add:</b> Copy/paste entire lists of words at once in Step 2. Spaces will separate them.</li>
+            <li style={{marginBottom: '10px'}}>Assign difficulties to control which wave they appear in (Easy early on, Expert later).</li>
+            <li>Set your schedule and assign to your classes!</li>
         </ul>
       </div>
 
@@ -171,7 +172,6 @@ function CreateStarType() {
     </div>
   );
 
-  // STEP 2: CONFIGURATION (Title, Words)
   const renderStep2_Config = () => (
     <div style={{maxWidth: '1000px', margin: '0 auto'}}>
         <h2 style={{color: '#00f5ff', textAlign:'center', marginBottom:'20px', fontFamily: '"Orbitron", sans-serif'}}>CONFIGURE MISSION FLEET</h2>
@@ -249,13 +249,48 @@ function CreateStarType() {
 
         <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
             <button onClick={() => setStep(1)} className="btn" style={{...btnSecStyle, flex: 1}}>BACK</button>
-            <button onClick={handleNextToAssign} className="btn" style={{...btnPriStyle, flex: 1}}>NEXT: ASSIGN</button>
+            <button onClick={handleNextToSchedule} className="btn" style={{...btnPriStyle, flex: 1}}>NEXT: SCHEDULE</button>
         </div>
     </div>
   );
 
-  // STEP 3: ASSIGN CLASS
-  const renderStep3_Assign = () => (
+  const renderStep3_Schedule = () => (
+    <div className="game-card" style={cardStyle}>
+        <h2 style={{color: '#00f5ff', marginBottom:'20px', fontFamily: '"Orbitron", sans-serif'}}>SCHEDULE MISSION</h2>
+        <div style={{textAlign: 'left', backgroundColor: '#020d24', padding: '20px', borderRadius: '8px', border: '1px dashed #00f5ff', marginBottom: '20px'}}>
+            <label style={{display: 'block', color: '#00f5ff', marginBottom: '5px'}}>OPENING:</label>
+            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                <input type="date" value={openDate} onChange={e => setOpenDate(e.target.value)} style={dropdownStyle} />
+                <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} style={dropdownStyle} />
+            </div>
+            <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={noCloseDate} onChange={e => setNoCloseDate(e.target.checked)} /> No Closing Date
+            </label>
+            {!noCloseDate && (
+                <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                    <input type="date" value={closeDate} onChange={e => setCloseDate(e.target.value)} style={dropdownStyle} />
+                    <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} style={dropdownStyle} />
+                </div>
+            )}
+            <label style={{display: 'block', color: '#ff9900', marginBottom: '5px', marginTop: '10px'}}>TIME LIMIT:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={unlimitedTime} onChange={e => setUnlimitedTime(e.target.checked)} /> Unlimited
+            </label>
+            {!unlimitedTime && (
+                <select value={timeLimit} onChange={e => setTimeLimit(e.target.value)} style={{...dropdownStyle, width:'100%'}}>
+                    {[5, 10, 15, 30, 60].map(m => <option key={m} value={m}>{m} Minutes</option>)}
+                </select>
+            )}
+        </div>
+        <div style={{display:'flex', gap:'20px', justifyContent:'center'}}>
+            <button className="btn-secondary" onClick={() => setStep(2)} style={btnSecStyle}>BACK</button>
+            <button className="btn-primary" onClick={() => setStep(4)} style={btnPriStyle}>NEXT: ASSIGN</button>
+        </div>
+    </div>
+  );
+
+  const renderStep4_Assign = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#00f5ff', marginBottom:'20px', fontFamily: '"Orbitron", sans-serif'}}>ASSIGN TO CLASSES</h2>
       <p style={{color:'#ccc', marginBottom:'20px'}}>Select all the classes that should receive this typing activity.</p>
@@ -265,9 +300,7 @@ function CreateStarType() {
            <p style={{color: '#ff4444'}}>No classes found. Create one first.</p>
         ) : (
            classes.map((cls) => {
-             // 🟢 Check if this specific class is in our selected array
              const isSelected = selectedClasses.includes(cls.class_id);
-
              return (
                <div 
                  key={cls.class_id} 
@@ -281,7 +314,6 @@ function CreateStarType() {
                    display:'flex', alignItems:'center', gap:'15px'
                  }}
                >
-                 {/* Checkbox visual indicator */}
                  <div style={{
                      width: '22px', height: '22px', borderRadius: '4px', 
                      border: isSelected ? 'none' : '2px solid #fff', 
@@ -298,10 +330,10 @@ function CreateStarType() {
       </div>
 
       <div style={{display:'flex', gap:'20px', justifyContent:'center'}}>
-        <button className="btn-secondary" onClick={() => setStep(2)} style={btnSecStyle}>BACK</button>
+        <button className="btn-secondary" onClick={() => setStep(3)} style={btnSecStyle}>BACK</button>
         <button 
           className="btn-primary" 
-          onClick={handleSubmit}
+          onClick={handleSubmitClick}
           disabled={selectedClasses.length === 0 || loading}
           style={{...btnPriStyle, opacity: selectedClasses.length === 0 ? 0.5 : 1}}
         >
@@ -316,13 +348,39 @@ function CreateStarType() {
       <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
         {step === 1 && renderStep1_Intro()}
         {step === 2 && renderStep2_Config()}
-        {step === 3 && renderStep3_Assign()}
+        {step === 3 && renderStep3_Schedule()}
+        {step === 4 && renderStep4_Assign()}
       </div>
+
+      {confirmData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#010a1f', border: '2px solid #00f5ff', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px', fontFamily: "'Orbitron', sans-serif"}}>
+                  <h2 style={{color: '#00f5ff', marginBottom: '20px'}}>{confirmData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px', fontFamily: "'Share Tech Mono', monospace"}}>{confirmData.message}</p>
+                  <div style={{display: 'flex', justifyContent: 'center', gap: '15px'}}>
+                      <button className="btn-primary" onClick={executeCreateGame} style={btnPriStyle}>CONFIRM</button>
+                      <button className="btn-secondary" onClick={() => setConfirmData(null)} style={btnSecStyle}>CANCEL</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {alertData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#010a1f', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px', fontFamily: "'Orbitron', sans-serif"}}>
+                  <h2 style={{color: alertData.color, marginBottom: '20px'}}>{alertData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px', fontFamily: "'Share Tech Mono', monospace"}}>{alertData.message}</p>
+                  <button className="btn-primary" onClick={() => {
+                      setAlertData(null);
+                      if (alertData.navigate) navigate('/teacher-menu');
+                  }} style={btnPriStyle}>OK</button>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
 
-// --- STYLES ---
 const cardStyle = {
     background: '#010a1f', 
     padding: '40px', 

@@ -1,30 +1,36 @@
 // src/pages/UserProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase';
-import { updateEmail, updatePassword } from 'firebase/auth';
+// 🟢 NEW: Imported EmailAuthProvider, reauthenticateWithCredential, and deleteUser
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth'; 
 import { useNavigate } from 'react-router-dom';
 import './SignUp.css';
 
 function UserProfile() {
   const navigate = useNavigate();
   const user = auth.currentUser;
+  
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
     confirmPassword: ''
   });
   
   const [initialUsername, setInitialUsername] = useState('');
   const [usernameError, setUsernameError] = useState('');
-  const [emailError, setEmailError] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState({ type: '', msg: '' });
 
+  // 🟢 NEW: State for the Delete Account flow
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [showReauthModal, setShowReauthModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     if (user) {
-      setFormData(prev => ({ ...prev, email: user.email }));
       fetchUserData(user.uid);
     }
   }, [user]);
@@ -58,7 +64,6 @@ function UserProfile() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
     if (e.target.name === 'username') setUsernameError('');
-    if (e.target.name === 'email') setEmailError('');
     if (status.type === 'success') setStatus({ type: '', msg: '' });
   };
 
@@ -67,7 +72,6 @@ function UserProfile() {
     if (!user) return;
     
     setUsernameError('');
-    setEmailError('');
     setStatus({ type: '', msg: '' });
 
     try {
@@ -85,9 +89,6 @@ function UserProfile() {
         }
       }
 
-      if (formData.email !== user.email) {
-        await updateEmail(user, formData.email);
-      }
       if (formData.password) {
         if (formData.password !== formData.confirmPassword) {
           setStatus({ type: 'error', msg: "Passwords do not match!" });
@@ -115,14 +116,49 @@ function UserProfile() {
 
     } catch (error) {
       console.error(error);
-      
-      if (error.code === 'auth/email-already-in-use') {
-        setEmailError("This email is already in use by another account.");
-      } 
-      else if (error.code === 'auth/requires-recent-login') {
-        setStatus({ type: 'error', msg: "Please logout and login again to change sensitive info." });
+      if (error.code === 'auth/requires-recent-login') {
+        setStatus({ type: 'error', msg: "Please logout and login again to change sensitive info like your password." });
       } else {
         setStatus({ type: 'error', msg: error.message });
+      }
+    }
+  };
+
+  // 🟢 NEW: Handles the actual deletion process
+  const executeDeleteAccount = async (e) => {
+    e.preventDefault();
+    setDeleteError('');
+    setIsDeleting(true);
+
+    try {
+      // 1. Re-authenticate the user with the password they just typed
+      const credential = EmailAuthProvider.credential(user.email, deletePassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // 2. Delete data from MySQL
+      const dbRes = await fetch('http://localhost:8081/api/delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, role: role })
+      });
+
+      if (!dbRes.ok) throw new Error("Failed to delete records from MySQL");
+
+      // 3. Delete from Firebase
+      await deleteUser(user);
+
+      // 4. Clean up local storage and redirect
+      localStorage.removeItem('role');
+      localStorage.removeItem('userRole');
+      navigate('/');
+
+    } catch (error) {
+      console.error(error);
+      setIsDeleting(false);
+      if (error.code === 'auth/invalid-credential') {
+        setDeleteError('Incorrect password. Please try again.');
+      } else {
+        setDeleteError('An error occurred while deleting your account.');
       }
     }
   };
@@ -139,22 +175,32 @@ function UserProfile() {
             backgroundColor: status.type === 'error' ? 'rgba(255, 68, 68, 0.2)' : 'rgba(76, 201, 240, 0.2)',
             border: `2px solid ${status.type === 'error' ? '#ff4444' : '#4cc9f0'}`,
             color: status.type === 'error' ? '#ff4444' : '#4cc9f0',
-            fontFamily: '"Press Start 2P", cursive', fontSize: '0.7rem'
+            fontFamily: '"Press Start 2P", cursive', fontSize: '0.7rem', lineHeight: '1.5'
           }}>
             {status.msg}
           </div>
         )}
         
         <div className="form-group">
-          <label>Username</label>
-          <input type="text" name="username" value={formData.username} onChange={handleChange} required className={usernameError ? "input-error" : ""}/>
-          {usernameError && <span className="error-text">{usernameError}</span>}
+          <label>Email Address</label>
+          <input 
+            type="email" 
+            value={user?.email || ''} 
+            disabled 
+            style={{ 
+              backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+              color: '#888', 
+              cursor: 'not-allowed', 
+              border: '1px solid #444' 
+            }}
+          />
+          <span style={{ fontSize: '0.7rem', color: '#888', marginTop: '5px', display: 'block' }}>Email cannot be changed.</span>
         </div>
 
         <div className="form-group">
-          <label>Email Address</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required className={emailError ? "input-error" : ""}/>
-          {emailError && <span className="error-text">{emailError}</span>}
+          <label>Username</label>
+          <input type="text" name="username" value={formData.username} onChange={handleChange} required className={usernameError ? "input-error" : ""}/>
+          {usernameError && <span className="error-text">{usernameError}</span>}
         </div>
 
         <hr style={{borderColor: 'var(--arcade-yellow)', margin: '20px 0'}}/>
@@ -170,10 +216,79 @@ function UserProfile() {
           <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Confirm New Password"/>
         </div>
 
-        <button type="submit" className="btn btn-primary btn-full-width">
+        <button type="submit" className="btn btn-primary btn-full-width" style={{marginBottom: '15px'}}>
           SAVE CHANGES
         </button>
+
+        {/* 🟢 NEW: Delete Button */}
+        <button 
+          type="button" 
+          onClick={() => setShowDeleteWarning(true)} 
+          style={{
+            width: '100%', padding: '15px', backgroundColor: 'transparent', 
+            color: '#ff4c4c', border: '2px solid #ff4c4c', borderRadius: '5px', 
+            fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem', cursor: 'pointer'
+          }}
+        >
+          DELETE ACCOUNT
+        </button>
       </form>
+
+      {/* 🟢 NEW: Initial Warning Modal */}
+      {showDeleteWarning && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{border: '2px solid #ff4c4c'}}>
+            <h2 style={{color: '#ff4c4c', fontFamily: '"Press Start 2P", cursive', fontSize: '1.2rem', marginBottom: '20px'}}>WARNING!</h2>
+            <p style={{color: 'white', lineHeight: '1.5', marginBottom: '25px'}}>
+              Are you sure you want to permanently delete your account? <br/><br/>
+              This will erase all your data, scores, and history. <strong>This action cannot be undone.</strong>
+            </p>
+            <div className="modal-actions-row">
+              <button onClick={() => {
+                setShowDeleteWarning(false);
+                setShowReauthModal(true);
+              }} className="btn" style={{backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '10px 20px', fontFamily: '"Orbitron", sans-serif', fontWeight: 'bold'}}>YES, I'M SURE</button>
+              <button onClick={() => setShowDeleteWarning(false)} className="btn btn-secondary">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 NEW: Re-authentication Security Modal */}
+      {showReauthModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{border: '2px solid #ff4c4c'}}>
+            <h2 style={{color: '#ff4c4c', fontFamily: '"Press Start 2P", cursive', fontSize: '1rem', marginBottom: '20px'}}>SECURITY CHECK</h2>
+            <p style={{color: 'white', fontSize: '0.9rem', marginBottom: '15px'}}>
+              Please enter your password to confirm deletion.
+            </p>
+            
+            <form onSubmit={executeDeleteAccount}>
+              <input 
+                type="password" 
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                required
+                placeholder="Your Password"
+                style={{width: '100%', padding: '10px', marginBottom: '15px', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #ff4c4c', borderRadius: '4px'}}
+              />
+              
+              {deleteError && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '15px', fontWeight: 'bold'}}>{deleteError}</p>}
+              
+              <div className="modal-actions-row">
+                <button type="submit" disabled={isDeleting} className="btn" style={{backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '10px 20px', fontFamily: '"Orbitron", sans-serif', fontWeight: 'bold', opacity: isDeleting ? 0.5 : 1}}>
+                  {isDeleting ? 'DELETING...' : 'DELETE FOREVER'}
+                </button>
+                <button type="button" onClick={() => {
+                  setShowReauthModal(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }} className="btn btn-secondary">CANCEL</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

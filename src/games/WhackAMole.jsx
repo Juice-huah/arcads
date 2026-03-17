@@ -11,7 +11,7 @@ import gameBGM from '../whack a mole sounds/ingame.mp3';
 import whackSFX from '../whack a mole sounds/whack.mp3';
 import boomSFX from '../whack a mole sounds/boom.mp3';
 import victorySFX from '../whack a mole sounds/victory.mp3';
-import clickSFX from '../whack a mole sounds/click.mp3';   // 🟢 JUST ONE CLICK SOUND NOW
+import clickSFX from '../whack a mole sounds/click.mp3';   
 
 export default function WhackAMole() {
     const { gameId } = useParams();
@@ -31,6 +31,10 @@ export default function WhackAMole() {
     const [currentQuiz, setCurrentQuiz] = useState(null);
     const [isScoreSaved, setIsScoreSaved] = useState(false);
     
+    // 🟢 NEW SCHEDULING STATES
+    const timeLimitR = useRef(0);
+    const [showTimeUp, setShowTimeUp] = useState(false);
+
     const [soundEnabled, setSoundEnabled] = useState(true); 
     const [language, setLanguage] = useState('English');
     const [difficulty, setDifficulty] = useState('Medium'); 
@@ -72,45 +76,30 @@ export default function WhackAMole() {
 
     const t = {
         English: {
-            title: "CYBER WHACK",
-            subtitle: "DEFUSAL PROTOCOL",
-            startMenuBtn: "START",
-            howToPlay: "GUIDE",
-            selectDiff: "SELECT DIFFICULTY",
-            easy: "EASY", medium: "MEDIUM", hard: "HARD",
-            settings: "SETTINGS", exitSystem: "EXIT TO ARCADE",
-            howToTitle: "MISSION BRIEFING",
+            title: "CYBER WHACK", subtitle: "DEFUSAL PROTOCOL", startMenuBtn: "START", howToPlay: "GUIDE",
+            selectDiff: "SELECT DIFFICULTY", easy: "EASY", medium: "MEDIUM", hard: "HARD",
+            settings: "SETTINGS", exitSystem: "EXIT TO ARCADE", howToTitle: "MISSION BRIEFING",
             guideNormal: "Hit to build COMBO. If you miss, combo resets to 0!",
             guideBomb: "HAZARD! Do not hit! Explodes and costs 1 Life.",
             guideQuestion: "Spawns at 5 COMBO. Answer correctly to score 1 Point!",
-            quizTitle: "CHALLENGE QUESTION",
-            quizSub: "Answer correctly to score 1 point!",
+            quizTitle: "CHALLENGE QUESTION", quizSub: "Answer correctly to score 1 point!",
             scoreLabel: "Score", gameOver: "GAME OVER!", victory: "MISSION COMPLETE!",
-            finalScore: "Final Score", highScore: "High Score",
-            pause: "MISSION PAUSED", resume: "RESUME"
+            finalScore: "Final Score", highScore: "High Score", pause: "MISSION PAUSED", resume: "RESUME"
         },
         Tagalog: {
-            title: "CYBER PUKPUK",
-            subtitle: "PROTOKOL SA PAG-DEFUSE",
-            startMenuBtn: "SIMULAN",
-            howToPlay: "GABAY",
-            selectDiff: "ANTAS NG HIRAP",
-            easy: "MADALI", medium: "KATAMTAMAN", hard: "MAHIRAP",
-            settings: "MGA SETTING", exitSystem: "UMALIS",
-            howToTitle: "BRIEFING NG MISYON",
+            title: "CYBER PUKPUK", subtitle: "PROTOKOL SA PAG-DEFUSE", startMenuBtn: "SIMULAN", howToPlay: "GABAY",
+            selectDiff: "ANTAS NG HIRAP", easy: "MADALI", medium: "KATAMTAMAN", hard: "MAHIRAP",
+            settings: "MGA SETTING", exitSystem: "UMALIS", howToTitle: "BRIEFING NG MISYON",
             guideNormal: "Paluin para sa COMBO. Pag sumala, balik sa 0!",
             guideBomb: "PANGANIB! Huwag paluin! Mababawasan ka ng 1 buhay.",
             guideQuestion: "Lalabas sa 5 COMBO. Itama ang sagot para sa 1 Puntos!",
-            quizTitle: "HAMON NA TANONG",
-            quizSub: "Itama ang sagot para sa 1 puntos!",
+            quizTitle: "HAMON NA TANONG", quizSub: "Itama ang sagot para sa 1 puntos!",
             scoreLabel: "Puntos", gameOver: "TAPOS NA ANG LARO!", victory: "MISYON KUMPLETO!",
-            finalScore: "Puntos", highScore: "Pinakamataas na Puntos",
-            pause: "NAKA-PAUSE", resume: "IPAGPATULOY"
+            finalScore: "Puntos", highScore: "Pinakamataas na Puntos", pause: "NAKA-PAUSE", resume: "IPAGPATULOY"
         }
     };
     const text = t[language] || t.English;
 
-    // 🟢 INITIALIZE AUDIO OBJECTS
     useEffect(() => {
         bgmMenuRef.current = new Audio(menuBGM);
         bgmMenuRef.current.loop = true;
@@ -133,7 +122,6 @@ export default function WhackAMole() {
         };
     }, []);
 
-    // 🟢 BROWSER AUTOPLAY FIX (Waits for first click to start music)
     useEffect(() => {
         const unlockAudio = () => {
             if (soundEnabled) {
@@ -149,7 +137,6 @@ export default function WhackAMole() {
         return () => window.removeEventListener('click', unlockAudio);
     }, [gameState, soundEnabled]);
 
-    // 🟢 SYNC AUDIO WITH IN-GAME SETTINGS
     useEffect(() => {
         const isMuted = !soundEnabled;
         if (bgmMenuRef.current) bgmMenuRef.current.muted = isMuted;
@@ -171,7 +158,6 @@ export default function WhackAMole() {
         }
     }, [soundEnabled, gameState]);
 
-    // 🟢 BGM CROSSFADER
     useEffect(() => {
         if (!bgmMenuRef.current || !bgmGameRef.current) return;
         const playSafe = (audio) => {
@@ -191,7 +177,6 @@ export default function WhackAMole() {
         }
     }, [gameState, soundEnabled]);
 
-    // 🟢 HELPER TO PLAY SINGLE UI CLICK SOUND
     const playUI = () => {
         if (!soundEnabled || !clickSfxRef.current) return;
         clickSfxRef.current.currentTime = 0;
@@ -206,6 +191,16 @@ export default function WhackAMole() {
 
         const fetchQuestions = async () => {
             try {
+                // 🟢 NEW: Fetch time limit
+                if (auth.currentUser) {
+                    const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+                    const allGames = await resG.json();
+                    const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+                    if (currentGame && currentGame.time_limit > 0) {
+                        timeLimitR.current = currentGame.time_limit;
+                    }
+                }
+
                 const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
                 const data = await res.json();
                 setAllQuestions(data);
@@ -237,7 +232,11 @@ export default function WhackAMole() {
         setDifficulty(selectedDiff);
         initAudio(); 
         setScore(0); 
-        setTimeLeft(120); 
+        
+        // 🟢 Initialize Timer based on Database Limit
+        setTimeLeft(timeLimitR.current > 0 ? timeLimitR.current * 60 : 999999); 
+        setShowTimeUp(false);
+
         setLives(5); livesRef.current = 5;
         setComboCount(0); comboCountRef.current = 0; missedRoundsRef.current = 0; 
         
@@ -292,7 +291,7 @@ export default function WhackAMole() {
                     student_fid: auth.currentUser.uid,
                     game_id: gameId,
                     score: finalScore,
-                    time_taken: 120 - timeLeft
+                    time_taken: 0 // Ignored for time-limit games
                 })
             });
 
@@ -312,9 +311,15 @@ export default function WhackAMole() {
 
     const handleGameOver = (finalScore) => {
         stopGame(); 
+        
+        // 🟢 Set Time Up Flag
+        if (timeLeft <= 0 && timeLimitR.current > 0) {
+            setShowTimeUp(true);
+        }
+
         setGameState('gameover');
         
-        if (finalScore < TARGET_SCORE && livesRef.current > 0) {
+        if (finalScore < TARGET_SCORE && livesRef.current > 0 && timeLeft > 0) {
             playTone(150, 'square', 0.5, 0.1); 
         } else if (livesRef.current <= 0) {
             playTone(100, 'sawtooth', 1, 0.2); 
@@ -688,7 +693,13 @@ export default function WhackAMole() {
 
                     <div className="wam-scoreboard">
                         <div className="wam-score-item"><span className="wam-label">{text.scoreLabel}</span><span className="wam-value">{score} / {TARGET_SCORE}</span></div>
-                        <div className="wam-score-item"><span className="wam-label">Time</span><span className="wam-value" style={{ color: timeLeft <= 10 ? '#ff4757' : '#00fff2' }}>{formatTime(timeLeft)}</span></div>
+                        <div className="wam-score-item">
+                            <span className="wam-label">Time</span>
+                            <span className="wam-value" style={{ color: timeLeft <= 10 ? '#ff4757' : '#00fff2' }}>
+                                {/* 🟢 Dynamic Time Display */}
+                                {timeLimitR.current > 0 ? formatTime(timeLeft) : '∞'}
+                            </span>
+                        </div>
                         <div className="wam-score-item"><span className="wam-label">Lives</span><span className="wam-value" style={{fontSize: '1.2rem', letterSpacing: '2px'}}>{renderLives()}</span></div>
                     </div>
 
@@ -755,10 +766,22 @@ export default function WhackAMole() {
             {gameState === 'gameover' && (
                 <div className="wam-overlay">
                     <div className="wam-instructions-card">
-                        <i className="fas fa-trophy" style={{ fontSize: '4rem', color: score >= TARGET_SCORE ? 'gold' : '#ff4757' }}></i>
-                        <h1 style={{ color: score >= TARGET_SCORE ? '#00fff2' : '#ffea00', marginTop: '15px' }}>
-                            {score >= TARGET_SCORE ? text.victory : (lives <= 0 ? "OUT OF LIVES!" : text.gameOver)}
-                        </h1>
+                        
+                        {/* 🟢 DYNAMIC TITLE RENDERING */}
+                        {showTimeUp ? (
+                            <>
+                                <i className="fas fa-clock" style={{ fontSize: '4rem', color: '#ff4757' }}></i>
+                                <h1 style={{ color: '#ff4757', marginTop: '15px', fontFamily: "'Orbitron', sans-serif" }}>TIME'S UP!</h1>
+                            </>
+                        ) : (
+                            <>
+                                <i className="fas fa-trophy" style={{ fontSize: '4rem', color: score >= TARGET_SCORE ? 'gold' : '#ff4757' }}></i>
+                                <h1 style={{ color: score >= TARGET_SCORE ? '#00fff2' : '#ffea00', marginTop: '15px' }}>
+                                    {score >= TARGET_SCORE ? text.victory : (lives <= 0 ? "OUT OF LIVES!" : text.gameOver)}
+                                </h1>
+                            </>
+                        )}
+                        
                         <p style={{ margin: '15px 0', fontSize: '1.2rem' }}>{text.finalScore}</p>
                         <h2 style={{ fontSize: '3.5rem', color: '#fff', margin: '0 0 20px 0' }}>{score} / {TARGET_SCORE}</h2>
                         

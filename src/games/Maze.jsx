@@ -8,7 +8,7 @@ const WALL_COLOR = "#323232";
 const PATH_COLOR = "#ffffff";  
 const BG_COLOR = "#0c0e17";    
 
-//S=Start, E=End, 1-9/A=Locks. #=Wall, .=Path
+// RESTORED: 21x11 Maps. S=Start, E=End, 1-9/A=Locks. #=Wall, .=Path
 const MAZE_LIBRARY = {
   EASY: [
     [
@@ -70,12 +70,12 @@ const MAZE_LIBRARY = {
       "#S.1.#..2.....#3....#",
       "####.#.######.#.###.#",
       "#4...#......#...#5..#",
-      "#.####.####.#####.###",
-      "#....#.#6.#.#7....#.#",
-      "####.#.#..#.#.#####.#",
-      "#8...#.#.##.#.....#.#",
-      "#.####.#..#.#####.#.#",
-      "#......#9.#......A.E#",
+      "#.######.#.######.###",
+      "#....#.#6#.#.7....#E#",
+      "####.#.#.#.#.######.#",
+      "#8...#.#.#.#......#.#",
+      "#.####.#.#.#.####.#.#",
+      "#.......9#......#.A.#",
       "#####################"
     ],
     [
@@ -157,7 +157,10 @@ const Maze = () => {
   const [saveStatus, setSaveStatus] = useState(""); 
   const [difficulty, setDifficulty] = useState("NORMAL");
 
+  // Custom Modal & Schedule State
   const [alertData, setAlertData] = useState(null); 
+  const [timeLeft, setTimeLeft] = useState(null); 
+  const [showTimeUp, setShowTimeUp] = useState(false); 
 
   const gameState = useRef({
     screen: 'menu',
@@ -177,11 +180,13 @@ const Maze = () => {
     startPos: {x:0, y:0},
     exitPos: {x:0, y:0},
     totalQs: 0,
-    isAlertOpen: false
+    isAlertOpen: false, 
+    timeLimit: 0 
   });
 
   const [activeScreen, setActiveScreen] = useState('menu'); 
 
+  // --- 1. FETCH DATA & GENERATE MAP ---
   useEffect(() => {
     if (!gameId) {
         setErrorMsg("No Game ID found.");
@@ -201,6 +206,7 @@ const Maze = () => {
                 const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
                 if (currentGame && currentGame.game_type) {
                     diff = currentGame.game_type.split('_')[1] || "NORMAL";
+                    gameState.current.timeLimit = currentGame.time_limit || 0;
                 } else if (data.length === 5) {
                     diff = "EASY";
                 }
@@ -240,7 +246,7 @@ const Maze = () => {
                         else if (char === 'E') { gameRow.push(4); end = {x:c, y:r}; }
                         else if (char === '.') { gameRow.push(0); }
                         else if (isLock) {
-                            gameRow.push(3); 
+                            gameRow.push(3); // 3 = Lock/Portal
                             let qIdx = char === 'A' ? 10 : parseInt(char);
                             locks[`${r},${c}`] = qIdx;
                         }
@@ -267,6 +273,26 @@ const Maze = () => {
     fetchGameData();
   }, [gameId]);
 
+  // --- TIMER LOGIC ---
+  useEffect(() => {
+    if (gameState.current.screen === 'playing' && !gameState.current.gameEnded && timeLeft !== null) {
+        if (timeLeft <= 0) {
+            handleTimeUp();
+            return;
+        }
+        const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+        return () => clearInterval(timerId);
+    }
+  }, [activeScreen, timeLeft]);
+
+  const handleTimeUp = () => {
+    gameState.current.isAlertOpen = true;
+    gameState.current.gameEnded = true;
+    setShowTimeUp(true);
+    saveScoreToDB(gameState.current.score, gameState.current.timeLimit * 60);
+  };
+
+  // --- 2. SAVE LOGIC ---
   const saveScoreToDB = async (finalScore, timeTaken) => {
     if (!auth.currentUser) return;
     setSaveStatus("Saving score...");
@@ -291,6 +317,7 @@ const Maze = () => {
     }
   };
 
+  // --- 3. ENGINE LOOP ---
   useEffect(() => {
     if (loading || errorMsg) return;
     const canvas = canvasRef.current;
@@ -307,6 +334,7 @@ const Maze = () => {
     };
     resetPlayer();
 
+    // Generate Particles for Menu
     for (let i = 0; i < 60; i++) {
       gameState.current.particles.push({
         x: Math.random() * 800, y: Math.random() * 550,
@@ -340,9 +368,11 @@ const Maze = () => {
     };
   }, [loading, errorMsg]);
 
+  // --- 4. PLAYER MOVEMENT ---
   const update = (keys) => {
     const state = gameState.current;
     
+    // Prevent moving if game is not in 'playing' mode or a custom alert is showing
     if (state.screen !== 'playing' || state.isAlertOpen) return;
 
     if (state.moving) {
@@ -381,6 +411,7 @@ const Maze = () => {
     }
   };
 
+  // --- 5. EVENT TRIGGERS ---
   const checkTileEvents = () => {
     const s = gameState.current;
     const { tileX, tileY } = s.player;
@@ -412,6 +443,7 @@ const Maze = () => {
             saveScoreToDB(s.score, time);
         }
       } else {
+        // Warning Modal
         setAlertData({ 
             title: "PATH LOCKED", 
             message: `You must unlock all paths first! (${s.answeredCount}/${s.totalQs} unlocked)`, 
@@ -419,6 +451,7 @@ const Maze = () => {
         });
         s.isAlertOpen = true;
 
+        // Push player back
         s.player.tileX = s.startPos.x; 
         s.player.tileY = s.startPos.y;
         s.player.px = s.startPos.x * TILE; 
@@ -427,6 +460,7 @@ const Maze = () => {
     }
   };
 
+  // --- 6. ANSWER LOGIC (VANISHING LOCKS) ---
   const handleAnswer = (choiceIndex) => {
     const s = gameState.current;
     const q = s.activePopup;
@@ -450,12 +484,13 @@ const Maze = () => {
     s.isAlertOpen = true;
 
     s.answeredCount++;
-    s.mapData[q.loc.y][q.loc.x] = 0;
+    s.mapData[q.loc.y][q.loc.x] = 0; // Transforms Lock to Path
 
     s.screen = 'playing'; 
     setActiveScreen('playing'); 
   };
 
+  // --- 7. DRAWING ENGINE (WITH RESTORED CENTERING) ---
   const draw = (ctx) => {
     const s = gameState.current;
     ctx.fillStyle = BG_COLOR;
@@ -470,6 +505,7 @@ const Maze = () => {
         return; 
     }
 
+    // 🟢 RESTORED CENTERING LOGIC
     const cols = s.mapData[0].length;
     const rows = s.mapData.length;
     const offsetX = (800 - (cols * TILE)) / 2;
@@ -492,10 +528,12 @@ const Maze = () => {
       });
     });
 
+    // Player
     const px = offsetX + s.player.px;
     const py = offsetY + s.player.py;
     ctx.fillText("🏃", px + TILE/2, py + TILE/2);
 
+    // HUD
     ctx.fillStyle = "#111"; 
     ctx.fillRect(0, 500, 800, 50);
     ctx.strokeStyle = "#0ac8f0"; 
@@ -503,19 +541,28 @@ const Maze = () => {
     ctx.beginPath(); ctx.moveTo(0, 500); ctx.lineTo(800, 500); ctx.stroke();
     
     ctx.fillStyle = "#0ac8f0"; 
-    ctx.font = "18px monospace"; 
+    ctx.font = "16px monospace"; 
     ctx.textAlign = "left"; 
     ctx.fillText(`${difficulty} | SCORE: ${s.score}/${s.totalQs}`, 20, 530);
     
     ctx.textAlign = "right"; 
-    const time = Math.floor((Date.now() - s.startTime) / 1000);
-    ctx.fillText(`TIME: ${time}s`, 780, 530);
+    if (timeLeft !== null) {
+        const m = Math.floor(timeLeft / 60);
+        const sec = timeLeft % 60;
+        ctx.fillText(`TIME LEFT: ${m}:${sec < 10 ? '0' : ''}${sec}`, 780, 530);
+    } else {
+        const time = Math.floor((Date.now() - s.startTime) / 1000);
+        ctx.fillText(`TIME: ${time}s`, 780, 530);
+    }
   };
 
   const startGame = () => {
     gameState.current.screen = 'playing';
     gameState.current.score = 0;
     gameState.current.startTime = Date.now();
+    if (gameState.current.timeLimit > 0) {
+        setTimeLeft(gameState.current.timeLimit * 60);
+    }
     setActiveScreen('playing');
   };
 
@@ -525,7 +572,7 @@ const Maze = () => {
   if (errorMsg) return <div style={{ color: 'red', textAlign: 'center', marginTop: '50px' }}>{errorMsg}<br/><button className="btn btn-secondary" onClick={()=>navigate('/student-menu')}>Back</button></div>;
 
   return (
-    <div style={{ position: 'relative', width: 800, height: 550, margin: '50px auto' }}>
+    <div style={{ position: 'relative', width: 800, height: 550, margin: '0 auto' }}>
       <canvas ref={canvasRef} width={800} height={550} style={{ border: `4px solid #00b4ff`, borderRadius: '8px', background: '#0c0e17' }} />
 
       {activeScreen === 'menu' && (
@@ -564,6 +611,20 @@ const Maze = () => {
         </div>
       )}
 
+      {showTimeUp && (
+          <div style={{...overlayStyle, zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#222', border: `3px solid #ff4c4c`, padding: '40px', borderRadius: '15px', textAlign: 'center', maxWidth: '500px'}}>
+                  <h1 style={{color: '#ff4c4c', fontSize: '2.5rem', margin: '0 0 10px 0'}}>TIME'S UP!</h1>
+                  <p style={{color: '#fff', fontSize: '1.2rem', marginBottom: '30px'}}>Your time has expired. Your current progress has been saved.</p>
+                  <div style={{backgroundColor: 'rgba(10, 200, 240, 0.1)', padding: '20px', borderRadius: '10px', marginBottom: '30px'}}>
+                      <h3 style={{color: '#0ac8f0', margin: 0}}>SCORE: {gameState.current.score} / {gameState.current.totalQs}</h3>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => navigate('/student-menu')}>RETURN TO MENU</button>
+              </div>
+          </div>
+      )}
+
+      {/* --- CUSTOM ALERT MODAL --- */}
       {alertData && (
           <div style={{...overlayStyle, zIndex: 1000}}>
               <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>

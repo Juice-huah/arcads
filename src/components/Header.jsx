@@ -1,6 +1,6 @@
 // src/components/Header.jsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/LogInAuthenticate'; 
@@ -10,7 +10,12 @@ function Header() {
   const { userLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  // Mga popups
+  // 🟢 NEW: Check if the user is a student or teacher from local storage
+  // (Adjust the key 'role' or 'userRole' based on what you used in your Login files)
+  const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
+  const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
+
+  // Popups
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -27,6 +32,9 @@ function Header() {
   const confirmLogout = async () => {
     try {
       await signOut(auth);
+      // Clear the role from storage when logging out
+      localStorage.removeItem('role'); 
+      localStorage.removeItem('userRole');
       setShowLogoutConfirm(false); 
       navigate('/'); 
     } catch (error) {
@@ -36,18 +44,34 @@ function Header() {
 
   return (
     <>
-      <header className="site-header">
+      <header className="site-header" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+        
         <Link to="/" className="logo">ARCADS</Link>
 
         <nav className="main-nav">
           <ul className="nav-links">
-            <li><Link to="/games">Games</Link></li>
-            <li><Link to="/contact">Contact Us</Link></li>
+            <li>
+              {/* 🟢 CHANGED: Now uses the dynamic dashboardRoute */}
+              <NavLink 
+                to={userLoggedIn ? dashboardRoute : "/games"} 
+                className={({ isActive }) => isActive ? "active-link" : ""}
+              >
+                {userLoggedIn ? "Dashboard" : "Games"}
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/contact" 
+                className={({ isActive }) => isActive ? "active-link" : ""}
+              >
+                Contact Us
+              </NavLink>
+            </li>
             
             {userLoggedIn ? (
               <li>
-                <button onClick={handleAccountClick} className="logout-link">
-                  Account
+                <button onClick={handleAccountClick} className="logout-link" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaUserCircle size={26} /> Account
                 </button>
               </li>
             ) : (
@@ -67,7 +91,7 @@ function Header() {
             <button className="close-modal-btn" onClick={() => setShowLoginModal(false)}>
               <FaTimes />
             </button>
-            <h2>LOGIN AS:</h2>
+            <h2 style={{ fontFamily: "'Orbitron', sans-serif", marginBottom: '20px' }}>LOGIN AS:</h2>
             <div className="modal-actions">
               <Link to="/teacher-login" className="btn btn-primary modal-btn" onClick={() => setShowLoginModal(false)}>
                 Teacher
@@ -87,13 +111,13 @@ function Header() {
               <FaTimes />
             </button>
             
-            <h2>MY ACCOUNT</h2>
+            <h2 style={{ fontFamily: "'Orbitron', sans-serif", marginBottom: '20px' }}>MY ACCOUNT</h2>
 
             <div className="modal-actions">
               <Link to="/profile" className="btn btn-primary modal-btn" onClick={() => setShowAccountModal(false)}>
                 Account Settings
               </Link>
-              <button onClick={handleLogoutClick} className="btn btn-secondary modal-btn"  style={{width: '100%'}}>
+              <button onClick={handleLogoutClick} className="btn btn-secondary modal-btn" style={{width: '100%'}}>
                 Logout
               </button>
             </div>
@@ -101,11 +125,10 @@ function Header() {
         </div>
       )}
 
-      {/* --- LOGOUT CONFIRMATION --- */}
       {showLogoutConfirm && (
         <div className="modal-overlay">
           <div className="modal-box">
-            <h2 style={{ fontSize: '1rem', lineHeight: '1.5' }}>
+            <h2 style={{ fontSize: '1.2rem', lineHeight: '1.5', fontFamily: "'Orbitron', sans-serif", marginBottom: '20px' }}>
               Are you sure you want to logout?
             </h2>
             <div className="modal-actions-row">

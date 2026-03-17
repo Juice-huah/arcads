@@ -1,3 +1,4 @@
+// src/pages/TeacherMenu.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom'; 
 import { auth } from '../firebase';
@@ -40,6 +41,21 @@ function TeacherMenu() {
   const [studentIdentifier, setStudentIdentifier] = useState(''); 
   const [studentToRemove, setStudentToRemove] = useState(null); 
   const [statusMsg, setStatusMsg] = useState('');
+
+  // --- NEW: SCHEDULE MANAGEMENT STATES ---
+  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+  const [selectedGameForSchedule, setSelectedGameForSchedule] = useState(null);
+  
+  const [editOpenDate, setEditOpenDate] = useState('');
+  const [editOpenTime, setEditOpenTime] = useState('');
+  const [editCloseDate, setEditCloseDate] = useState('');
+  const [editCloseTime, setEditCloseTime] = useState('');
+  const [editNoCloseDate, setEditNoCloseDate] = useState(false);
+  const [editUnlimitedTime, setEditUnlimitedTime] = useState(false);
+  const [editTimeLimit, setEditTimeLimit] = useState(15);
+
+  const [showToggleActivityModal, setShowToggleActivityModal] = useState(false);
+  const [selectedGameForToggle, setSelectedGameForToggle] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -249,6 +265,96 @@ function TeacherMenu() {
       }
   };
 
+  // --- NEW: SCHEDULE MANAGEMENT ACTIONS ---
+  const openEditSchedule = (game) => {
+      setSelectedGameForSchedule(game);
+      
+      // Parse existing open dates if they exist
+      if (game.open_datetime) {
+          const od = new Date(game.open_datetime);
+          setEditOpenDate(od.toISOString().split('T')[0]);
+          setEditOpenTime(od.toTimeString().substring(0,5));
+      } else {
+          setEditOpenDate('');
+          setEditOpenTime('');
+      }
+
+      // Parse existing close dates if they exist
+      if (game.close_datetime) {
+          const cd = new Date(game.close_datetime);
+          setEditCloseDate(cd.toISOString().split('T')[0]);
+          setEditCloseTime(cd.toTimeString().substring(0,5));
+          setEditNoCloseDate(false);
+      } else {
+          setEditCloseDate('');
+          setEditCloseTime('');
+          setEditNoCloseDate(true);
+      }
+
+      // Parse existing time limit
+      if (game.time_limit > 0) {
+          setEditTimeLimit(game.time_limit);
+          setEditUnlimitedTime(false);
+      } else {
+          setEditTimeLimit(15);
+          setEditUnlimitedTime(true);
+      }
+
+      setShowEditScheduleModal(true);
+  };
+
+  const submitEditSchedule = async (e) => {
+      e.preventDefault();
+      
+      let formattedOpenDate = null;
+      if (editOpenDate && editOpenTime) formattedOpenDate = `${editOpenDate} ${editOpenTime}:00`;
+      
+      let formattedCloseDate = null;
+      if (!editNoCloseDate && editCloseDate && editCloseTime) formattedCloseDate = `${editCloseDate} ${editCloseTime}:00`;
+
+      const finalTimeLimit = editUnlimitedTime ? 0 : parseInt(editTimeLimit);
+
+      try {
+          const res = await fetch(`http://localhost:8081/api/update-schedule/${selectedGameForSchedule.game_id}`, {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                  open_datetime: formattedOpenDate,
+                  close_datetime: formattedCloseDate,
+                  time_limit: finalTimeLimit
+              })
+          });
+          if (res.ok) {
+              setShowEditScheduleModal(false);
+              fetchGames(user.uid); // Refresh games list
+          }
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
+  const promptToggleActivity = (game) => {
+      setSelectedGameForToggle(game);
+      setShowToggleActivityModal(true);
+  };
+
+  const confirmToggleActivity = async () => {
+      const newStatus = selectedGameForToggle.is_active ? 0 : 1;
+      try {
+          const res = await fetch(`http://localhost:8081/api/toggle-activity/${selectedGameForToggle.game_id}`, {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ is_active: newStatus })
+          });
+          if (res.ok) {
+              setShowToggleActivityModal(false);
+              fetchGames(user.uid); // Refresh games list
+          }
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
   const switchTab = (tabName) => {
       setActiveTab(tabName);
       setSelectedClass(null);
@@ -368,7 +474,6 @@ function TeacherMenu() {
                  <Link to="/teacher/create-hamsterball"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff007f', color:'#fff', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
 
-               {/* 🟢 NEW STARTYPE CARD */}
                <div className="class-card" style={{border: '2px solid #00f5ff'}}>
                  <h3 style={{color: '#00f5ff', fontSize: '1rem'}}>STARTYPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Galactic Typing Combat. Your keyboard is your weapon. Type words to destroy enemy ships!</p>
@@ -384,12 +489,13 @@ function TeacherMenu() {
             {classes.map((cls) => (
               <div key={cls.class_id} className="class-card" style={{border: '1px solid #14a014'}} onClick={() => setGradebookClass(cls)}>
                 <h3 style={{color: '#14a014'}}>{cls.class_name}</h3>
-                <p>View Gradebook</p>
+                <p>View Activities & Grades</p>
               </div>
             ))}
           </div>
         )}
 
+        {/* --- UPDATE: ADDED STATUS BADGE AND SCHEDULING BUTTONS TO ACTIVITIES TABLE --- */}
         {activeTab === 'active' && gradebookClass && !gradebookGame && (
           <>
             <div className="section-header">
@@ -397,16 +503,28 @@ function TeacherMenu() {
                 <button className="btn btn-secondary" onClick={() => setGradebookClass(null)}>BACK</button>
             </div>
             <table className="students-table">
-                <thead><tr><th>GAME TYPE</th><th>DATE</th><th>ACTION</th></tr></thead>
+                <thead><tr><th>GAME TYPE</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
                 <tbody>
                     {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                         <tr key={g.game_id}>
-                            <td style={{color: '#0ac8f0', fontWeight: 'bold'}}>{g.game_type}</td>
+                            <td>
+                                <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{g.game_type}</div>
+                                <div style={{fontSize: '0.7rem', marginTop: '5px', color: g.is_active ? '#14a014' : '#ff4c4c'}}>
+                                    {g.is_active ? "● OPEN" : "● CLOSED"}
+                                </div>
+                            </td>
                             <td>{new Date(g.created_at).toLocaleDateString()}</td>
                             <td>
                                 <div style={{display: 'flex', gap: '5px'}}>
                                     <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                     <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
+                                    {/* NEW: Schedule Management Buttons */}
+                                    <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0ac8f0', color: '#0ac8f0'}} onClick={() => openEditSchedule(g)}>
+                                        SCHEDULE
+                                    </button>
+                                    <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
+                                        {g.is_active ? "CLOSE" : "REOPEN"}
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -443,7 +561,7 @@ function TeacherMenu() {
         )}
       </div>
 
-      {/* --- ALL MODALS RESTORED --- */}
+      {/* --- ORIGINAL MODALS --- */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
@@ -520,6 +638,86 @@ function TeacherMenu() {
           </div>
         </div>
       )}
+
+      {/* --- NEW: SCHEDULE MANAGEMENT MODALS --- */}
+      
+      {/* 1. Edit Schedule Modal */}
+      {showEditScheduleModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0ac8f0'}}>
+            <h2 style={{color: '#0ac8f0'}}>EDIT SCHEDULE</h2>
+            <form onSubmit={submitEditSchedule}>
+              <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+                  
+                  <div style={{marginBottom: '15px'}}>
+                      <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
+                      <div style={{display: 'flex', gap: '10px'}}>
+                          <input type="date" className="game-input" value={editOpenDate} onChange={e => setEditOpenDate(e.target.value)} required />
+                          <input type="time" className="game-input" value={editOpenTime} onChange={e => setEditOpenTime(e.target.value)} required />
+                      </div>
+                  </div>
+
+                  <div style={{marginBottom: '15px'}}>
+                      <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING DATE & TIME:</label>
+                      <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
+                          <input type="checkbox" checked={editNoCloseDate} onChange={(e) => setEditNoCloseDate(e.target.checked)} />
+                          No Closing Date (Open Indefinitely)
+                      </label>
+                      {!editNoCloseDate && (
+                          <div style={{display: 'flex', gap: '10px'}}>
+                              <input type="date" className="game-input" value={editCloseDate} onChange={e => setEditCloseDate(e.target.value)} required={!editNoCloseDate} />
+                              <input type="time" className="game-input" value={editCloseTime} onChange={e => setEditCloseTime(e.target.value)} required={!editNoCloseDate} />
+                          </div>
+                      )}
+                  </div>
+
+                  <div>
+                      <label style={{display: 'block', color: '#ff9900', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
+                      <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
+                          <input type="checkbox" checked={editUnlimitedTime} onChange={(e) => setEditUnlimitedTime(e.target.checked)} />
+                          Unlimited Time
+                      </label>
+                      {!editUnlimitedTime && (
+                          <select className="game-select" value={editTimeLimit} onChange={e => setEditTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#222', color: '#fff', border: '1px solid #555'}}>
+                              <option value="5">5 Minutes</option>
+                              <option value="10">10 Minutes</option>
+                              <option value="15">15 Minutes</option>
+                              <option value="30">30 Minutes</option>
+                              <option value="60">60 Minutes</option>
+                          </select>
+                      )}
+                  </div>
+
+              </div>
+              <div className="modal-actions-row">
+                  <button type="submit" className="btn btn-primary">SAVE CHANGES</button>
+                  <button type="button" onClick={() => setShowEditScheduleModal(false)} className="btn btn-secondary">CANCEL</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Toggle Activity Confirm Modal */}
+      {showToggleActivityModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: `2px solid ${selectedGameForToggle?.is_active ? '#ff4c4c' : '#14a014'}` }}>
+            <h2 style={{color: selectedGameForToggle?.is_active ? '#ff4c4c' : '#14a014'}}>
+                {selectedGameForToggle?.is_active ? "CLOSE ACTIVITY" : "REOPEN ACTIVITY"}
+            </h2>
+            <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>
+                Are you sure you want to {selectedGameForToggle?.is_active ? "manually close this activity? Students will immediately be locked out." : "reopen this activity for students?"}
+            </p>
+            <div className="modal-actions-row">
+                <button type="button" onClick={confirmToggleActivity} className="btn" style={{ backgroundColor: selectedGameForToggle?.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none' }}>
+                    YES, {selectedGameForToggle?.is_active ? "CLOSE IT" : "REOPEN"}
+                </button>
+                <button type="button" onClick={() => setShowToggleActivityModal(false)} className="btn btn-secondary">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -7,10 +7,23 @@ function CreateAdventure() {
   const navigate = useNavigate();
   
   // --- STATE ---
-  const [step, setStep] = useState(1); // 1=Intro, 2=Config, 3=Assign
+  const [step, setStep] = useState(1); // 1=Intro, 2=Config, 3=Schedule, 4=Assign
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Custom Modal States
+  const [alertData, setAlertData] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+
+  // Scheduling Data
+  const [openDate, setOpenDate] = useState('');
+  const [openTime, setOpenTime] = useState('');
+  const [noCloseDate, setNoCloseDate] = useState(true);
+  const [closeDate, setCloseDate] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [unlimitedTime, setUnlimitedTime] = useState(true);
+  const [timeLimit, setTimeLimit] = useState(15); 
 
   // Question State
   const [questions, setQuestions] = useState([
@@ -66,9 +79,16 @@ function CreateAdventure() {
   };
 
   // --- SUBMIT LOGIC ---
-  const handleSubmit = async () => {
-    if (!selectedClass) return alert("Please select a class.");
-    
+  const handleSubmitClick = () => {
+      if (!selectedClass) return setAlertData({ title: "ATTENTION", message: "Please select a class.", color: "#ff9900" });
+      setConfirmData({
+          title: "CONFIRM CREATION",
+          message: "Create and assign this Adventure Battle to the selected class?"
+      });
+  };
+
+  const executeCreateGame = async () => {
+    setConfirmData(null);
     setLoading(true);
 
     const payload = questions.map(q => {
@@ -78,6 +98,10 @@ function CreateAdventure() {
         return q;
     });
 
+    let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
+    let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
+    const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
+
     try {
       const res = await fetch('http://localhost:8081/api/create-adventure', {
         method: 'POST',
@@ -85,40 +109,47 @@ function CreateAdventure() {
         body: JSON.stringify({
           teacher_fid: auth.currentUser.uid,
           class_id: selectedClass,
-          questions: payload
+          questions: payload,
+          open_datetime: formattedOpenDate,
+          close_datetime: formattedCloseDate,
+          time_limit: finalTimeLimit
         })
       });
 
       if (res.ok) {
         setTimeout(() => {
             setLoading(false);
-            alert("⚔️ Adventure Battle Created Successfully!");
-            navigate('/teacher-menu');
+            setAlertData({ title: "SUCCESS", message: "⚔️ Adventure Battle Created Successfully!", color: "#14a014", navigate: true });
         }, 1000);
       } else {
-        alert("Error saving game.");
+        setAlertData({ title: "ERROR", message: "Error saving game.", color: "#ff4c4c" });
         setLoading(false);
       }
     } catch (err) {
       console.error(err);
-      alert("Server Error");
+      setAlertData({ title: "ERROR", message: "Server Error", color: "#ff4c4c" });
       setLoading(false);
     }
   };
 
   // --- RENDER STEPS ---
 
-  // STEP 1: INTRO (Logic Copied from Maze)
+  // STEP 1: INTRO 
   const renderStep1_Intro = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#ff9900', fontFamily: '"Press Start 2P", cursive', marginBottom:'20px'}}>CREATE NEW ADVENTURE BATTLE</h2>
-      <p style={{marginBottom: '20px', color:'#ccc'}}>This template allows you to create a Adventure battle quiz game.</p>
       
+      {/* 🟢 NEW: Enhanced Instructions in Step 1 */}
       <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom:'30px'}}>
-        <p style={{color: '#ff9900', fontFamily: '"Press Start 2P"', fontSize: '0.8rem'}}>REQUIREMENTS:</p>
+        <h3 style={{ color: '#ff9900', margin: '0 0 10px 0', fontSize: '1.1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
+        <p style={{ color: '#ccc', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '15px' }}>
+          <strong>Adventure Battle</strong> is a turn-based RPG. Students choose a hero and battle monsters. Answering correctly attacks the monster, while answering wrong allows the monster to strike back!
+        </p>
+        <p style={{color: '#ff9900', fontFamily: '"Press Start 2P"', fontSize: '0.8rem'}}>CREATION CHECKLIST:</p>
         <ul style={{marginTop: '10px', paddingLeft: '20px', color:'white', lineHeight:'1.6'}}>
-          <li>Supports Multiple Choice, TRUE OR FALSE, IDENTIFICATION</li>
-          <li>1 = 1 Correct Answer per Question</li>
+          <li>Add questions in Step 2. Supports Multiple Choice, True/False, and Identification.</li>
+          <li>Set opening, closing, and time limits in Step 3.</li>
+          <li>Assign the game to your active classes in Step 4.</li>
         </ul>
       </div>
 
@@ -206,13 +237,50 @@ function CreateAdventure() {
         <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
             <button onClick={() => setStep(1)} className="btn" style={{...btnSecStyle, flex: 1}}>BACK</button>
             <button onClick={addQuestion} className="btn" style={{...btnPriStyle, background:'#38a169', flex: 1}}>+ ADD QUESTION</button>
-            <button onClick={() => setStep(3)} className="btn" style={{...btnPriStyle, flex: 1}}>NEXT: ASSIGN</button>
+            <button onClick={() => setStep(3)} className="btn" style={{...btnPriStyle, flex: 1}}>NEXT: SCHEDULE</button>
         </div>
     </div>
   );
 
-  // STEP 3: ASSIGN CLASS
-  const renderStep3_Assign = () => (
+  // STEP 3: SCHEDULE
+  const renderStep3_Schedule = () => (
+    <div className="game-card" style={cardStyle}>
+        <h2 style={{color: '#ce93d8', marginBottom:'20px'}}>SCHEDULE ACTIVITY</h2>
+        <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+            <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING:</label>
+            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                <input type="date" value={openDate} onChange={e => setOpenDate(e.target.value)} style={dropdownStyle} />
+                <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} style={dropdownStyle} />
+            </div>
+            <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={noCloseDate} onChange={e => setNoCloseDate(e.target.checked)} /> No Closing Date
+            </label>
+            {!noCloseDate && (
+                <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                    <input type="date" value={closeDate} onChange={e => setCloseDate(e.target.value)} style={dropdownStyle} />
+                    <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} style={dropdownStyle} />
+                </div>
+            )}
+            <label style={{display: 'block', color: '#ff9900', marginBottom: '5px', marginTop: '10px'}}>TIME LIMIT:</label>
+            <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', color: '#fff'}}>
+                <input type="checkbox" checked={unlimitedTime} onChange={e => setUnlimitedTime(e.target.checked)} /> Unlimited
+            </label>
+            {!unlimitedTime && (
+                <select value={timeLimit} onChange={e => setTimeLimit(e.target.value)} style={{...dropdownStyle, width:'100%'}}>
+                    {[5, 10, 15, 30, 60].map(m => <option key={m} value={m}>{m} Minutes</option>)}
+                </select>
+            )}
+        </div>
+        <div style={{display:'flex', gap:'20px', justifyContent:'center'}}>
+            <button className="btn-secondary" onClick={() => setStep(2)} style={btnSecStyle}>BACK</button>
+            <button className="btn-primary" onClick={() => setStep(4)} style={btnPriStyle}>NEXT: ASSIGN</button>
+        </div>
+    </div>
+  );
+
+  // STEP 4: ASSIGN CLASS
+  const renderStep4_Assign = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#14a014', marginBottom:'20px'}}>ASSIGN TO CLASS</h2>
       <p style={{color:'#ccc', marginBottom:'20px'}}>Select which class will receive this activity.</p>
@@ -242,10 +310,10 @@ function CreateAdventure() {
       </div>
 
       <div style={{display:'flex', gap:'20px', justifyContent:'center'}}>
-        <button className="btn-secondary" onClick={() => setStep(2)} style={btnSecStyle}>BACK</button>
+        <button className="btn-secondary" onClick={() => setStep(3)} style={btnSecStyle}>BACK</button>
         <button 
           className="btn-primary" 
-          onClick={handleSubmit}
+          onClick={handleSubmitClick}
           disabled={!selectedClass || loading}
           style={{...btnPriStyle, opacity: !selectedClass ? 0.5 : 1}}
         >
@@ -260,8 +328,36 @@ function CreateAdventure() {
       <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
         {step === 1 && renderStep1_Intro()}
         {step === 2 && renderStep2_Config()}
-        {step === 3 && renderStep3_Assign()}
+        {step === 3 && renderStep3_Schedule()}
+        {step === 4 && renderStep4_Assign()}
       </div>
+
+      {/* --- MODALS --- */}
+      {confirmData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#222', border: '2px solid #ff9900', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: '#ff9900', marginBottom: '20px'}}>{confirmData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{confirmData.message}</p>
+                  <div style={{display: 'flex', justifyContent: 'center', gap: '15px'}}>
+                      <button className="btn-primary" onClick={executeCreateGame} style={btnPriStyle}>CONFIRM</button>
+                      <button className="btn-secondary" onClick={() => setConfirmData(null)} style={btnSecStyle}>CANCEL</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {alertData && (
+          <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+              <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
+                  <h2 style={{color: alertData.color, marginBottom: '20px'}}>{alertData.title}</h2>
+                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{alertData.message}</p>
+                  <button className="btn-primary" onClick={() => {
+                      setAlertData(null);
+                      if (alertData.navigate) navigate('/teacher-menu');
+                  }} style={btnPriStyle}>OK</button>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

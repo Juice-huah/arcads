@@ -1,16 +1,32 @@
 import express from "express";
-import mysql from "mysql2";
+import mysql from "mysql2"; // 🟢 Switched to mysql2
 import cors from "cors";
+import dotenv from "dotenv"; // 🟢 Added dotenv
+
+dotenv.config(); // 🟢 Initialize environment variables
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 🟢 Updated Database Connection for Cloud
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "Passw0rd04", 
-  database: "arcads_dbs"
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: true // 🟢 Required for Aiven/Cloud MySQL
+  }
+});
+
+db.connect((err) => {
+  if (err) {
+    console.error("❌ Database Connection Failed:", err.message);
+    return;
+  }
+  console.log("✅ Connected to AIVEN Cloud Database!");
 });
 
 // --- AUTH ROUTES ---
@@ -195,11 +211,30 @@ app.delete('/api/delete-game/:game_id', (req, res) => {
     });
 });
 
-// --- CORE GAME CREATION ROUTE ---
+// --- SCHEDULE MANAGEMENT ROUTES ---
+app.put('/api/update-schedule/:game_id', (req, res) => {
+    const { open_datetime, close_datetime, time_limit } = req.body;
+    const sql = "UPDATE game_instances SET open_datetime = ?, close_datetime = ?, time_limit = ? WHERE game_id = ?";
+    db.query(sql, [open_datetime || null, close_datetime || null, time_limit || 0, req.params.game_id], (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to update schedule" });
+        res.json({ message: "Schedule updated successfully!" });
+    });
+});
+
+app.put('/api/toggle-activity/:game_id', (req, res) => {
+    const { is_active } = req.body;
+    const sql = "UPDATE game_instances SET is_active = ? WHERE game_id = ?";
+    db.query(sql, [is_active, req.params.game_id], (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to toggle activity" });
+        res.json({ message: "Activity status updated!" });
+    });
+});
+
+// --- CORE GAME CREATION ROUTE (Updated) ---
 app.post('/api/create-game', (req, res) => {
-    const { teacher_fid, class_id, game_type, questions, game_data } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, game_type], (err, result) => {
+    const { teacher_fid, class_id, game_type, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, game_type, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create game" });
         const newGameId = result.insertId; 
 
@@ -215,7 +250,7 @@ app.post('/api/create-game', (req, res) => {
             return res.json({ message: "Game instance created successfully!", gameId: newGameId, game_id: newGameId });
         }
         const sqlQuestion = `INSERT INTO game_questions (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
-        const questionValues = questions.map(q => [newGameId, q.q, q.choices[0], q.choices[1], q.choices[2], q.choices[3], q.correct]);
+        const questionValues = questions.map(q => [newGameId, q.q, q.choices[0] || "", q.choices[1] || "", q.choices[2] || "", q.choices[3] || "", q.correct || 0]);
         db.query(sqlQuestion, [questionValues], (err, result) => {
             if (err) return res.status(500).json({ error: "Failed to save questions" });
             res.json({ message: "Game created successfully!", gameId: newGameId });
@@ -226,31 +261,34 @@ app.post('/api/create-game', (req, res) => {
 app.post('/api/add-question', (req, res) => {
     const { game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer } = req.body;
     const sql = `INSERT INTO game_questions (game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    db.query(sql, [game_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer], (err, result) => {
+    db.query(sql, [game_id, question_text, choice_a || "", choice_b || "", choice_c || "", choice_d || "", correct_answer || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to save question" });
         res.json({ message: "Question added successfully!" });
     });
 });
 
-// --- SPECIALIZED GAME ROUTES (RE-RESTORED FULLY) ---
+// --- SPECIALIZED GAME ROUTES (Updated) ---
 
 app.post('/api/create-adventure', (req, res) => {
-    const { teacher_fid, class_id, questions } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'adventure')";
-    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
             let type = q.type; 
             let cA, cB, cC, cD, correct;
             if (type === 'multiple_choice') {
-                cA = q.choiceA; cB = q.choiceB; cC = q.choiceC; cD = q.choiceD;
-                correct = parseInt(q.correctAnswer); 
+                cA = q.choiceA || ""; 
+                cB = q.choiceB || ""; 
+                cC = q.choiceC || ""; 
+                cD = q.choiceD || "";
+                correct = parseInt(q.correctAnswer) || 0; 
             } else if (type === 'true_false') {
-                cA = 'True'; cB = 'False'; cC = null; cD = null;
-                correct = parseInt(q.correctAnswer); 
+                cA = 'True'; cB = 'False'; cC = ""; cD = "";
+                correct = parseInt(q.correctAnswer) || 0; 
             } else if (type === 'identification') {
-                cA = q.choiceA; cB = null; cC = null; cD = null;
+                cA = q.choiceA || ""; cB = ""; cC = ""; cD = "";
                 correct = 0; 
             }
             return [newGameId, q.question, type, cA, cB, cC, cD, correct];
@@ -264,9 +302,9 @@ app.post('/api/create-adventure', (req, res) => {
 });
 
 app.post('/api/create-word-quest', (req, res) => {
-    const { teacher_fid, class_id, questions } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'word_quest')";
-    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
@@ -282,19 +320,19 @@ app.post('/api/create-word-quest', (req, res) => {
 });
 
 app.post('/api/create-enchanted-forest', (req, res) => {
-    const { teacher_fid, class_id, game_data } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'enchanted_forest')";
-    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+    const { teacher_fid, class_id, game_data, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
         const parsedData = JSON.parse(game_data);
         const questionValues = [];
         parsedData.locations.forEach((loc, locIdx) => {
             loc.words.forEach(word => {
-                questionValues.push([newGameId, word.hint || "No hint", 'enchanted_forest', word.scrambled, locIdx.toString(), 'regular', word.answer, 0]);
+                questionValues.push([newGameId, word.hint || "No hint", 'enchanted_forest', word.scrambled || "", locIdx.toString(), 'regular', word.answer || "", 0]);
             });
             loc.bossWords.forEach(word => {
-                questionValues.push([newGameId, word.hint || "No hint", 'enchanted_forest', word.scrambled, locIdx.toString(), 'boss', word.answer, 0]);
+                questionValues.push([newGameId, word.hint || "No hint", 'enchanted_forest', word.scrambled || "", locIdx.toString(), 'boss', word.answer || "", 0]);
             });
         });
         const sqlQuestions = `INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
@@ -306,14 +344,14 @@ app.post('/api/create-enchanted-forest', (req, res) => {
 });
 
 app.post('/api/create-whack-a-mole', (req, res) => {
-    const { teacher_fid, class_id, questions } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'whack_a_mole')";
-    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
             const optMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-            return [newGameId, q.question_text, 'multiple_choice', q.choice_a, q.choice_b, q.choice_c, q.choice_d, optMap[q.correct_option] || 0];
+            return [newGameId, q.question_text, 'multiple_choice', q.choice_a || "", q.choice_b || "", q.choice_c || "", q.choice_d || "", optMap[q.correct_option] || 0];
         });
         const sqlQuestions = `INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
         db.query(sqlQuestions, [questionValues], (err) => {
@@ -323,18 +361,16 @@ app.post('/api/create-whack-a-mole', (req, res) => {
     });
 });
 
-
 app.post('/api/create-startype', (req, res) => {
-    const { teacher_fid, class_id, words } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type) VALUES (?, ?, 'startype')";
+    const { teacher_fid, class_id, words, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?)";
     
-    db.query(sqlGame, [teacher_fid, class_id], (err, result) => {
+    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
         
-        // Map the words. We store the Word in question_text, and the Tier in choice_a
         const questionValues = words.map(w => {
-            return [newGameId, w.word, 'startype', w.difficulty, '', '', '', 0];
+            return [newGameId, w.word, 'startype', w.difficulty || "Easy", '', '', '', 0];
         });
 
         const sqlQuestions = `INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
@@ -387,9 +423,8 @@ app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
         res.json(results);
     });
 });
-
 app.get('/api/get-games/:teacher_fid', (req, res) => {
-    const sql = `SELECT g.game_id, g.game_type, g.created_at, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
+    const sql = `SELECT g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
     db.query(sql, [req.params.teacher_fid], (err, results) => {
         if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
@@ -412,9 +447,10 @@ app.get('/api/gradebook/:game_id', (req, res) => {
     });
 });
 
+// 🟢 UPDATED: Pulls schedule info for StudentMenu
 app.get('/api/student-games/:student_fid', (req, res) => {
     const sql = `
-        SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.created_at, sc.score as raw_score, sc.time_taken,
+        SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, sc.score as raw_score, sc.time_taken,
                (SELECT COUNT(*) FROM game_questions WHERE game_id = g.game_id) as total_items
         FROM class_members cm
         LEFT JOIN classes c ON cm.class_id = c.class_id
@@ -457,7 +493,6 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
 app.delete("/api/delete-class/:class_id", (req, res) => {
   const classId = req.params.class_id;
 
-  // We must delete in order to satisfy database constraints (Foreign Keys)
   const delAnswers = "DELETE FROM student_answers WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
   const delScores = "DELETE FROM scores WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
   const delQuestions = "DELETE FROM game_questions WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
@@ -485,6 +520,27 @@ app.delete("/api/delete-class/:class_id", (req, res) => {
   });
 });
 
-app.listen(8081, () => {
-  console.log("Backend server is running on http://localhost:8081");
+// --- DELETE USER ACCOUNT ---
+app.delete('/api/delete-user', (req, res) => {
+    const { uid, role } = req.body;
+    
+    // Depending on the role, delete from the correct table. 
+    // (Note: If you set up ON DELETE CASCADE in MySQL, this will also wipe their scores, answers, or classes automatically!)
+    const sql = role === 'teacher' 
+        ? "DELETE FROM teacher WHERE teacher_fid = ?" 
+        : "DELETE FROM student WHERE student_fid = ?";
+
+    db.query(sql, [uid], (err, result) => {
+        if (err) {
+            console.error("Error deleting user from DB:", err);
+            return res.status(500).json({ error: "Database error during deletion." });
+        }
+        res.json({ message: "User data wiped from MySQL successfully." });
+    });
+});
+
+// 🟢 Updated Port for Cloud Deployment
+const PORT = process.env.PORT || 8081;
+app.listen(PORT, () => {
+  console.log(`Backend server is running on port ${PORT}`);
 });

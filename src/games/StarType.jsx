@@ -30,6 +30,11 @@ export default function StarType() {
   const [loading, setLoading] = useState(true);
   const [isScoreSaved, setIsScoreSaved] = useState(false);
   
+  // 🟢 NEW SCHEDULING STATES
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
+  const timeLimitR = useRef(0);
+
   const isSavingRef = useRef(false);
 
   useEffect(() => {
@@ -39,6 +44,16 @@ export default function StarType() {
 
     const fetchWords = async () => {
       try {
+        // 🟢 Fetch Schedule
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                timeLimitR.current = currentGame.time_limit;
+            }
+        }
+
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         
@@ -70,6 +85,44 @@ export default function StarType() {
 
     return () => unsubscribe();
   }, [gameId]);
+
+  // 🟢 NEW TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+      if (screen === 'game' && timeLeft !== null && !showTimeUp) {
+          if (timeLeft <= 0) {
+              setShowTimeUp(true);
+              setScreen('timeup');
+              return;
+          }
+          const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+      }
+  }, [screen, timeLeft, showTimeUp]);
+
+  // 🟢 AUTO-SAVE FOR TIME UP
+  useEffect(() => {
+      if (screen === 'timeup' && !isScoreSaved && !isSavingRef.current && user) {
+          isSavingRef.current = true;
+          const saveToDb = async () => {
+              try {
+                  await fetch('http://localhost:8081/api/save-score', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          student_fid: user.uid,
+                          game_id: gameId,
+                          score: 0, 
+                          time_taken: 0
+                      })
+                  });
+                  setIsScoreSaved(true);
+              } catch (err) {
+                  console.error(err);
+              }
+          };
+          saveToDb();
+      }
+  }, [screen, isScoreSaved, gameId, user]);
 
   const handleGameOver = useCallback(async (stats, answerLog) => {
     if (isSavingRef.current) return; 
@@ -114,9 +167,22 @@ export default function StarType() {
 
   return (
     <div className="startype-wrapper">
+
+      {/* 🟢 GLOBAL TIMER RENDER */}
+      {timeLeft !== null && screen === 'game' && (
+          <div style={{ position: 'absolute', top: 20, right: 30, background: 'rgba(0,0,0,0.8)', border: '2px solid #00f5ff', padding: '10px 20px', borderRadius: '10px', color: '#00f5ff', zIndex: 900, fontSize: '1.2rem', fontWeight: 'bold', fontFamily: '"Share Tech Mono", monospace' }}>
+              ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+          </div>
+      )}
+
       {screen === 'title' && (
         <TitleScreen 
-          onStart={() => { playClick(); setScreen('game'); }} 
+          onStart={() => { 
+              playClick(); 
+              if (timeLimitR.current > 0) setTimeLeft(timeLimitR.current * 60); 
+              setShowTimeUp(false);
+              setScreen('game'); 
+          }} 
           onHowTo={() => { playClick(); setScreen('howto'); }}
           onExit={() => { playClick(); navigate('/student-menu'); }}
           disabled={!hasWords}
@@ -142,6 +208,27 @@ export default function StarType() {
           isScoreSaved={isScoreSaved}
           onMenu={() => { playClick(); navigate('/student-menu'); }}
         />
+      )}
+
+      {/* 🟢 CUSTOM TIME'S UP OVERLAY */}
+      {screen === 'timeup' && (
+        <div className="gameover-screen">
+          <StarField count={80} />
+          <div className="gameover-content">
+            <div className="go-alert" style={{color: '#ff4c4c'}}>⚠ TIME'S UP ⚠</div>
+            <h2 className="go-title" style={{color: '#ff4c4c'}}>MISSION FAILED</h2>
+            
+            <div style={{ marginTop: '20px', color: isScoreSaved ? '#39ff14' : '#ffd700', fontFamily: "'Share Tech Mono', monospace", fontSize: '1rem' }}>
+              {isScoreSaved ? '✅ COMBAT LOG SAVED TO DATABASE' : '⏳ UPLOADING COMBAT LOG...'}
+            </div>
+
+            <div className="go-actions" style={{marginTop: '30px'}}>
+              <button className="btn-launch" onClick={() => { playClick(); navigate('/student-menu'); }}>
+                <span className="btn-launch-inner">RETURN TO COMMAND</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -182,7 +269,7 @@ function FlickeringTitle() {
 function TitleScreen({ onStart, onHowTo, onExit, disabled }) {
   useEffect(() => {
     const bgm = new Audio(mainMenuMusic);
-    bgm.loop = true; // 🎵 FORCES LOOP
+    bgm.loop = true; 
     bgm.volume = 0.5;
     let isMounted = true;
     
@@ -210,7 +297,6 @@ function TitleScreen({ onStart, onHowTo, onExit, disabled }) {
       <div className="title-content">
         <div className="title-badge">GALACTIC TYPING COMBAT</div>
         
-        {/* Replaced standard title with the FlickeringTitle component */}
         <FlickeringTitle />
         
         <p className="title-tagline">Your keyboard is your weapon. Type to survive.</p>
@@ -228,7 +314,6 @@ function TitleScreen({ onStart, onHowTo, onExit, disabled }) {
             }}
           >
             <span className="btn-launch-inner" style={{ padding: '15px 0' }}>
-              {/* Restored normal Start Text */}
               {disabled ? "AWAITING DATA" : "START"}
             </span>
           </button>
@@ -257,6 +342,8 @@ function HowToPlayScreen({ onBack }) {
     <div className="title-screen">
       <StarField count={80} />
       <div style={{ position: 'relative', zIndex: 2, backgroundColor: 'rgba(2, 13, 36, 0.85)', padding: '40px', borderRadius: '15px', border: '1px solid #00f5ff', maxWidth: '600px', textAlign: 'center', boxShadow: '0 0 30px rgba(0,245,255,0.2)', backdropFilter: 'blur(5px)' }}>
+        
+        {/* 🟢 FIXED SYNTAX ERROR HERE */}
         <h2 style={{ color: '#00f5ff', fontFamily: '"Orbitron", sans-serif', fontSize: '2.2rem', marginBottom: '25px', letterSpacing: '0.1em' }}>MISSION BRIEFING</h2>
         
         <div style={{ textAlign: 'left', fontFamily: '"Share Tech Mono", monospace', fontSize: '1.1rem', lineHeight: '1.8', color: '#c8e8ff', marginBottom: '35px' }}>
@@ -283,7 +370,7 @@ function GameOverScreen({ stats, isScoreSaved, onMenu }) {
 
   useEffect(() => {
     const bgm = new Audio(victoryMusic);
-    bgm.loop = true; // 🎵 FORCES LOOP
+    bgm.loop = true; 
     bgm.volume = 0.6;
     let isMounted = true;
     

@@ -11,7 +11,7 @@ import {
 import { useGameEngine } from "../hamsterball/GameEngine.jsx";
 import {
   GlobalStyles, MenuScreen, CountdownScreen,
-  GameHUD, EndScreen, ScorePop, Confetti // 🟢 IMPORTED CONFETTI
+  GameHUD, EndScreen, ScorePop, Confetti
 } from "../hamsterball/GameUI.jsx";
 
 // 🟢 SOUND IMPORTS (Ensure you have these files in this exact folder!)
@@ -29,10 +29,14 @@ export default function HamsterBall() {
   
   const [scoreSaved, setScoreSaved] = useState(false);
   const [loading, setLoading] = useState(true); 
-  const [showConfetti, setShowConfetti] = useState(false); // 🟢 CONTROLS PARTY POPPER
+  const [showConfetti, setShowConfetti] = useState(false); 
   
   const isSavingRef = useRef(false);
   const answerLog = useRef([]);
+
+  // 🟢 SCHEDULING STATES
+  const timeLimitR = useRef(0);
+  const [showTimeUp, setShowTimeUp] = useState(false);
 
   // 🟢 AUDIO REFERENCES
   const bgmMenuR = useRef(null);
@@ -44,7 +48,7 @@ export default function HamsterBall() {
   const {
     T, trackR, hamR,
     buildLevel, buildHamster, animHamster,
-    openGate, tickWorld, spawnParticles, fireConfetti // 🟢 ADDED FIRE CONFETTI
+    openGate, tickWorld, spawnParticles, fireConfetti
   } = useGameEngine(canvasRef);
 
   const phys = useRef({
@@ -54,9 +58,9 @@ export default function HamsterBall() {
   });
 
   const gs = useRef({
-    active: false, over: false, level: 1, finished: false, // 🟢 NEW: finished state
+    active: false, over: false, level: 1, finished: false, 
     score: 0, lives: 3, coins: 0, combo: 0,
-    timerSec: 120,
+    timerSec: 120, // Will be overridden on startLevel
     spawnProtect: 3, shakeAmt: 0, dizzy: 0,
     boost: 0, 
     lastCheckpointZ: 0, lastCheckpointX: 0,
@@ -81,7 +85,6 @@ export default function HamsterBall() {
   const [endData,        setEndData]        = useState(null);
   const [scorePops,      setScorePops]      = useState([]);
 
-  // 🟢 SETUP AUDIO OBJECTS
   useEffect(() => {
     bgmMenuR.current = new Audio(menuBGM);
     bgmMenuR.current.loop = true;
@@ -106,12 +109,11 @@ export default function HamsterBall() {
     };
   }, []);
 
-  // MUSIC CONTROLLER 
   useEffect(() => {
     if (!bgmMenuR.current || !bgmGameR.current) return;
     const playSafe = (audio) => {
         const p = audio.play();
-        if (p !== undefined) p.catch(e => console.warn("Autoplay blocked. User must interact first."));
+        if (p !== undefined) p.catch(e => console.warn("Autoplay blocked."));
     };
 
     if (screen === "menu" || screen === "worlds" || screen === "skins") {
@@ -130,13 +132,24 @@ export default function HamsterBall() {
     }
   }, [screen]);
 
-  // FETCH CONFIG
+  // FETCH CONFIG & SCHEDULE
   useEffect(() => {
     const fetchConfig = async () => {
       if (!gameId) { setLoading(false); return; }
       try {
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
+        
+        // 🟢 Fetch Schedule
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                timeLimitR.current = currentGame.time_limit;
+            }
+        }
+
         if (data && data.length > 0) {
             const mappedQs = data.map(q => ({
                 id: q.id || q.question_id,
@@ -443,7 +456,6 @@ export default function HamsterBall() {
       }
     }
 
-    // 🟢 FINISH LINE CROSSING
     if (p.bz <= tr.finishZ + 1 && !g.finished) { 
         g.finished = true; 
         
@@ -453,7 +465,7 @@ export default function HamsterBall() {
         if (yeyAudioR.current) yeyAudioR.current.play().catch(()=>{});
         
         setShowConfetti(true); 
-        fireConfetti(p.bx, p.by + 2, p.bz); // 🟢 SHOOT 3D CONFETTI!
+        fireConfetti(p.bx, p.by + 2, p.bz);
         spawnPop("🏆 FINISH!", p.bx, p.by + 2, p.bz, true);
 
         setTimeout(() => {
@@ -471,7 +483,6 @@ export default function HamsterBall() {
   function enterRing(qr) {
     const g = gs.current;
     
-    // Auto-open remaining gates just in case
     if (questionIndexR.current >= questions.length) {
         const nextGate = trackR.current.gates.find(gt => !gt.open);
         if (nextGate) { openGate(nextGate); playSound("gate_open"); }
@@ -518,10 +529,15 @@ export default function HamsterBall() {
     const g = gs.current;
     if (!g.active || g.spawnProtect > 0) return;
     const rate = g.inRing || g.finished ? 0 : 1.0; 
-    g.timerSec -= dt * rate;
-    if (g.timerSec <= 0) {
-      g.timerSec = 0; g.active = false;
-      finishGame(false);
+    
+    // 🟢 NEW: Check actual time limit
+    if (timeLimitR.current > 0) {
+        g.timerSec -= dt * rate;
+        if (g.timerSec <= 0) {
+            g.timerSec = 0; g.active = false;
+            setShowTimeUp(true); // Trigger TIME'S UP modal
+            finishGame(false);
+        }
     }
   }
 
@@ -589,7 +605,6 @@ export default function HamsterBall() {
     setEndData({ score: g.score, maxCombo: g.maxCombo, level: g.level });
     setScreen("gameover");
     setPromptData(null);
-
     triggerSave(g.score);
   }
 
@@ -614,7 +629,8 @@ export default function HamsterBall() {
     const w = WORLDS[lvlId - 1];
 
     setScoreSaved(false);
-    setShowConfetti(false); // Reset party popper
+    setShowConfetti(false);
+    setShowTimeUp(false);
     isSavingRef.current = false;
     isAnsweringRef.current = false; 
     answerLog.current = [];
@@ -624,7 +640,8 @@ export default function HamsterBall() {
     Object.assign(g, {
       active: false, over: false, level: lvlId, finished: false,
       score: 0, lives: 3, coins: 0, combo: 0,
-      timerSec: 120, spawnProtect: 3.2, shakeAmt: 0,
+      timerSec: timeLimitR.current > 0 ? timeLimitR.current * 60 : 999999, // 🟢 Initialize proper time
+      spawnProtect: 3.2, shakeAmt: 0,
       lastCheckpointZ: 0, lastCheckpointX: 0,
       worldSpeed: w.speed, skinId: 0,
       inRing: false, ringIdx: -1, resumeTimer: 0
@@ -659,7 +676,6 @@ export default function HamsterBall() {
       <GlobalStyles />
       <canvas ref={canvasRef} style={{ position:"fixed", top:0, left:0, display:"block" }} />
 
-      {/* 🟢 PARTY POPPER ANIMATION */}
       {showConfetti && <Confetti />}
 
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:800 }}>
@@ -683,9 +699,17 @@ export default function HamsterBall() {
 
       {screen === "gameover" && endData && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 15, 30, 0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-             <h1 style={{ color: '#4dff91', fontSize: '3.5rem', fontFamily: "'Fredoka One', sans-serif", textShadow: '0 0 20px rgba(77,255,145,0.5)', marginBottom: '10px' }}>
-                RACE FINISHED!
-             </h1>
+             
+             {/* 🟢 DYNAMIC TIMEUP OR FINISH TITLE */}
+             {showTimeUp ? (
+                 <h1 style={{ color: '#ff4c4c', fontSize: '3.5rem', fontFamily: "'Fredoka One', sans-serif", textShadow: '0 0 20px rgba(255, 76, 76, 0.5)', marginBottom: '10px' }}>
+                    TIME'S UP!
+                 </h1>
+             ) : (
+                 <h1 style={{ color: '#4dff91', fontSize: '3.5rem', fontFamily: "'Fredoka One', sans-serif", textShadow: '0 0 20px rgba(77,255,145,0.5)', marginBottom: '10px' }}>
+                    RACE FINISHED!
+                 </h1>
+             )}
              
              <div style={{ background: 'rgba(0,0,0,0.6)', padding: '20px 40px', borderRadius: '12px', border: '1px solid #30363d', textAlign: 'center', marginBottom: '30px' }}>
                  <h2 style={{ color: '#8b949e', fontSize: '1.2rem', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Final Score</h2>
@@ -714,6 +738,15 @@ export default function HamsterBall() {
 
       {isGame && !gs.current.finished && (
           <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 100, display: 'flex', gap: '20px' }}>
+              
+              {/* 🟢 NEW CUSTOM RENDERED TIMER TO AVOID INFINITY OR NAN LOGIC ERRORS */}
+              <div style={{ background: 'rgba(0,0,0,0.5)', padding: '10px 20px', borderRadius: '12px', border: '2px solid #0ac8f0' }}>
+                  <div style={{ color: '#0ac8f0', fontSize: '0.8rem', fontWeight: 'bold' }}>TIME</div>
+                  <div style={{ fontSize: '1.5rem', color: '#fff', fontWeight: 'bold' }}>
+                      {timeLimitR.current > 0 ? `${Math.floor(hud.timerSec / 60)}:${(Math.floor(hud.timerSec) % 60).toString().padStart(2, '0')}` : '∞'}
+                  </div>
+              </div>
+
               <div style={{ background: 'rgba(0,0,0,0.5)', padding: '10px 20px', borderRadius: '12px', border: '2px solid #555' }}>
                   <div style={{ color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>LIVES</div>
                   <div style={{ fontSize: '1.5rem' }}>{"❤️".repeat(hud.lives)}{"🖤".repeat(Math.max(0, 3 - hud.lives))}</div>

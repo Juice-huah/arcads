@@ -1,4 +1,3 @@
-// src/pages/CreateMazeGame.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase'; 
@@ -10,14 +9,23 @@ const CreateMazeGame = () => {
   // --- STATE ---
   const [step, setStep] = useState(1); 
   const [loading, setLoading] = useState(false);
-  const [difficulty, setDifficulty] = useState('EASY');
+  const [difficulty, setDifficulty] = useState('NORMAL');
   
   // Custom Modal States
   const [alertData, setAlertData] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
   
-  // Game Data - Defaults to 5 questions for Easy
-  const [questions, setQuestions] = useState(Array(5).fill(null).map(() => ({ q: "", choices: ["", "", "", ""], correct: 0 })));
+  // Game Data - Defaults to 10 questions for Normal
+  const [questions, setQuestions] = useState(Array(10).fill(null).map(() => ({ q: "", choices: ["", "", "", ""], correct: 0 })));
+
+  // Scheduling Data
+  const [openDate, setOpenDate] = useState('');
+  const [openTime, setOpenTime] = useState('');
+  const [noCloseDate, setNoCloseDate] = useState(true);
+  const [closeDate, setCloseDate] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [unlimitedTime, setUnlimitedTime] = useState(true);
+  const [timeLimit, setTimeLimit] = useState(15);
 
   // REAL DATA STATE
   const [availableClasses, setAvailableClasses] = useState([]);
@@ -58,13 +66,11 @@ const CreateMazeGame = () => {
     setQuestions(updated);
   };
 
-  const handleCreateGame = () => {
+  const handleCreateGameClick = () => {
     if (!selectedClass) {
         setAlertData({ title: "ATTENTION", message: "Please select a class first.", isSuccess: false });
         return;
     }
-
-    // Trigger custom confirmation modal instead of system window.confirm
     setConfirmData({
         title: "CONFIRM CREATION",
         message: `Are you sure you want to create this ${difficulty} Maze Game?`
@@ -72,16 +78,24 @@ const CreateMazeGame = () => {
   };
 
   const executeCreateGame = async () => {
-    setConfirmData(null); // Close confirm modal
+    setConfirmData(null);
     setLoading(true);
 
     const teacherId = auth.currentUser ? auth.currentUser.uid : "UNKNOWN_TEACHER"; 
+
+    // Format Dates for MySQL
+    let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
+    let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
+    const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
     const gameData = {
       teacher_fid: teacherId, 
       class_id: selectedClass,
       game_type: `MAZE_${difficulty}`, 
-      questions: questions
+      questions: questions,
+      open_datetime: formattedOpenDate, // Send to DB
+      close_datetime: formattedCloseDate, // Send to DB
+      time_limit: finalTimeLimit // Send to DB
     };
 
     try {
@@ -110,15 +124,19 @@ const CreateMazeGame = () => {
   // --- RENDER STEPS ---
   const renderStep1_Intro = () => (
     <div className="game-card">
-      <h2>CREATE NEW MAZE ACTIVITY</h2>
-      <p style={{marginBottom: '20px'}}>This template allows you to create a dungeon crawler maze game.</p>
+      <h2 style={{color: '#0ac8f0', marginBottom: '20px'}}>CREATE NEW MAZE ACTIVITY</h2>
       
-      <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555'}}>
-        <p style={{color: '#ff9900', fontFamily: '"Press Start 2P"', fontSize: '0.8rem'}}>REQUIREMENTS:</p>
-        <ul style={{marginTop: '10px', paddingLeft: '20px'}}>
-          <li>Easy: 5 Multiple Choice Questions</li>
-          <li>Normal & Hard: 10 Multiple Choice Questions</li>
-          <li>4 Options per Question</li>
+      {/* INSTRUCTIONS */}
+      <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #0ac8f0', marginBottom:'30px'}}>
+        <h3 style={{ color: '#0ac8f0', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
+        <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
+            Knowledge Maze is a dungeon crawler. Students navigate a labyrinth and must correctly answer questions to unlock doors and find the exit.
+        </p>
+        <p style={{color: '#0ac8f0', fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem', marginTop: '20px'}}>CREATION CHECKLIST:</p>
+        <ul style={{marginTop: '15px', paddingLeft: '20px', color:'white', lineHeight:'1.8', fontFamily: '"Press Start 2P", cursive', fontSize: '0.75rem'}}>
+            <li style={{marginBottom: '10px'}}>Choose a difficulty (Easy = 5 questions, Normal/Hard = 10 questions).</li>
+            <li style={{marginBottom: '10px'}}>Add multiple-choice questions and select the correct answers.</li>
+            <li>Set your schedule, time limits, and assign it to your classes!</li>
         </ul>
       </div>
 
@@ -132,7 +150,7 @@ const CreateMazeGame = () => {
   const renderStep2_Difficulty = () => (
     <div className="game-card">
       <h2 style={{color: '#0ac8f0'}}>SELECT DIFFICULTY</h2>
-      <p>This determines the map size and the number of questions.</p>
+      <p>This determines the map complexity and the number of questions.</p>
       <div style={{display: 'flex', gap: '15px', justifyContent: 'center', margin: '30px 0'}}>
         {['EASY', 'NORMAL', 'HARD'].map((lvl) => (
           <div 
@@ -204,12 +222,52 @@ const CreateMazeGame = () => {
 
       <div className="btn-group">
         <button className="btn-secondary" onClick={() => setStep(2)}>BACK</button>
-        <button className="btn-primary" onClick={() => setStep(4)}>NEXT: ASSIGN CLASS</button>
+        <button className="btn-primary" onClick={() => setStep(4)}>NEXT: SCHEDULE</button>
       </div>
     </div>
   );
 
-  const renderStep4_Assign = () => (
+  const renderStep4_Schedule = () => (
+    <div className="game-card">
+        <h2 style={{color: '#ce93d8'}}>SCHEDULE ACTIVITY</h2>
+        <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+            
+            <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING:</label>
+            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                <input type="date" className="game-input" value={openDate} onChange={e => setOpenDate(e.target.value)} />
+                <input type="time" className="game-input" value={openTime} onChange={e => setOpenTime(e.target.value)} />
+            </div>
+
+            <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING:</label>
+            <label style={{fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px'}}>
+                <input type="checkbox" checked={noCloseDate} onChange={e => setNoCloseDate(e.target.checked)} /> No Closing Date
+            </label>
+            {!noCloseDate && (
+                <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                    <input type="date" className="game-input" value={closeDate} onChange={e => setCloseDate(e.target.value)} />
+                    <input type="time" className="game-input" value={closeTime} onChange={e => setCloseTime(e.target.value)} />
+                </div>
+            )}
+
+            <label style={{display: 'block', color: '#ff9900', marginBottom: '5px', marginTop: '10px'}}>TIME LIMIT:</label>
+            <label style={{fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px'}}>
+                <input type="checkbox" checked={unlimitedTime} onChange={e => setUnlimitedTime(e.target.checked)} /> Unlimited
+            </label>
+            {!unlimitedTime && (
+                <select className="game-select" value={timeLimit} onChange={e => setTimeLimit(e.target.value)}>
+                    {[5, 10, 15, 30, 60].map(m => <option key={m} value={m}>{m} Minutes</option>)}
+                </select>
+            )}
+            
+        </div>
+        <div className="btn-group">
+            <button className="btn-secondary" onClick={() => setStep(3)}>BACK</button>
+            <button className="btn-primary" onClick={() => setStep(5)}>NEXT: ASSIGN</button>
+        </div>
+    </div>
+  );
+
+  const renderStep5_Assign = () => (
     <div className="game-card">
       <h2 style={{color: '#14a014'}}>ASSIGN TO CLASS</h2>
       <p>Select which class will receive this activity.</p>
@@ -232,10 +290,10 @@ const CreateMazeGame = () => {
       </div>
 
       <div className="btn-group">
-        <button className="btn-secondary" onClick={() => setStep(3)}>BACK</button>
+        <button className="btn-secondary" onClick={() => setStep(4)}>BACK</button>
         <button 
           className="btn-primary" 
-          onClick={handleCreateGame}
+          onClick={handleCreateGameClick}
           disabled={!selectedClass || loading}
         >
           {loading ? "CREATING..." : "CONFIRM & CREATE GAME"}
@@ -249,7 +307,8 @@ const CreateMazeGame = () => {
       {step === 1 && renderStep1_Intro()}
       {step === 2 && renderStep2_Difficulty()}
       {step === 3 && renderStep3_Questions()}
-      {step === 4 && renderStep4_Assign()}
+      {step === 4 && renderStep4_Schedule()}
+      {step === 5 && renderStep5_Assign()}
 
       {/* --- CUSTOM CONFIRM MODAL --- */}
       {confirmData && (
@@ -258,8 +317,8 @@ const CreateMazeGame = () => {
                   <h2 style={{color: '#ff9900', marginBottom: '20px'}}>{confirmData.title}</h2>
                   <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{confirmData.message}</p>
                   <div className="btn-group" style={{justifyContent: 'center', gap: '15px'}}>
-                      <button className="btn-secondary" onClick={() => setConfirmData(null)}>CANCEL</button>
                       <button className="btn-primary" onClick={executeCreateGame}>CONFIRM</button>
+                      <button className="btn-secondary" onClick={() => setConfirmData(null)}>CANCEL</button>
                   </div>
               </div>
           </div>

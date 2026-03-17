@@ -1,6 +1,6 @@
 // src/pages/HomePage.jsx
 import React, { useState } from 'react'; 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/LogInAuthenticate';
 import { FaGhost, FaGamepad, FaHeadset, FaRocket, FaTimes } from 'react-icons/fa';
 
@@ -10,13 +10,29 @@ import donkeyKongImg from '../assets/donkey-kong.png';
 
 function HomePage() {
   const { userLoggedIn } = useAuth();
+  const navigate = useNavigate();
   
+  // 🟢 NEW: Get the role from localStorage to determine dashboard routing
+  const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
+  const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
+
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
+  const [showTeacherPrompt, setShowTeacherPrompt] = useState(false);
 
   const openModal = (type) => {
     setModalType(type);
     setShowModal(true);
+  };
+
+  const handleSeeNowClick = () => {
+    if (userLoggedIn) {
+      // 🟢 ROUTE FIX: Sends them to their respective dashboard instead of just teacher
+      navigate(dashboardRoute); 
+    } else {
+      // Otherwise, show the prompt (Since only teachers create activities)
+      setShowTeacherPrompt(true);
+    }
   };
 
   return (
@@ -27,7 +43,8 @@ function HomePage() {
         
         <div className="hero-buttons">
           {userLoggedIn ? (
-            <Link to="/teacher-menu" className="btn btn-primary" style={{ fontSize: '1.2rem', padding: '15px 40px' }}>
+            // 🟢 ROUTE FIX: Updates link to point to the correct dynamic dashboard
+            <Link to={dashboardRoute} className="btn btn-primary" style={{ fontSize: '1.2rem', padding: '15px 40px' }}>
               PLAY NOW
             </Link>
           ) : (
@@ -61,7 +78,7 @@ function HomePage() {
         <div className="content-text">
           <h2>Diversify Your Activities!</h2>
           <p>Choose from multiple gamified activities to make your activities fun and enjoyable!</p>
-          <button className="btn btn-primary">SEE NOW</button>
+          <button className="btn btn-primary" onClick={handleSeeNowClick}>SEE NOW</button>
         </div>
         <div className="content-image">
           <img src={pacmanImg} alt="Pac-Man style game" />
@@ -72,7 +89,7 @@ function HomePage() {
         <div className="content-text">
           <h2>Play Now!</h2>
           <p>Create activities that your students will enjoy! Activities have never been more fun.</p>
-          <button className="btn btn-primary">See Now</button>
+          <button className="btn btn-primary" onClick={handleSeeNowClick}>SEE NOW</button>
         </div>
         <div className="content-image">
           <img src={donkeyKongImg} alt="Donkey Kong style game" />
@@ -94,8 +111,7 @@ function HomePage() {
         </div>
       </section>
 
-
-   
+      {/* ORIGINAL LOGIN/JOIN MODAL */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -105,13 +121,36 @@ function HomePage() {
             
             <h2>
               {modalType === 'login' ? 'LOGIN AS:' : 'CREATE ACCOUNT:'}
-              </h2>
+            </h2>
 
             <div className="modal-actions">
-              {/* TEACHER BUTTON */}
               <Link to={modalType === 'login' ? "/teacher-login" : "/signup"} className="btn btn-primary modal-btn">Teacher</Link>
-              {/* STUDENT BUTTON */}
               <Link to={modalType === 'login' ? "/student-login" : "/student-signup"} className="btn btn-secondary modal-btn">Student</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TEACHER PROMPT MODAL */}
+      {showTeacherPrompt && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: '2px solid #0ac8f0', textAlign: 'center' }}>
+            <button className="close-modal-btn" onClick={() => setShowTeacherPrompt(false)}>
+              <FaTimes />
+            </button>
+            
+            <h2 style={{ color: '#0ac8f0', marginBottom: '15px' }}>TEACHER ACCESS REQUIRED</h2>
+            <p style={{ marginBottom: '25px', lineHeight: '1.5' }}>
+              You need a Teacher account to create and manage gamified activities.
+            </p>
+
+            <div className="modal-actions" style={{ flexDirection: 'column', gap: '10px' }}>
+              <Link to="/teacher-login" className="btn btn-primary modal-btn" style={{ width: '100%' }}>
+                LOGIN AS TEACHER
+              </Link>
+              <Link to="/signup" className="btn btn-secondary modal-btn" style={{ width: '100%' }}>
+                CREATE TEACHER ACCOUNT
+              </Link>
             </div>
           </div>
         </div>

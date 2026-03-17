@@ -40,21 +40,22 @@ export default function WordQuest() {
   const [highlightTile, setHighlightTile] = useState(null);
   const [log,           setLog]           = useState([]);
   const [modal,         setModal]         = useState(null);
-  const [doubleNext,    setDoubleNext]    = useState(false);
 
   const [winner, setWinner] = useState(null);
   const [scoreSaved, setScoreSaved] = useState(false);
 
+  // 🟢 NEW: SCHEDULING STATES
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
+  const timeLimitR = useRef(0);
+
   const playersRef = useRef(null);
   useEffect(() => { playersRef.current = players; }, [players]);
 
-  // 🟢 STRICT QUESTION SEQUENCING REFS
   const allQsRef = useRef([]);       
-  const userDeckRef = useRef([]);   // Human deck (Strictly ordered)
-  const aiDeckRef = useRef([]);     // AI deck (Shuffled)
+  const userDeckRef = useRef([]);   
+  const aiDeckRef = useRef([]);     
   const answerLog = useRef([]);     
-  
-  // 🟢 ANTI-DOUBLE-CLICK GUARD
   const answerHandledRef = useRef(false);
 
   const bgmRef = useRef(null);
@@ -107,11 +108,20 @@ export default function WordQuest() {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
+        // 🟢 Fetch Schedule
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                timeLimitR.current = currentGame.time_limit;
+            }
+        }
+
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           
-          // 🟢 THE INVINCIBLE SORTER: Guarantees chronological creation order!
           const sortedData = [...data].sort((a, b) => {
               const numA = parseInt(a.question_number || a.id || a.question_id || 0, 10);
               const numB = parseInt(b.question_number || b.id || b.question_id || 0, 10);
@@ -137,6 +147,21 @@ export default function WordQuest() {
     };
     if (gameId) fetchQuestions();
   }, [gameId]);
+
+  // 🟢 NEW: TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+      if (screen === SCREENS.GAME && timeLeft !== null && !showTimeUp && players) {
+          if (timeLeft <= 0) {
+              setShowTimeUp(true);
+              const finalWinner = players[0].score >= players[1].score ? players[0] : players[1];
+              setWinner(finalWinner);
+              setScreen(SCREENS.WIN);
+              return;
+          }
+          const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+      }
+  }, [screen, timeLeft, showTimeUp, players]);
 
   useEffect(() => {
       if (screen === SCREENS.WIN && winner && !scoreSaved) {
@@ -193,7 +218,6 @@ export default function WordQuest() {
   const handleCharConfirm = (chars) => {
     setCharSel(chars);
     
-    // 🟢 INITIALIZE DECKS
     userDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current));
     aiDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current)).sort(() => Math.random() - 0.5);
     
@@ -218,9 +242,13 @@ export default function WordQuest() {
     setLog([]);
     setDiceVal(null);
     setModal(null);
-    setDoubleNext(false);
     setWinner(null); 
     setScoreSaved(false); 
+
+    // 🟢 START CLOCK
+    if (timeLimitR.current > 0) setTimeLeft(timeLimitR.current * 60);
+    setShowTimeUp(false);
+
     setScreen(SCREENS.GAME);
     addLog("⚔️ The adventure begins! Race to Tile 100!");
   };
@@ -235,14 +263,12 @@ export default function WordQuest() {
     const p = ps[idx];
     if (eff.includes("15 HP")) p.health = Math.min(100, p.health + 15);
     if (eff.includes("10 HP")) p.health = Math.min(100, p.health + 10);
-    // Removed Points Inflation
     if (eff.includes("forward 3")) p.pos = Math.min(100, p.pos + 3);
   }
   
   function applyTrap(ps, idx, eff) {
     const p = ps[idx];
     if (eff.includes("15 HP")) p.health = Math.max(0, p.health - 15);
-    // Removed Points Deflation
     if (eff.includes("back 3"))    p.pos   = Math.max(1, p.pos - 3);
     if (eff.includes("Skip"))      p.skipTurn = true;
   }
@@ -288,13 +314,11 @@ export default function WordQuest() {
         
         let q;
         if (playerIdx === 0) {
-            // 🟢 HUMAN PEEK: Strictly looks at Index without removing it!
             if (userDeckRef.current.length === 0) {
                  userDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current));
             }
             q = userDeckRef.current[0]; 
         } else {
-            // 🔴 AI PEEK
             if (aiDeckRef.current.length === 0) {
                 aiDeckRef.current = JSON.parse(JSON.stringify(allQsRef.current)).sort(() => Math.random() - 0.5);
             }
@@ -313,7 +337,6 @@ export default function WordQuest() {
   const processTile = useCallback((ps, playerIdx) => {
     const p = ps[playerIdx]; const tile = p.pos;
 
-    // 🟢 SAFE CLOSE GUARD: Prevents double-clicks on Event Modals
     let eventHandled = false;
     const closeEvent = () => {
         if (eventHandled) return;
@@ -324,7 +347,6 @@ export default function WordQuest() {
 
     if (tile >= 100) { 
         ps[playerIdx].pos = 100;
-        // 🟢 REMOVED +5 PTS BONUS
         addLog(`🏆 ${ps[playerIdx].name} reached the castle! Game Finished!`);
         setPlayers([...ps]); 
         setWinner(ps[playerIdx]); 
@@ -370,7 +392,6 @@ export default function WordQuest() {
     }
     
     if (DOUBLE_TILES.includes(tile)) { 
-      // 🟢 NO MORE DOUBLE POINTS - JUST A REGULAR BONUS QUESTION NOW
       addLog(`✨ ${p.name} lands on a Bonus Question!`); 
       setModal({ type:"event", event:{icon:"✨",title:"Bonus Question!",desc:`Answer carefully to gain 1 extra point!`}, onClose: closeEvent });
       return;
@@ -398,14 +419,12 @@ export default function WordQuest() {
     afterTileEvent(ps, playerIdx);
   }, [afterTileEvent]);
 
-  // 🟢 SAFE ANSWER GUARD: Prevents double-clicks & Finally shifts the question out of the deck!
   const handleAnswer = (correctOrSignal) => {
     if (!modal || answerHandledRef.current) return;
-    answerHandledRef.current = true; // Locks the answer logic
+    answerHandledRef.current = true; 
 
     const { playerIdx, ps, originalId } = modal;
     
-    // 🟢 THE SHIFT: Now the question is actually removed so we can move to Question 2!
     if (playerIdx === 0) {
         userDeckRef.current.shift();
     } else {
@@ -433,7 +452,6 @@ export default function WordQuest() {
     }
 
     if (correct) {
-      // 🟢 STRICTLY 1 POINT PER CORRECT ANSWER (Removed Double Points!)
       p.score += 1; 
       if (playerIdx === 0) p.correctAnswers += 1; 
       p.streak = (p.streak || 0) + 1;
@@ -453,7 +471,6 @@ export default function WordQuest() {
 
     if (checkDeath(updated)) return; 
 
-    // 🟢 GAME OVER: If the Student finishes all 5 questions, the game ends immediately!
     if (playerIdx === 0 && userDeckRef.current.length === 0) {
         setTimeout(() => {
             const finalWinner = updated[0].score >= updated[1].score ? updated[0] : updated[1];
@@ -475,14 +492,12 @@ export default function WordQuest() {
 
     const { playerIdx, ps } = modal;
     
-    // Shift the deck so they don't get stuck on the skipped question
     if (playerIdx === 0) userDeckRef.current.shift();
     else aiDeckRef.current.shift();
 
     addLog(`⏭ ${ps[playerIdx].name} skipped.`);
     setModal(null);
 
-    // End Game if they skipped the very last question!
     if (playerIdx === 0 && userDeckRef.current.length === 0) {
         setTimeout(() => {
             const finalWinner = ps[0].score >= ps[1].score ? ps[0] : ps[1];
@@ -580,6 +595,13 @@ export default function WordQuest() {
       
       <audio ref={bgmRef} src={bgmMenu} loop autoPlay />
 
+      {/* 🟢 GLOBAL TIMER RENDER */}
+      {timeLeft !== null && screen === SCREENS.GAME && (
+          <div style={{ position: 'absolute', top: 20, right: 30, background: 'rgba(0,0,0,0.8)', border: '2px solid #ce93d8', padding: '10px 20px', borderRadius: '10px', color: '#ce93d8', zIndex: 900, fontSize: '1.2rem', fontWeight: 'bold', fontFamily: "monospace" }}>
+              ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+          </div>
+      )}
+
       {screen === SCREENS.MENU && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="card" style={{ maxWidth: '450px' }}>
@@ -655,20 +677,28 @@ export default function WordQuest() {
 
                 <h2 style={{ color: '#aaa', fontSize: '1rem', marginBottom: '5px', letterSpacing: '2px' }}>GAME FINISHED!</h2>
 
-                {winner.id === 1 ? (
+                {/* 🟢 DYNAMIC TITLE RENDERING FOR TIMEOUT VS WIN */}
+                {showTimeUp ? (
                     <>
-                        <h1 className="game-title" style={{ color: '#ef4444', fontSize: '2.5rem', marginBottom: '10px' }}>DEFEATED!</h1>
-                        <p className="game-subtitle" style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '20px' }}>
-                            {players[0].health <= 0 ? "You lost all your HP!" : "Computer Reached the Castle!"}
-                        </p>
+                        <h1 className="game-title" style={{ color: '#ef4444', fontSize: '2.5rem', marginBottom: '10px' }}>TIME'S UP!</h1>
+                        <p className="game-subtitle" style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '20px' }}>Your time has expired.</p>
                     </>
                 ) : (
-                    <>
-                        <h1 className="game-title" style={{ color: '#4ade80', fontSize: '2.5rem', marginBottom: '10px' }}>VICTORY!</h1>
-                        <p className="game-subtitle" style={{ color: '#ffd700', fontSize: '1.2rem', marginBottom: '20px' }}>
-                            {players[1].health <= 0 ? "The Computer lost all its HP!" : `${winner.name} scored the most points!`}
-                        </p>
-                    </>
+                    winner.id === 1 ? (
+                        <>
+                            <h1 className="game-title" style={{ color: '#ef4444', fontSize: '2.5rem', marginBottom: '10px' }}>DEFEATED!</h1>
+                            <p className="game-subtitle" style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '20px' }}>
+                                {players[0].health <= 0 ? "You lost all your HP!" : "Computer Reached the Castle!"}
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <h1 className="game-title" style={{ color: '#4ade80', fontSize: '2.5rem', marginBottom: '10px' }}>VICTORY!</h1>
+                            <p className="game-subtitle" style={{ color: '#ffd700', fontSize: '1.2rem', marginBottom: '20px' }}>
+                                {players[1].health <= 0 ? "The Computer lost all its HP!" : `${winner.name} scored the most points!`}
+                            </p>
+                        </>
+                    )
                 )}
                 
                 <div style={{ fontSize: '1.5rem', color: '#fff', marginBottom: '20px', fontFamily: "'Press Start 2P', cursive" }}>

@@ -27,7 +27,6 @@ const styles = {
   },
 };
 
-/* ── ☀️ DAYTIME Castle Wall Background SVG ───────────────────────────────── */
 function CastleWallBg() {
   return (
     <div style={{ position:"absolute", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0 }}>
@@ -192,14 +191,17 @@ export default function TowerDefense() {
   const [isScoreSaved, setIsScoreSaved] = useState(false);
   const isSavingRef = useRef(false);
 
-  // 🟢 AUDIO REFERENCES
+  // 🟢 NEW: SCHEDULING STATES
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
+  const timeLimitR = useRef(0);
+
   const bgmMenuRef = useRef(null);
   const bgmGameRef = useRef(null);
   const bgmBossRef = useRef(null);
   const victoryAudioRef = useRef(null);
   const clickAudioRef = useRef(null);
 
-  // 🟢 INITIALIZE AUDIO
   useEffect(() => {
     bgmMenuRef.current = new Audio(menuBGM);
     bgmMenuRef.current.loop = true;
@@ -228,7 +230,6 @@ export default function TowerDefense() {
     };
   }, []);
 
-  // 🟢 GLOBAL CLICK LISTENER (Plays click.mp3 on every button/pointer automatically)
   useEffect(() => {
     const handleGlobalClick = (e) => {
       const isClickable = e.target.closest('button') || window.getComputedStyle(e.target).cursor === 'pointer';
@@ -241,7 +242,6 @@ export default function TowerDefense() {
     return () => window.removeEventListener('click', handleGlobalClick, true);
   }, []);
 
-  // 🟢 BGM CONTROLLER
   useEffect(() => {
     if (!bgmMenuRef.current || !bgmGameRef.current) return;
     const playSafe = (audio) => audio.play().catch(() => {});
@@ -257,18 +257,17 @@ export default function TowerDefense() {
         bgmMenuRef.current.pause();
         playSafe(bgmGameRef.current);
     } 
-    else if (screen === 'gameover') {
+    else if (screen === 'gameover' || screen === 'timeup') {
         bgmMenuRef.current.pause();
         bgmGameRef.current.pause();
         bgmBossRef.current.pause();
         
-        // Play victory sound on game over if score > 0
-        if (gameResult && gameResult.score > 0) {
+        if (gameResult && gameResult.score > 0 && !showTimeUp) {
             victoryAudioRef.current.currentTime = 0;
             playSafe(victoryAudioRef.current);
         }
     }
-  }, [screen, gameResult]);
+  }, [screen, gameResult, showTimeUp]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -277,6 +276,16 @@ export default function TowerDefense() {
 
     const fetchQuestions = async () => {
       try {
+        // 🟢 Fetch Schedule
+        if (auth.currentUser) {
+            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const allGames = await resG.json();
+            const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
+            if (currentGame && currentGame.time_limit > 0) {
+                timeLimitR.current = currentGame.time_limit;
+            }
+        }
+
         const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
         const data = await res.json();
         if (data && data.length > 0) {
@@ -323,8 +332,20 @@ export default function TowerDefense() {
     return () => unsubscribe();
   }, [gameId]);
 
+  // 🟢 NEW: TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+      if (screen === 'game' && timeLeft !== null && !showTimeUp) {
+          if (timeLeft <= 0) {
+              setShowTimeUp(true);
+              setScreen('timeup');
+              return;
+          }
+          const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+      }
+  }, [screen, timeLeft, showTimeUp]);
+
   const handleLogAnswer = useCallback((questionId, isCorrect) => {
-      console.log(`Logging Answer: Q_ID: ${questionId}, Correct: ${isCorrect}`);
       if (user && gameId && questionId) {
           answerLog.current.push({
               student_fid: user.uid,
@@ -335,18 +356,21 @@ export default function TowerDefense() {
       }
   }, [gameId, user]);
 
+  // Handle Score Saving for Standard Game Over OR Time Up
   useEffect(() => {
-      if (gameResult && !isScoreSaved && !isSavingRef.current && user) {
+      if ((screen === 'gameover' || screen === 'timeup') && !isScoreSaved && !isSavingRef.current && user) {
           isSavingRef.current = true;
           const saveToDb = async () => {
               try {
+                  const finalScoreToSave = gameResult ? gameResult.score : 0; 
+
                   await fetch('http://localhost:8081/api/save-score', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                       student_fid: user.uid, 
                       game_id: gameId, 
-                      score: gameResult.score, 
+                      score: finalScoreToSave, 
                       time_taken: 0 
                     })
                   });
@@ -366,7 +390,7 @@ export default function TowerDefense() {
           };
           saveToDb();
       }
-  }, [gameResult, isScoreSaved, gameId, user]);
+  }, [screen, gameResult, isScoreSaved, gameId, user]);
 
   const handleGameOver = useCallback((score, wave, streak) => {
     setGameResult({ score, wave, streak });
@@ -375,6 +399,7 @@ export default function TowerDefense() {
 
   const handleMapSelect = useCallback((mapId) => {
     setSelectedMap(mapId);
+    if (timeLimitR.current > 0) setTimeLeft(timeLimitR.current * 60); // 🟢 Start the clock!
     setScreen("game");
   }, []);
 
@@ -410,29 +435,53 @@ export default function TowerDefense() {
         {screen==="mapselect" && <MapSelect onSelect={handleMapSelect} onBack={()=>setScreen("menu")}/>}
         
         {screen==="game" && (
-            <GameScreen 
-                questions={questions} 
-                waveSequence={waveSequence} 
-                onGameOver={handleGameOver} 
-                onExit={()=>setScreen("menu")} 
-                mapId={selectedMap}
-                onLogAnswer={handleLogAnswer}
+            <>
+                <GameScreen 
+                    questions={questions} 
+                    waveSequence={waveSequence} 
+                    onGameOver={handleGameOver} 
+                    onExit={()=>setScreen("menu")} 
+                    mapId={selectedMap}
+                    onLogAnswer={handleLogAnswer}
+                    onBossWave={() => {
+                       if (bgmGameRef.current) bgmGameRef.current.pause();
+                       if (bgmBossRef.current) bgmBossRef.current.play().catch(()=>{});
+                    }}
+                />
                 
-                // 🟢 TRIGGER THIS FROM GameScreen.jsx WHEN BOSS WAVE STARTS
-                onBossWave={() => {
-                   if (bgmGameRef.current) bgmGameRef.current.pause();
-                   if (bgmBossRef.current) bgmBossRef.current.play().catch(()=>{});
-                }}
-            />
+                {/* 🟢 GLOBAL TIMER RENDER */}
+                {timeLeft !== null && (
+                    <div style={{ position: 'absolute', top: 20, right: 30, background: 'rgba(0,0,0,0.8)', border: '2px solid #0ac8f0', padding: '10px 20px', borderRadius: '10px', color: '#0ac8f0', zIndex: 900, fontSize: '1.2rem', fontWeight: 'bold', fontFamily: "monospace" }}>
+                        ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                    </div>
+                )}
+            </>
         )}
         
-        {screen==="gameover" && gameResult && (
+        {screen==="gameover" && gameResult && !showTimeUp && (
             <Scoreboard 
                 {...gameResult} 
                 maxScore={questions.length} 
                 onMenu={()=>navigate('/student-menu')}
                 isScoreSaved={isScoreSaved}
             />
+        )}
+
+        {/* 🟢 CUSTOM TIME'S UP OVERLAY (Bypasses regular scoreboard) */}
+        {screen === 'timeup' && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 15, 30, 0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+             <h1 style={{ color: '#ff4c4c', fontSize: '3.5rem', fontFamily: FONT, textShadow: '0 0 20px rgba(255, 76, 76, 0.5)', marginBottom: '10px' }}>
+                TIME'S UP!
+             </h1>
+             <div style={{ background: 'rgba(0,0,0,0.5)', padding: '15px 30px', borderRadius: '8px', marginBottom: '40px', border: isScoreSaved ? '2px solid #48bb78' : '2px dashed #aaa' }}>
+                 <p style={{color: isScoreSaved ? '#48bb78' : '#fbd38d', fontSize: '1.1rem', margin: 0, fontWeight: 'bold'}}>
+                     {isScoreSaved ? '✅ PROGRESS SAVED' : '⏳ Saving results...'}
+                 </p>
+             </div>
+             <button onClick={() => navigate('/student-menu')} style={{ background: 'transparent', color: '#ef4444', border: '2px solid #ef4444', padding: '15px 40px', fontSize: '1.2rem', fontWeight: 'bold', borderRadius: '8px', cursor: 'pointer' }}>
+               EXIT TO ARCADE
+             </button>
+          </div>
         )}
     </div>
   );

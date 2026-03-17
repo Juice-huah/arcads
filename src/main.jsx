@@ -12,6 +12,8 @@ import TeacherMenu from './pages/TeacherMenu.jsx';
 import StudentLogin from './pages/StudentLogin.jsx';
 import StudentMenu from './pages/StudentMenu.jsx'; 
 import UserProfile from './pages/UserProfile.jsx';
+import ContactUs from './pages/ContactUs.jsx'; 
+import GameLibrary from './pages/GameLibrary.jsx'; // 🟢 ADDED IMPORT
 
 // --- GAME IMPORTS ---
 import Maze from './games/Maze.jsx'; 
@@ -21,7 +23,7 @@ import EnchantedForest from './games/EnchantedForest.jsx';
 import WhackAMole from './games/WhackAMole.jsx';
 import TowerDefense from './games/TowerDefense.jsx'; 
 import HamsterBall from './games/HamsterBall.jsx';
-import StarType from './games/StarType.jsx'; // 🟢 NEW: StarType Game Import
+import StarType from './games/StarType.jsx'; 
 
 // --- GAME CREATION PAGES ---
 import CreateMazeGame from './pages/CreateMazeGame.jsx';
@@ -31,7 +33,7 @@ import CreateEnchantedForest from './pages/CreateEnchantedForest.jsx';
 import CreateWhackAMole from './pages/CreateWhackAMole.jsx';
 import CreateTowerDefense from './pages/CreateTowerDefense.jsx';
 import CreateHamsterBall from './pages/CreateHamsterBall.jsx';
-import CreateStarType from './pages/CreateStarType.jsx'; // 🟢 NEW: StarType Creator Import
+import CreateStarType from './pages/CreateStarType.jsx';
 
 import './index.css';
 
@@ -41,6 +43,7 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { path: "/", element: <HomePage /> },
+      { path: "/games", element: <GameLibrary /> }, // 🟢 ADDED ROUTE
       { path: "/signup", element: <SignUp role="teacher" /> },
       { path: "/student-login", element: <StudentLogin /> },
       { path: "/student-menu", element: <StudentMenu /> },
@@ -48,6 +51,7 @@ const router = createBrowserRouter([
       { path: "/teacher-login", element: <TeacherLogin /> },
       { path: "/student-signup", element: <SignUp role="student" /> },
       { path: "/profile", element: <UserProfile /> },
+      { path: "/contact", element: <ContactUs /> }, 
       
       // --- MAZE GAME ROUTES ---
       {
@@ -85,8 +89,8 @@ const router = createBrowserRouter([
       { path: "/student/play-hamsterball/:gameId", element: <HamsterBall /> },
 
       // --- STARTYPE ROUTES ---
-      { path: "/teacher/create-startype", element: <CreateStarType /> }, // 🟢 NEW
-      { path: "/student/play-startype/:gameId", element: <StarType /> }, // 🟢 NEW
+      { path: "/teacher/create-startype", element: <CreateStarType /> },
+      { path: "/student/play-startype/:gameId", element: <StarType /> },
     ],
   },
 ]);

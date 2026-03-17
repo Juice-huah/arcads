@@ -13,11 +13,12 @@ const StudentMenu = () => {
   const [groupedGames, setGroupedGames] = useState({}); 
   
   // UI State
-  const [activeTab, setActiveTab] = useState('classes'); // 'classes', 'grades', 'leaderboard'
+  const [activeTab, setActiveTab] = useState('classes'); 
   const [selectedClass, setSelectedClass] = useState(null); 
   
-  // Join Class State
+  // Join/Leave Class States
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showLeaveClassModal, setShowLeaveClassModal] = useState(false);
   const [classCodeInput, setClassCodeInput] = useState('');
   const [joinMsg, setJoinMsg] = useState('');
 
@@ -49,7 +50,8 @@ const StudentMenu = () => {
         data.forEach(row => {
             const className = row.class_name || "Unknown/Deleted Class";
             if (!groups[className]) groups[className] = [];
-            if (row.game_id) groups[className].push(row);
+            // Push row even if game_id is null so the class still shows up
+            groups[className].push(row);
         });
         setGroupedGames(groups);
       } else {
@@ -91,6 +93,26 @@ const StudentMenu = () => {
       }
   };
 
+  const confirmLeaveClass = async () => {
+      if (!selectedClass || !groupedGames[selectedClass] || groupedGames[selectedClass].length === 0) return;
+      const classId = groupedGames[selectedClass][0].class_id;
+
+      try {
+          const res = await fetch('http://localhost:8081/api/remove-student', {
+              method: 'DELETE',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ class_id: classId, student_fid: user.uid })
+          });
+          if(res.ok) {
+              setShowLeaveClassModal(false);
+              setSelectedClass(null);
+              fetchAvailableGames(user.uid); // Refresh the dashboard
+          }
+      } catch (err) {
+          console.error("Error leaving class:", err);
+      }
+  };
+
   const fetchLeaderboard = async (game) => {
       setLeaderboardGame(game);
       setLeaderboardData([]); 
@@ -104,7 +126,6 @@ const StudentMenu = () => {
       }
   };
 
-  // 🟢 FIXED: Game Router Function now recognizes StarType
   const getGameRoute = (gameType, gameId) => {
       const type = String(gameType).toLowerCase().replace(/\s+/g, '_');
       if (type.includes('adventure')) return `/student/play-adventure/${gameId}`;
@@ -113,14 +134,31 @@ const StudentMenu = () => {
       if (type.includes('whack_a_mole')) return `/student/play-whack-a-mole/${gameId}`;
       if (type.includes('tower_defense')) return `/student/play-tower-defense/${gameId}`;
       if (type.includes('hamsterball')) return `/student/play-hamsterball/${gameId}`;
-      if (type.includes('startype')) return `/student/play-startype/${gameId}`; // 🟢 NEW
-      return `/student/play/${gameId}`; // Fallback to Maze Game
+      if (type.includes('startype')) return `/student/play-startype/${gameId}`; 
+      return `/student/play/${gameId}`;
   };
 
   const switchTab = (tab) => {
       setActiveTab(tab);
       setSelectedClass(null);
       setLeaderboardView('list');
+  };
+
+  // 🟢 NEW: Evaluates dates to lock/unlock games dynamically
+  const getGameStatus = (game) => {
+      const now = new Date();
+      const openTime = game.open_datetime ? new Date(game.open_datetime) : null;
+      const closeTime = game.close_datetime ? new Date(game.close_datetime) : null;
+
+      if (game.is_active === 0) return { label: "CLOSED BY TEACHER", disabled: true, color: "#ff4c4c" };
+      if (openTime && now < openTime) {
+          // Formats date nicely (e.g., Oct 25, 8:00 AM)
+          const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+          return { label: `OPENS: ${openTime.toLocaleString([], options)}`, disabled: true, color: "#ffd700" };
+      }
+      if (closeTime && now > closeTime) return { label: "ACTIVITY EXPIRED", disabled: true, color: "#ff4c4c" };
+      
+      return { label: "START GAME", disabled: false, color: "#0ac8f0" };
   };
 
   const podiumStyle = { display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '20px', marginBottom: '40px', marginTop: '20px' };
@@ -160,12 +198,16 @@ const StudentMenu = () => {
                             {Object.keys(groupedGames).length === 0 ? (
                                 <p style={{color:'#aaa'}}>No classes found. Click "+ Join Class" to get started!</p>
                             ) : (
-                                Object.keys(groupedGames).map((className) => (
-                                    <div key={className} className="class-card" onClick={() => setSelectedClass(className)} style={{ overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
-                                        <h3 style={{ color: '#fff', textAlign: 'center', margin: '0 0 10px 0', width: '100%', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: '1.4' }}>{className}</h3>
-                                        <p style={{fontSize: '0.8rem', color: '#0ac8f0'}}>{groupedGames[className].length} Active Games</p>
-                                    </div>
-                                ))
+                                Object.keys(groupedGames).map((className) => {
+                                    // Count active games (ignore null game rows created by the left join)
+                                    const activeCount = groupedGames[className].filter(g => g.game_id).length;
+                                    return (
+                                        <div key={className} className="class-card" onClick={() => setSelectedClass(className)} style={{ overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
+                                            <h3 style={{ color: '#fff', textAlign: 'center', margin: '0 0 10px 0', width: '100%', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: '1.4' }}>{className}</h3>
+                                            <p style={{fontSize: '0.8rem', color: '#0ac8f0'}}>{activeCount} Active Games</p>
+                                        </div>
+                                    )
+                                })
                             )}
                         </div>
                     </>
@@ -175,24 +217,42 @@ const StudentMenu = () => {
                     <>
                         <div className="section-header">
                             <h2>{selectedClass}</h2>
-                            <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
+                                <button className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }} onClick={() => setShowLeaveClassModal(true)}>LEAVE CLASS</button>
+                            </div>
                         </div>
                         <div className="classes-grid">
-                            {groupedGames[selectedClass].map((game) => (
-                                <div key={game.game_id} className="class-card" style={{borderColor: '#0ac8f0'}}>
-                                    <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
-                                    <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
-                                    {game.raw_score !== null ? (
-                                        <div style={{marginTop: '15px', padding: '10px', backgroundColor: 'rgba(20, 160, 20, 0.2)', borderRadius: '5px', textAlign: 'center'}}>
-                                            <span style={{color: '#14a014', fontWeight: 'bold'}}>COMPLETED</span>
-                                        </div>
-                                    ) : (
-                                        <Link to={getGameRoute(game.game_type, game.game_id)}>
-                                            <button className="btn btn-primary" style={{width: '100%', marginTop: '15px'}}>START GAME</button>
-                                        </Link>
-                                    )}
-                                </div>
-                            ))}
+                            {groupedGames[selectedClass].map((game) => {
+                                if (!game.game_id) return <p key="nogame" style={{color: '#aaa', width: '100%', gridColumn: '1 / -1'}}>No activities assigned to this class yet.</p>;
+
+                                const status = getGameStatus(game);
+                                return (
+                                    <div key={game.game_id} className="class-card" style={{borderColor: status.color}}>
+                                        <h3 style={{color: status.color}}>{game.game_type}</h3>
+                                        <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
+                                        
+                                        {game.raw_score !== null ? (
+                                            <div style={{marginTop: '15px', padding: '10px', backgroundColor: 'rgba(20, 160, 20, 0.2)', borderRadius: '5px', textAlign: 'center'}}>
+                                                <span style={{color: '#14a014', fontWeight: 'bold'}}>COMPLETED</span>
+                                            </div>
+                                        ) : (
+                                            <Link to={status.disabled ? "#" : getGameRoute(game.game_type, game.game_id)} style={{pointerEvents: status.disabled ? 'none' : 'auto'}}>
+                                                <button className="btn" disabled={status.disabled} style={{
+                                                    width: '100%', 
+                                                    marginTop: '15px', 
+                                                    backgroundColor: status.disabled ? '#333' : status.color,
+                                                    color: status.disabled ? '#777' : '#000',
+                                                    border: 'none',
+                                                    cursor: status.disabled ? 'not-allowed' : 'pointer'
+                                                }}>
+                                                    {status.label}
+                                                </button>
+                                            </Link>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </>
                 )}
@@ -271,7 +331,7 @@ const StudentMenu = () => {
                             <button className="btn btn-secondary" onClick={() => setLeaderboardView('list')}>BACK</button>
                         </div>
                         <div className="classes-grid">
-                            {groupedGames[selectedClass].map((game) => (
+                            {groupedGames[selectedClass].filter(g => g.game_id).map((game) => (
                                 <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
                                     <h3 style={{color: '#0ac8f0'}}>{game.game_type}</h3>
                                     <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
@@ -314,6 +374,22 @@ const StudentMenu = () => {
                 <button type="button" onClick={() => setShowJoinModal(false)} className="btn btn-secondary">CANCEL</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* LEAVE CLASS MODAL */}
+      {showLeaveClassModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: '2px solid #dc3545' }}>
+            <h2 style={{color: '#dc3545'}}>LEAVE CLASS</h2>
+            <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>
+                Are you sure you want to leave <b>{selectedClass}</b>? You will lose access to its activities.
+            </p>
+            <div className="modal-actions-row">
+                <button type="button" onClick={confirmLeaveClass} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>YES, LEAVE</button>
+                <button type="button" onClick={() => setShowLeaveClassModal(false)} className="btn btn-secondary">CANCEL</button>
+            </div>
           </div>
         </div>
       )}
