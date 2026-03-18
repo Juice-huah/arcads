@@ -152,6 +152,9 @@ const Maze = () => {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   
+  // --- AUDIO SETUP ---
+  const bgMusicRef = useRef(new Audio('/assets/sounds/maze_bg.mp3'));
+  
   const [loading, setLoading] = useState(true); 
   const [errorMsg, setErrorMsg] = useState(null);
   const [saveStatus, setSaveStatus] = useState(""); 
@@ -185,6 +188,19 @@ const Maze = () => {
   });
 
   const [activeScreen, setActiveScreen] = useState('menu'); 
+
+  // --- AUDIO CLEANUP EFFECT ---
+  useEffect(() => {
+    // Set music to loop continuously
+    bgMusicRef.current.loop = true;
+    bgMusicRef.current.volume = 0.4; // Slightly lowered so it isn't overpowering
+
+    // Stop music if the user navigates away from the component
+    return () => {
+      bgMusicRef.current.pause();
+      bgMusicRef.current.currentTime = 0;
+    };
+  }, []);
 
   // --- 1. FETCH DATA & GENERATE MAP ---
   useEffect(() => {
@@ -286,6 +302,9 @@ const Maze = () => {
   }, [activeScreen, timeLeft]);
 
   const handleTimeUp = () => {
+    // Stop the music when time is up
+    bgMusicRef.current.pause();
+
     gameState.current.isAlertOpen = true;
     gameState.current.gameEnded = true;
     setShowTimeUp(true);
@@ -435,6 +454,9 @@ const Maze = () => {
     if (cell === 4) {
       if (s.answeredCount >= s.totalQs) {
         if (!s.gameEnded) {
+            // Stop the music on winning
+            bgMusicRef.current.pause();
+
             s.gameEnded = true;
             const time = Math.floor((Date.now() - s.startTime) / 1000);
             s.screen = 'win';
@@ -557,6 +579,11 @@ const Maze = () => {
   };
 
   const startGame = () => {
+    // Start playing the music
+    bgMusicRef.current.play().catch((err) => {
+        console.log("Audio play was prevented by the browser.", err);
+    });
+
     gameState.current.screen = 'playing';
     gameState.current.score = 0;
     gameState.current.startTime = Date.now();
