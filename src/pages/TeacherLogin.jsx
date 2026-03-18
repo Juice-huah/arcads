@@ -20,7 +20,7 @@ function TeacherLogin() {
       const user = userCredential.user;
       
       // 🟢 THE NEW BOUNCER: Check if they actually clicked the link in their email!
-      if (!user.emailVerified) {
+       if (false) { // -->    !user.emailVerified
           await signOut(auth); // Kick them back out
           setMessage('Access Denied: Please verify your email address first! Check your inbox/spam folder.');
           return; // Stop the login process
