@@ -13,7 +13,8 @@ import StudentLogin from './pages/StudentLogin.jsx';
 import StudentMenu from './pages/StudentMenu.jsx'; 
 import UserProfile from './pages/UserProfile.jsx';
 import ContactUs from './pages/ContactUs.jsx'; 
-import GameLibrary from './pages/GameLibrary.jsx'; // 🟢 ADDED IMPORT
+import GameLibrary from './pages/GameLibrary.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx'; // Added Import
 
 // --- GAME IMPORTS ---
 import Maze from './games/Maze.jsx'; 
@@ -43,17 +44,17 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { path: "/", element: <HomePage /> },
-      { path: "/games", element: <GameLibrary /> }, // 🟢 ADDED ROUTE
+      { path: "/games", element: <GameLibrary /> },
       { path: "/signup", element: <SignUp role="teacher" /> },
       { path: "/student-login", element: <StudentLogin /> },
       { path: "/student-menu", element: <StudentMenu /> },
       { path: "/teacher-menu", element: <TeacherMenu /> },
       { path: "/teacher-login", element: <TeacherLogin /> },
+      { path: "/forgot-password", element: <ForgotPassword /> }, // Added Route
       { path: "/student-signup", element: <SignUp role="student" /> },
       { path: "/profile", element: <UserProfile /> },
       { path: "/contact", element: <ContactUs /> }, 
       
-      // --- MAZE GAME ROUTES ---
       {
         path: "/student/play/:gameId",
         element: (
@@ -63,32 +64,18 @@ const router = createBrowserRouter([
         ),
       },
       { path: "/teacher/create-maze", element: <CreateMazeGame /> },
-
-      // --- ADVENTURE BATTLE ROUTES ---
       { path: "/student/play-adventure/:gameId", element: <AdventureBattle /> },
       { path: "/teacher/create-adventure", element: <CreateAdventure /> },
-      
-      // --- WORD QUEST ROUTES ---
       { path: "/student/play-word-quest/:gameId", element: <WordQuest /> },
       { path: "/teacher/create-word-quest", element: <CreateWordQuest /> },
-
-      // --- ENCHANTED FOREST ROUTES ---
       { path: "/teacher/create-enchanted-forest", element: <CreateEnchantedForest /> },
       { path: "/student/play-enchanted-forest/:gameId", element: <EnchantedForest /> },
-
-      // --- WHACK-A-MOLE ROUTES ---
       { path: "/teacher/create-whack-a-mole", element: <CreateWhackAMole /> },
       { path: "/student/play-whack-a-mole/:gameId", element: <WhackAMole /> },
-
-      // --- TOWER DEFENSE ROUTES ---
       { path: "/teacher/create-tower-defense", element: <CreateTowerDefense /> },
       { path: "/student/play-tower-defense/:gameId", element: <TowerDefense /> },
-
-      // --- HAMSTERBALL ROUTES ---
       { path: "/teacher/create-hamsterball", element: <CreateHamsterBall /> },
       { path: "/student/play-hamsterball/:gameId", element: <HamsterBall /> },
-
-      // --- STARTYPE ROUTES ---
       { path: "/teacher/create-startype", element: <CreateStarType /> },
       { path: "/student/play-startype/:gameId", element: <StarType /> },
     ],
