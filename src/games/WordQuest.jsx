@@ -15,7 +15,7 @@ import {
 } from "../constants/gameData";
 
 import Starfield       from "../components/Starfield";
-import ModeSelect      from "../components/ModeSelect";
+import ModeSelect      from "../components/Modeselect";
 import CharacterSelect from "../components/CharacterSelect";
 import GameScreen      from "../components/GameScreen";
 import { isQuestionTile } from "../components/Board";
