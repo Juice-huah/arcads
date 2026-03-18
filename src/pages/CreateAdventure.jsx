@@ -40,7 +40,7 @@ function CreateAdventure() {
     const fetchClasses = async () => {
         if (auth.currentUser) {
             try {
-                const res = await fetch(`http://localhost:8081/api/get-classes/${auth.currentUser.uid}`);
+                const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${auth.currentUser.uid}`);
                 const data = await res.json();
                 if (Array.isArray(data)) setClasses(data);
             } catch (err) { console.error(err); }
@@ -103,7 +103,7 @@ function CreateAdventure() {
     const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
     try {
-      const res = await fetch('http://localhost:8081/api/create-adventure', {
+      const res = await fetch('https://arcads-api.onrender.com/api/create-adventure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

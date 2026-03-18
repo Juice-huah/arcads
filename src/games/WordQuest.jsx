@@ -110,7 +110,7 @@ export default function WordQuest() {
       try {
         // 🟢 Fetch Schedule
         if (auth.currentUser) {
-            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const resG = await fetch(`https://arcads-api.onrender.com/api/student-games/${auth.currentUser.uid}`);
             const allGames = await resG.json();
             const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
             if (currentGame && currentGame.time_limit > 0) {
@@ -118,7 +118,7 @@ export default function WordQuest() {
             }
         }
 
-        const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/game-questions/${gameId}`);
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           
@@ -172,7 +172,7 @@ export default function WordQuest() {
                   const maxPossibleQuestions = allQsRef.current.length || 1;
                   const cappedScore = Math.min(humanAcademicScore, maxPossibleQuestions);
 
-                  await fetch('http://localhost:8081/api/save-score', {
+                  await fetch('https://arcads-api.onrender.com/api/save-score', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -184,7 +184,7 @@ export default function WordQuest() {
                   });
 
                   if (answerLog.current.length > 0) {
-                      await fetch('http://localhost:8081/api/save-answers', {
+                      await fetch('https://arcads-api.onrender.com/api/save-answers', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ answers: answerLog.current })

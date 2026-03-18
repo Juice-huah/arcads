@@ -31,7 +31,7 @@ function CreateStarType() {
     const fetchClasses = async () => {
         if (auth.currentUser) {
             try {
-                const res = await fetch(`http://localhost:8081/api/get-classes/${auth.currentUser.uid}`);
+                const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${auth.currentUser.uid}`);
                 const data = await res.json();
                 if (Array.isArray(data)) setClasses(data);
             } catch (err) { console.error(err); }
@@ -120,7 +120,7 @@ function CreateStarType() {
         }));
 
         for (const classId of selectedClasses) {
-            await fetch('http://localhost:8081/api/create-startype', {
+            await fetch('https://arcads-api.onrender.com/api/create-startype', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

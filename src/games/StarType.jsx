@@ -46,7 +46,7 @@ export default function StarType() {
       try {
         // 🟢 Fetch Schedule
         if (auth.currentUser) {
-            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const resG = await fetch(`https://arcads-api.onrender.com/api/student-games/${auth.currentUser.uid}`);
             const allGames = await resG.json();
             const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
             if (currentGame && currentGame.time_limit > 0) {
@@ -54,7 +54,7 @@ export default function StarType() {
             }
         }
 
-        const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/game-questions/${gameId}`);
         const data = await res.json();
         
         if (data && data.length > 0) {
@@ -105,7 +105,7 @@ export default function StarType() {
           isSavingRef.current = true;
           const saveToDb = async () => {
               try {
-                  await fetch('http://localhost:8081/api/save-score', {
+                  await fetch('https://arcads-api.onrender.com/api/save-score', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function StarType() {
     if (!user || !gameId) return;
 
     try {
-      await fetch('http://localhost:8081/api/save-score', {
+      await fetch('https://arcads-api.onrender.com/api/save-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +146,7 @@ export default function StarType() {
       });
 
       if (answerLog && answerLog.length > 0) {
-        await fetch('http://localhost:8081/api/save-answers', {
+        await fetch('https://arcads-api.onrender.com/api/save-answers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ answers: answerLog })

@@ -45,7 +45,7 @@ function CreateHamsterBall() {
 
   const fetchClasses = async (userId) => {
     try {
-      const res = await fetch(`http://localhost:8081/api/get-classes/${userId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
       if (Array.isArray(data)) setClasses(data);
     } catch (err) {
@@ -109,7 +109,7 @@ function CreateHamsterBall() {
 
     try {
       for (const classId of selectedClasses) {
-          const gameRes = await fetch('http://localhost:8081/api/create-game', {
+          const gameRes = await fetch('https://arcads-api.onrender.com/api/create-game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -128,7 +128,7 @@ function CreateHamsterBall() {
           const newGameId = gameData.game_id;
 
           for (let q of questions) {
-              await fetch('http://localhost:8081/api/add-question', {
+              await fetch('https://arcads-api.onrender.com/api/add-question', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({

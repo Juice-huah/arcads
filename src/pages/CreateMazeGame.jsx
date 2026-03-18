@@ -37,7 +37,7 @@ const CreateMazeGame = () => {
       if (!auth.currentUser) return;
       try {
         const teacherId = auth.currentUser.uid;
-        const response = await fetch(`http://localhost:8081/api/get-teacher-classes/${teacherId}`);
+        const response = await fetch(`https://arcads-api.onrender.com/api/get-teacher-classes/${teacherId}`);
         if (response.ok) {
           const data = await response.json();
           setAvailableClasses(data); 
@@ -99,7 +99,7 @@ const CreateMazeGame = () => {
     };
 
     try {
-        const res = await fetch('http://localhost:8081/api/create-game', {
+        const res = await fetch('https://arcads-api.onrender.com/api/create-game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(gameData)

@@ -108,12 +108,12 @@ export default function EnchantedForest() {
   useEffect(() => {
     const fetchGameData = async () => {
       try {
-        const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/game-questions/${gameId}`);
         const data = await res.json();
         
         // 🟢 Fetch time limit
         if (auth.currentUser) {
-            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const resG = await fetch(`https://arcads-api.onrender.com/api/student-games/${auth.currentUser.uid}`);
             const allGames = await resG.json();
             const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
             if (currentGame && currentGame.time_limit > 0) {
@@ -183,7 +183,7 @@ export default function EnchantedForest() {
               try {
                   const finalValidScore = isNaN(score) ? 0 : Number(score);
                   
-                  await fetch('http://localhost:8081/api/save-score', {
+                  await fetch('https://arcads-api.onrender.com/api/save-score', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -195,7 +195,7 @@ export default function EnchantedForest() {
                   });
 
                   if (answerLog.current.length > 0) {
-                      await fetch('http://localhost:8081/api/save-answers', {
+                      await fetch('https://arcads-api.onrender.com/api/save-answers', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ answers: answerLog.current })

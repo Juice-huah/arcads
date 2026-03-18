@@ -37,7 +37,7 @@ function UserProfile() {
 
   const fetchUserData = async (uid) => {
     try {
-      let res = await fetch(`http://localhost:8081/api/check-teacher/${uid}`);
+      let res = await fetch(`https://arcads-api.onrender.com/api/check-teacher/${uid}`);
       let data = await res.json();
       
       if (data.isTeacher) {
@@ -45,7 +45,7 @@ function UserProfile() {
         setFormData(prev => ({ ...prev, username: data.teacher.teacher_username }));
         setInitialUsername(data.teacher.teacher_username);
       } else {
-        res = await fetch(`http://localhost:8081/api/check-student/${uid}`);
+        res = await fetch(`https://arcads-api.onrender.com/api/check-student/${uid}`);
         data = await res.json();
         if (data.isStudent) {
           setRole('student');
@@ -76,7 +76,7 @@ function UserProfile() {
 
     try {
       if (formData.username !== initialUsername) {
-        const checkRes = await fetch('http://localhost:8081/api/check-username-availability', {
+        const checkRes = await fetch('https://arcads-api.onrender.com/api/check-username-availability', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: formData.username, role: role })
@@ -97,7 +97,7 @@ function UserProfile() {
         await updatePassword(user, formData.password);
       }
 
-      const response = await fetch('http://localhost:8081/api/update-username', {
+      const response = await fetch('https://arcads-api.onrender.com/api/update-username', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -136,7 +136,7 @@ function UserProfile() {
       await reauthenticateWithCredential(user, credential);
 
       // 2. Delete data from MySQL
-      const dbRes = await fetch('http://localhost:8081/api/delete-user', {
+      const dbRes = await fetch('https://arcads-api.onrender.com/api/delete-user', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid, role: role })

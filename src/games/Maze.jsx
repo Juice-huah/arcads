@@ -196,12 +196,12 @@ const Maze = () => {
 
     const fetchGameData = async () => {
         try {
-            const resQ = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
+            const resQ = await fetch(`https://arcads-api.onrender.com/api/game-questions/${gameId}`);
             const data = await resQ.json();
 
             let diff = "NORMAL";
             if (auth.currentUser) {
-                const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+                const resG = await fetch(`https://arcads-api.onrender.com/api/student-games/${auth.currentUser.uid}`);
                 const allGames = await resG.json();
                 const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
                 if (currentGame && currentGame.game_type) {
@@ -297,14 +297,14 @@ const Maze = () => {
     if (!auth.currentUser) return;
     setSaveStatus("Saving score...");
     try {
-        await fetch('http://localhost:8081/api/save-score', {
+        await fetch('https://arcads-api.onrender.com/api/save-score', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ student_fid: auth.currentUser.uid, game_id: gameId, score: finalScore, time_taken: timeTaken })
         });
 
         if (gameState.current.answerLog.length > 0) {
-            await fetch('http://localhost:8081/api/save-answers', {
+            await fetch('https://arcads-api.onrender.com/api/save-answers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ answers: gameState.current.answerLog })

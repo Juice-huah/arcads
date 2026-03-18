@@ -33,7 +33,7 @@ const CreateWordQuest = () => {
     const fetchClasses = async () => {
       if (!auth.currentUser) return;
       try {
-        const res = await fetch(`http://localhost:8081/api/get-teacher-classes/${auth.currentUser.uid}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/get-teacher-classes/${auth.currentUser.uid}`);
         if (res.ok) {
           const data = await res.json();
           setAvailableClasses(data);
@@ -86,7 +86,7 @@ const CreateWordQuest = () => {
     const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
     try {
-        const res = await fetch('http://localhost:8081/api/create-word-quest', {
+        const res = await fetch('https://arcads-api.onrender.com/api/create-word-quest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

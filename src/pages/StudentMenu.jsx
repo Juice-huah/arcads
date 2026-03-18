@@ -42,7 +42,7 @@ const StudentMenu = () => {
 
   const fetchAvailableGames = async (studentId) => {
     try {
-      const res = await fetch(`http://localhost:8081/api/student-games/${studentId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/student-games/${studentId}`);
       const data = await res.json();
       
       if (Array.isArray(data)) {
@@ -68,7 +68,7 @@ const StudentMenu = () => {
       e.preventDefault();
       setJoinMsg('Joining...');
       try {
-          const res = await fetch('http://localhost:8081/api/join-class', {
+          const res = await fetch('https://arcads-api.onrender.com/api/join-class', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ 
@@ -98,7 +98,7 @@ const StudentMenu = () => {
       const classId = groupedGames[selectedClass][0].class_id;
 
       try {
-          const res = await fetch('http://localhost:8081/api/remove-student', {
+          const res = await fetch('https://arcads-api.onrender.com/api/remove-student', {
               method: 'DELETE',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ class_id: classId, student_fid: user.uid })
@@ -118,7 +118,7 @@ const StudentMenu = () => {
       setLeaderboardData([]); 
       setLeaderboardView('ranking'); 
       try {
-          const res = await fetch(`http://localhost:8081/api/leaderboard/${game.game_id}`);
+          const res = await fetch(`https://arcads-api.onrender.com/api/leaderboard/${game.game_id}`);
           const data = await res.json();
           if(Array.isArray(data)) setLeaderboardData(data);
       } catch (err) {

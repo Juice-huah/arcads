@@ -171,7 +171,7 @@ Terminal 1 (Backend API):
 
     cd server
     node index.js
-    # Server should run on http://localhost:8081
+    # Server should run on https://arcads-api.onrender.com
 
 Terminal 2 (Frontend React App):
     # Run this in the main 'arcads' folder

@@ -27,7 +27,7 @@ function StudentLogin() {
             }
 
             // 2. MYSQL CHECK: Check if this UID actually exists in the MySQL 'student' table
-            const res = await fetch(`http://localhost:8081/api/check-student/${user.uid}`);
+            const res = await fetch(`https://arcads-api.onrender.com/api/check-student/${user.uid}`);
             const data = await res.json();
 
             if (data.isStudent) {

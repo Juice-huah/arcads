@@ -53,7 +53,7 @@ function SignUp({ role }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8081/api/check-username-availability', {
+      const response = await fetch('https://arcads-api.onrender.com/api/check-username-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: formData.username, role })
@@ -82,7 +82,7 @@ function SignUp({ role }) {
       await sendEmailVerification(user);
 
       // 3. Save to MySQL Database
-      const response = await fetch(`http://localhost:8081${signupEndpoint}`, {
+      const response = await fetch(`https://arcads-api.onrender.com${signupEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

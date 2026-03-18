@@ -75,7 +75,7 @@ function TeacherMenu() {
   const fetchClasses = async (userId) => {
     try {
       if (!userId) return;
-      const res = await fetch(`http://localhost:8081/api/get-classes/${userId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
       if (Array.isArray(data)) setClasses(data);
       else setClasses([]); 
@@ -87,7 +87,7 @@ function TeacherMenu() {
 
   const fetchGames = async (userId) => {
     try {
-        const res = await fetch(`http://localhost:8081/api/get-games/${userId}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/get-games/${userId}`);
         const data = await res.json();
         if (Array.isArray(data)) setGames(data);
         else setGames([]);
@@ -98,7 +98,7 @@ function TeacherMenu() {
 
   const fetchStudents = async (classId) => {
     try {
-      const res = await fetch(`http://localhost:8081/api/class-members/${classId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/class-members/${classId}`);
       const data = await res.json();
       if(Array.isArray(data)) setClassStudents(data);
       else setClassStudents([]);
@@ -117,7 +117,7 @@ function TeacherMenu() {
   const fetchGradebook = async (game) => {
       setGradebookGame(game);
       try {
-          const res = await fetch(`http://localhost:8081/api/gradebook/${game.game_id}`);
+          const res = await fetch(`https://arcads-api.onrender.com/api/gradebook/${game.game_id}`);
           const data = await res.json();
           if (Array.isArray(data)) setGradebookData(data);
           else setGradebookData([]);
@@ -130,7 +130,7 @@ function TeacherMenu() {
   const openItemAnalysis = async (game) => {
       setItemAnalysisGame(game);
       try {
-          const res = await fetch(`http://localhost:8081/api/item-analysis/${game.game_id}`);
+          const res = await fetch(`https://arcads-api.onrender.com/api/item-analysis/${game.game_id}`);
           const data = await res.json();
           if (Array.isArray(data)) {
               setItemAnalysisData(data);
@@ -168,7 +168,7 @@ function TeacherMenu() {
     e.preventDefault();
     if (!user || !user.uid) return;
     try {
-      const res = await fetch('http://localhost:8081/api/create-class', {
+      const res = await fetch('https://arcads-api.onrender.com/api/create-class', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ teacher_fid: user.uid, class_name: newClassName })
@@ -187,7 +187,7 @@ function TeacherMenu() {
     e.preventDefault();
     setStatusMsg('Adding...');
     try {
-      const res = await fetch('http://localhost:8081/api/add-student-to-class', {
+      const res = await fetch('https://arcads-api.onrender.com/api/add-student-to-class', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ class_id: selectedClass.class_id, student_email: studentIdentifier })
@@ -213,7 +213,7 @@ function TeacherMenu() {
 
   const confirmRemoveStudent = async () => {
     try {
-      await fetch('http://localhost:8081/api/remove-student', {
+      await fetch('https://arcads-api.onrender.com/api/remove-student', {
         method: 'DELETE',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ class_id: selectedClass.class_id, student_fid: studentToRemove })
@@ -231,7 +231,7 @@ function TeacherMenu() {
       const newName = editClassNameInput.trim();
       if (newName && newName !== selectedClass.class_name) {
           try {
-              const res = await fetch(`http://localhost:8081/api/edit-class/${selectedClass.class_id}`, {
+              const res = await fetch(`https://arcads-api.onrender.com/api/edit-class/${selectedClass.class_id}`, {
                   method: 'PUT',
                   headers: {'Content-Type': 'application/json'},
                   body: JSON.stringify({ class_name: newName })
@@ -251,7 +251,7 @@ function TeacherMenu() {
 
   const confirmDeleteClass = async () => {
       try {
-          const res = await fetch(`http://localhost:8081/api/delete-class/${selectedClass.class_id}`, {
+          const res = await fetch(`https://arcads-api.onrender.com/api/delete-class/${selectedClass.class_id}`, {
               method: 'DELETE'
           });
           if (res.ok) {
@@ -315,7 +315,7 @@ function TeacherMenu() {
       const finalTimeLimit = editUnlimitedTime ? 0 : parseInt(editTimeLimit);
 
       try {
-          const res = await fetch(`http://localhost:8081/api/update-schedule/${selectedGameForSchedule.game_id}`, {
+          const res = await fetch(`https://arcads-api.onrender.com/api/update-schedule/${selectedGameForSchedule.game_id}`, {
               method: 'PUT',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({
@@ -341,7 +341,7 @@ function TeacherMenu() {
   const confirmToggleActivity = async () => {
       const newStatus = selectedGameForToggle.is_active ? 0 : 1;
       try {
-          const res = await fetch(`http://localhost:8081/api/toggle-activity/${selectedGameForToggle.game_id}`, {
+          const res = await fetch(`https://arcads-api.onrender.com/api/toggle-activity/${selectedGameForToggle.game_id}`, {
               method: 'PUT',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ is_active: newStatus })

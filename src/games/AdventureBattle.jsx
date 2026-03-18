@@ -78,12 +78,12 @@ const AdventureBattle = () => {
     const fetchGame = async () => {
       try {
         // Fetch Questions
-        const res = await fetch(`http://localhost:8081/api/game-questions/${gameId}`);
+        const res = await fetch(`https://arcads-api.onrender.com/api/game-questions/${gameId}`);
         const data = await res.json();
         
         // 🟢 NEW: Fetch Game Time Limit
         if (auth.currentUser) {
-            const resG = await fetch(`http://localhost:8081/api/student-games/${auth.currentUser.uid}`);
+            const resG = await fetch(`https://arcads-api.onrender.com/api/student-games/${auth.currentUser.uid}`);
             const allGames = await resG.json();
             const currentGame = allGames.find(g => g.game_id === parseInt(gameId));
             if (currentGame && currentGame.time_limit > 0) {
@@ -162,7 +162,7 @@ const AdventureBattle = () => {
             setSaveStatus("⏳ Saving results to database...");
             
             try {
-                const resScore = await fetch('http://localhost:8081/api/save-score', {
+                const resScore = await fetch('https://arcads-api.onrender.com/api/save-score', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -174,7 +174,7 @@ const AdventureBattle = () => {
                 });
 
                 if (answerLog.current.length > 0) {
-                    await fetch('http://localhost:8081/api/save-answers', {
+                    await fetch('https://arcads-api.onrender.com/api/save-answers', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ answers: answerLog.current })

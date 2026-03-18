@@ -46,7 +46,7 @@ function StudentSignUp() {
 
     try {
       // CHECK STUDENT USERNAME
-      const response = await fetch('http://localhost:8081/api/check-username-availability', {
+      const response = await fetch('https://arcads-api.onrender.com/api/check-username-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: formData.username, role: 'student' })
@@ -70,7 +70,7 @@ function StudentSignUp() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      const response = await fetch('http://localhost:8081/api/student-signup', {
+      const response = await fetch('https://arcads-api.onrender.com/api/student-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

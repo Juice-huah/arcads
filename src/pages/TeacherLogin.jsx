@@ -27,7 +27,7 @@ function TeacherLogin() {
       }
 
       // 2. MYSQL CHECK: Check if this UID actually exists in the MySQL 'teacher' table
-      const res = await fetch(`http://localhost:8081/api/check-teacher/${user.uid}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/check-teacher/${user.uid}`);
       const data = await res.json();
 
       if (data.isTeacher) {

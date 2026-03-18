@@ -46,7 +46,7 @@ export default function CreateTowerDefense() {
 
     const fetchClasses = async (userId) => {
         try {
-            const res = await fetch(`http://localhost:8081/api/get-classes/${userId}`);
+            const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
             const data = await res.json();
             if (Array.isArray(data)) setClasses(data);
         } catch (err) {
@@ -132,7 +132,7 @@ export default function CreateTowerDefense() {
         const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
         try {
-            const gameRes = await fetch('http://localhost:8081/api/create-game', {
+            const gameRes = await fetch('https://arcads-api.onrender.com/api/create-game', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -164,7 +164,7 @@ export default function CreateTowerDefense() {
                     const finalChoices = shuffleArray([q.answer, ...shuffledDecoys]);
                     const correctIndex = finalChoices.indexOf(q.answer);
 
-                    await fetch('http://localhost:8081/api/add-question', {
+                    await fetch('https://arcads-api.onrender.com/api/add-question', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

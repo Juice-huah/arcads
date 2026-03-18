@@ -40,7 +40,7 @@ export default function CreateWhackAMole() {
 
   const fetchClasses = async (userId) => {
     try {
-      const res = await fetch(`http://localhost:8081/api/get-classes/${userId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
       if (Array.isArray(data)) setClasses(data);
     } catch (err) {
@@ -86,7 +86,7 @@ export default function CreateWhackAMole() {
     const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
 
     try {
-      const res = await fetch('http://localhost:8081/api/create-whack-a-mole', {
+      const res = await fetch('https://arcads-api.onrender.com/api/create-whack-a-mole', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

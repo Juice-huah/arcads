@@ -61,7 +61,7 @@ function CreateEnchantedForest() {
 
   const fetchClasses = async (userId) => {
     try {
-      const res = await fetch(`http://localhost:8081/api/get-classes/${userId}`);
+      const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setClasses(data);
@@ -165,7 +165,7 @@ function CreateEnchantedForest() {
     };
 
     try {
-      const res = await fetch('http://localhost:8081/api/create-enchanted-forest', {
+      const res = await fetch('https://arcads-api.onrender.com/api/create-enchanted-forest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(gamePayload)
