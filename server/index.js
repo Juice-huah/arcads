@@ -22,7 +22,10 @@ const db = mysql.createPool({
   },
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // 🟢 NEW: These two lines force the connection to stay awake and prevent Aiven TCP drops!
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
 // Test the pool connection on startup
