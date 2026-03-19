@@ -91,7 +91,7 @@ const CreateMazeGame = () => {
     const gameData = {
       teacher_fid: teacherId, 
       class_id: selectedClass,
-      game_type: `MAZE_${difficulty}`, 
+      game_type: `MAZE ESCAPE`, 
       questions: questions,
       open_datetime: formattedOpenDate, // Send to DB
       close_datetime: formattedCloseDate, // Send to DB

@@ -277,7 +277,7 @@ app.post('/api/add-question', (req, res) => {
 
 app.post('/api/create-adventure', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Adventure Battle', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
@@ -309,7 +309,7 @@ app.post('/api/create-adventure', (req, res) => {
 
 app.post('/api/create-word-quest', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Word Quest', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create" });
         const newGameId = result.insertId; 
@@ -327,7 +327,7 @@ app.post('/api/create-word-quest', (req, res) => {
 
 app.post('/api/create-enchanted-forest', (req, res) => {
     const { teacher_fid, class_id, game_data, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Enchanted Forest', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
@@ -351,7 +351,7 @@ app.post('/api/create-enchanted-forest', (req, res) => {
 
 app.post('/api/create-whack-a-mole', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Whack A Mole', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
@@ -369,7 +369,7 @@ app.post('/api/create-whack-a-mole', (req, res) => {
 
 app.post('/api/create-startype', (req, res) => {
     const { teacher_fid, class_id, words, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Star Type', ?, ?, ?)";
     
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
