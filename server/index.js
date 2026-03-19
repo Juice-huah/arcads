@@ -540,6 +540,17 @@ app.delete('/api/delete-user', (req, res) => {
     });
 });
 
+// A dedicated route just to keep Render and Aiven awake
+app.get('/keep-alive', (req, res) => {
+    // A super simple, lightweight query to wake up Aiven
+    db.query('SELECT 1', (err, result) => {
+        if (err) {
+            console.error("Keep-alive error:", err);
+            return res.status(500).json({ error: "Database sleep error" });
+        }
+        res.status(200).json({ status: "Render and Aiven are awake!" });
+    });
+});
 // 🟢 Updated Port for Cloud Deployment
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {

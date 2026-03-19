@@ -58,8 +58,8 @@ function ContactUs() {
                 <div style={iconBoxStyle}><FaEnvelope /></div>
                 <div>
                     <h4 style={infoTitleStyle}>Email</h4>
-                    <p style={infoTextStyle}>support@arcads.com</p>
-                    <p style={infoTextStyle}>hello@arcads.com</p>
+                    <p style={infoTextStyle}>jushuaostraes@gmail.com</p>
+                    <p style={infoTextStyle}>kevinearlabuan04@gmail.com</p>
                 </div>
                 </div>
 
@@ -67,7 +67,7 @@ function ContactUs() {
                 <div style={iconBoxStyle}><FaPhoneAlt /></div>
                 <div>
                     <h4 style={infoTitleStyle}>Phone</h4>
-                    <p style={infoTextStyle}>+63 912 345 6789</p>
+                    <p style={infoTextStyle}>+63 926 732 0613</p>
                     <p style={infoTextStyle}>Mon-Fri, 8am - 5pm</p>
                 </div>
                 </div>
@@ -76,8 +76,8 @@ function ContactUs() {
                 <div style={iconBoxStyle}><FaMapMarkerAlt /></div>
                 <div>
                     <h4 style={infoTitleStyle}>Location</h4>
-                    <p style={infoTextStyle}>Rodriguez (Montalban)</p>
-                    <p style={infoTextStyle}>Rizal, Philippines</p>
+                    <p style={infoTextStyle}>Technological Univeristy of the Philippines</p>
+                    <p style={infoTextStyle}>Manila, Philippines</p>
                 </div>
                 </div>
             </div>
