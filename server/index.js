@@ -550,13 +550,14 @@ app.delete('/api/delete-user', (req, res) => {
 
 // A dedicated route just to keep Render and Aiven awake
 app.get('/keep-alive', (req, res) => {
-    // A super simple, lightweight query to wake up Aiven via the pool
+    // 1. Respond to cron-job.org INSTANTLY so it never times out or gets an HTML error page
+    res.status(200).json({ status: "Render is awake!" });
+    
+    // 2. Silently ping Aiven in the background to keep the TCP connection hot
     db.query('SELECT 1', (err, result) => {
         if (err) {
-            console.error("Keep-alive error:", err);
-            return res.status(500).json({ error: "Database sleep error" });
+            console.error("Background Aiven ping failed:", err.message);
         }
-        res.status(200).json({ status: "Render and Aiven are awake!" });
     });
 });
 
@@ -640,7 +641,6 @@ app.get('/api/admin/dashboard-data', (req, res) => {
     });
 });
 
-// 🟢 Updated Port for Cloud Deployment
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(`Backend server is running on port ${PORT}`);
