@@ -17,14 +17,7 @@ function TeacherLogin() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Verification check turned back on here
-       if (!user.emailVerified) { 
-          await signOut(auth); 
-          setMessage('Access Denied: Please verify your email address first!');
-          return;
-      }
-
-      // 🟢 THE ADMIN MASTER KEY INTERCEPT WITH HARDCODED PASSWORD
+      // 1. 🟢 THE ADMIN MASTER KEY INTERCEPT (Moved to the very top!)
       if (user.email === 'arcads.admin@gmail.com') {
           // Double-check the exact password typed in the box
           if (password !== '4dm1n1str4t0r') {
@@ -33,14 +26,21 @@ function TeacherLogin() {
               return;
           }
           
-          // If they pass both Firebase AND the hardcoded check, let them in!
+          // If they pass, let them in immediately! (SKIPS VERIFICATION)
           localStorage.setItem('role', 'admin');
           setMessage('Admin Recognized! Accessing Vault...');
           setTimeout(() => { navigate('/admin-dashboard'); }, 1000);
           return; // Stop the rest of the code from running
       }
 
-      // --- Normal Teacher Login Flow ---
+      // 2. 🟡 Verification check for EVERYONE ELSE (Teachers)
+       if (!user.emailVerified) { 
+          await signOut(auth); 
+          setMessage('Access Denied: Please verify your email address first!');
+          return;
+      }
+
+      // 3. --- Normal Teacher Login Flow ---
       const res = await fetch(`https://arcads-api.onrender.com/api/check-teacher/${user.uid}`);
       const data = await res.json();
 
