@@ -92,7 +92,7 @@ function AdminDashboard() {
 
             {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <h1 style={{ color: '#fca311', margin: 0 }}>ARCADS Vault Control</h1>
+                <h1 style={{ color: '#fca311', margin: 0 }}>ARCADS Admin Panel</h1>
                 <div style={{ display: 'flex', gap: '15px' }}>
                     <button onClick={handleDatabaseExport} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
                         Export Database Backup
