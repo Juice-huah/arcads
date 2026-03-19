@@ -590,6 +590,45 @@ app.get('/api/admin/backup', (req, res) => {
     });
 });
 
+// 🟢 NEW: MASSIVE ADMIN DASHBOARD DATA ROUTE
+app.get('/api/admin/dashboard-data', (req, res) => {
+    const sqlStats = "SELECT (SELECT COUNT(*) FROM student) as students, (SELECT COUNT(*) FROM teacher) as teachers, (SELECT COUNT(*) FROM game_instances) as games";
+
+    const sqlUsers = `
+        SELECT student_fid as uid, 'Student' as role, student_username as username FROM student
+        UNION
+        SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username FROM teacher
+    `;
+
+    const sqlClasses = "SELECT class_id, class_name, class_code FROM classes ORDER BY created_at DESC";
+
+    // 🟢 Using scores as a proxy for the activity feed so it populates immediately!
+    const sqlLogs = "SELECT played_at as activity_timestamp, student_fid, CONCAT('Completed a game with score: ', score) as activity_type FROM scores ORDER BY played_at DESC LIMIT 15";
+
+    db.query(sqlStats, (err1, statsResult) => {
+        if (err1) return res.status(500).json({ error: "Database error 1" });
+
+        db.query(sqlUsers, (err2, usersResult) => {
+            if (err2) return res.status(500).json({ error: "Database error 2" });
+
+            db.query(sqlClasses, (err3, classesResult) => {
+                if (err3) return res.status(500).json({ error: "Database error 3" });
+
+                db.query(sqlLogs, (err4, logsResult) => {
+                    if (err4) return res.status(500).json({ error: "Database error 4" });
+
+                    res.json({
+                        stats: statsResult[0],
+                        users: usersResult,
+                        classes: classesResult,
+                        logs: logsResult
+                    });
+                });
+            });
+        });
+    });
+});
+
 // 🟢 Updated Port for Cloud Deployment
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
