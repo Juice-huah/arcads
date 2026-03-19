@@ -590,45 +590,45 @@ app.get('/api/admin/backup', (req, res) => {
     });
 });
 
-// 🟢 NEW: MASSIVE ADMIN DASHBOARD DATA ROUTE
+// 🟢 UPGRADED: MASSIVE ADMIN DASHBOARD DATA ROUTE (NOW WITH NAMES & TEACHERS)
 app.get('/api/admin/dashboard-data', (req, res) => {
     const sqlStats = "SELECT (SELECT COUNT(*) FROM student) as students, (SELECT COUNT(*) FROM teacher) as teachers, (SELECT COUNT(*) FROM game_instances) as games";
 
+    // 🟢 NEW: Grab the UID and Full Name for the User Table
     const sqlUsers = `
-        SELECT student_fid as uid, 'Student' as role, student_username as username FROM student
+        SELECT student_fid as uid, 'Student' as role, student_username as username, CONCAT(student_name, ' ', student_surname) as name FROM student
         UNION
-        SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username FROM teacher
+        SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username, CONCAT(teacher_name, ' ', teacher_surname) as name FROM teacher
     `;
 
-    const sqlClasses = "SELECT class_id, class_name, class_code FROM classes ORDER BY created_at DESC";
+    // 🟢 NEW: JOIN the classes table with the teacher table to get the Creator's Name
+    const sqlClasses = `
+        SELECT c.class_id, c.class_name, c.class_code, CONCAT(t.teacher_name, ' ', t.teacher_surname) as teacher_name 
+        FROM classes c 
+        LEFT JOIN teacher t ON c.teacher_fid = t.teacher_fid 
+        ORDER BY c.created_at DESC
+    `;
 
     const sqlLogs = "SELECT played_at as activity_timestamp, student_fid, CONCAT('Completed a game with score: ', score) as activity_type FROM scores ORDER BY played_at DESC LIMIT 15";
 
-    // 🟢 NEW: Query to count the most popular game types for the graph
     const sqlGameStats = "SELECT game_type, COUNT(*) as count FROM game_instances GROUP BY game_type ORDER BY count DESC";
 
     db.query(sqlStats, (err1, statsResult) => {
         if (err1) return res.status(500).json({ error: "Database error 1" });
-
         db.query(sqlUsers, (err2, usersResult) => {
             if (err2) return res.status(500).json({ error: "Database error 2" });
-
             db.query(sqlClasses, (err3, classesResult) => {
                 if (err3) return res.status(500).json({ error: "Database error 3" });
-
                 db.query(sqlLogs, (err4, logsResult) => {
                     if (err4) return res.status(500).json({ error: "Database error 4" });
-
-                    // 🟢 Execute the graph query
                     db.query(sqlGameStats, (err5, gameStatsResult) => {
                         if (err5) return res.status(500).json({ error: "Database error 5" });
-
                         res.json({
                             stats: statsResult[0],
                             users: usersResult,
                             classes: classesResult,
                             logs: logsResult,
-                            gameStats: gameStatsResult // Send graph data to React
+                            gameStats: gameStatsResult
                         });
                     });
                 });
