@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Added Link
+import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signOut } from "firebase/auth"; 
 import { auth } from '../firebase'; 
 
@@ -17,7 +17,8 @@ function StudentLogin() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
             
-            if (false) { 
+            // Verification check turned back on here
+            if (!user.emailVerified) { 
                 await signOut(auth); 
                 setMessage('Access Denied: Please verify your email address first!');
                 return;
@@ -67,7 +68,6 @@ function StudentLogin() {
                     />
                 </div>
 
-                {/* Added Forgot Password Link */}
                 <div style={{ textAlign: 'right', marginBottom: '15px' }}>
                     <Link to="/forgot-password" style={{ fontSize: '0.8rem', color: '#fca311' }}>
                         Forgot Password?
