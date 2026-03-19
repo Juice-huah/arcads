@@ -15,6 +15,7 @@ import UserProfile from './pages/UserProfile.jsx';
 import ContactUs from './pages/ContactUs.jsx'; 
 import GameLibrary from './pages/GameLibrary.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx'; // Added Import
+import AdminDashboard from './pages/AdminDashboard';
 
 // --- GAME IMPORTS ---
 import Maze from './games/Maze.jsx'; 
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
       { path: "/student-signup", element: <SignUp role="student" /> },
       { path: "/profile", element: <UserProfile /> },
       { path: "/contact", element: <ContactUs /> }, 
+      { path: "/admin-dashboard", element: <AdminDashboard /> },
       
       {
         path: "/student/play/:gameId",

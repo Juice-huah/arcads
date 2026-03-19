@@ -24,6 +24,23 @@ function TeacherLogin() {
           return;
       }
 
+      // 🟢 THE ADMIN MASTER KEY INTERCEPT WITH HARDCODED PASSWORD
+      if (user.email === 'arcads.admin@gmail.com') {
+          // Double-check the exact password typed in the box
+          if (password !== '4dm1n1str4t0r') {
+              await signOut(auth); // Kick them out immediately
+              setMessage('Access Denied: Unauthorized Admin Access Attempt.');
+              return;
+          }
+          
+          // If they pass both Firebase AND the hardcoded check, let them in!
+          localStorage.setItem('role', 'admin');
+          setMessage('Admin Recognized! Accessing Vault...');
+          setTimeout(() => { navigate('/admin-dashboard'); }, 1000);
+          return; // Stop the rest of the code from running
+      }
+
+      // --- Normal Teacher Login Flow ---
       const res = await fetch(`https://arcads-api.onrender.com/api/check-teacher/${user.uid}`);
       const data = await res.json();
 
@@ -44,7 +61,7 @@ function TeacherLogin() {
   return (
     <div className="signup-container">
       <form className="signup-form" onSubmit={handleSubmit}>
-        <h1>Teacher Login</h1>
+        <h1>Teacher</h1>
         
         <div className="form-group">
           <label htmlFor="email">Email</label>
@@ -77,7 +94,7 @@ function TeacherLogin() {
         <button type="submit" className="btn btn-primary btn-full-width">Login</button>
 
         {message && (
-          <p className="signup-message" style={{ color: message.includes('Successful') ? '#fca311' : '#ff4c4c', textAlign: 'center', marginTop: '15px', fontWeight: 'bold' }}>
+          <p className="signup-message" style={{ color: message.includes('Successful') || message.includes('Vault') ? '#fca311' : '#ff4c4c', textAlign: 'center', marginTop: '15px', fontWeight: 'bold' }}>
             {message}
           </p>
         )}

@@ -557,6 +557,39 @@ app.get('/keep-alive', (req, res) => {
     });
 });
 
+app.get('/api/admin/backup', (req, res) => {
+    // 1. Grab all registered users
+    const sqlUsers = `
+        SELECT 'Student' as role, student_name as name, student_username as username FROM student
+        UNION
+        SELECT 'Teacher' as role, teacher_name as name, teacher_username as username FROM teacher
+    `;
+    
+    db.query(sqlUsers, (err, users) => {
+        if (err) return res.status(500).json({ error: "Failed to backup users" });
+        
+        // 2. Grab all scores
+        db.query("SELECT * FROM scores", (err, scores) => {
+             if (err) return res.status(500).json({ error: "Failed to backup scores" });
+             
+             // 3. Package it all together
+             const backupData = {
+                 backupDate: new Date().toLocaleString(),
+                 system: "ARCADS Gamified LMS",
+                 total_accounts: users.length,
+                 total_scores_recorded: scores.length,
+                 accounts: users,
+                 scores: scores
+             };
+
+             // 4. Tell the browser to download this as a file
+             res.setHeader('Content-Type', 'application/json');
+             res.setHeader('Content-Disposition', 'attachment; filename=arcads_database_backup.json');
+             res.send(JSON.stringify(backupData, null, 2));
+        });
+    });
+});
+
 // 🟢 Updated Port for Cloud Deployment
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
