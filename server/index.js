@@ -602,8 +602,10 @@ app.get('/api/admin/dashboard-data', (req, res) => {
 
     const sqlClasses = "SELECT class_id, class_name, class_code FROM classes ORDER BY created_at DESC";
 
-    // 🟢 Using scores as a proxy for the activity feed so it populates immediately!
     const sqlLogs = "SELECT played_at as activity_timestamp, student_fid, CONCAT('Completed a game with score: ', score) as activity_type FROM scores ORDER BY played_at DESC LIMIT 15";
+
+    // 🟢 NEW: Query to count the most popular game types for the graph
+    const sqlGameStats = "SELECT game_type, COUNT(*) as count FROM game_instances GROUP BY game_type ORDER BY count DESC";
 
     db.query(sqlStats, (err1, statsResult) => {
         if (err1) return res.status(500).json({ error: "Database error 1" });
@@ -617,11 +619,17 @@ app.get('/api/admin/dashboard-data', (req, res) => {
                 db.query(sqlLogs, (err4, logsResult) => {
                     if (err4) return res.status(500).json({ error: "Database error 4" });
 
-                    res.json({
-                        stats: statsResult[0],
-                        users: usersResult,
-                        classes: classesResult,
-                        logs: logsResult
+                    // 🟢 Execute the graph query
+                    db.query(sqlGameStats, (err5, gameStatsResult) => {
+                        if (err5) return res.status(500).json({ error: "Database error 5" });
+
+                        res.json({
+                            stats: statsResult[0],
+                            users: usersResult,
+                            classes: classesResult,
+                            logs: logsResult,
+                            gameStats: gameStatsResult // Send graph data to React
+                        });
                     });
                 });
             });

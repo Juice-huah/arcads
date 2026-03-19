@@ -11,6 +11,7 @@ function AdminDashboard() {
     const [users, setUsers] = useState([]);
     const [classes, setClasses] = useState([]);
     const [logs, setLogs] = useState([]);
+    const [gameStats, setGameStats] = useState([]); // 🟢 State for the Graph
 
     // --- SECURITY & DATA FETCHING ---
     useEffect(() => {
@@ -24,7 +25,6 @@ function AdminDashboard() {
 
     const fetchAllAdminData = async () => {
         try {
-            // We will build this massive data route in your backend next!
             const res = await fetch('https://arcads-api.onrender.com/api/admin/dashboard-data');
             const data = await res.json();
             
@@ -32,6 +32,7 @@ function AdminDashboard() {
             setUsers(data.users);
             setClasses(data.classes);
             setLogs(data.logs);
+            setGameStats(data.gameStats || []); // 🟢 Load the graph data
         } catch (error) {
             console.error("Error fetching admin data:", error);
         }
@@ -50,14 +51,13 @@ function AdminDashboard() {
 
     const handleDeleteUser = async (uid, role) => {
         if (!window.confirm(`Are you sure you want to permanently delete this ${role}?`)) return;
-        
         try {
             await fetch('https://arcads-api.onrender.com/api/delete-user', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid, role })
             });
-            fetchAllAdminData(); // Refresh table
+            fetchAllAdminData();
         } catch (error) {
             console.error("Error deleting user:", error);
         }
@@ -65,24 +65,32 @@ function AdminDashboard() {
 
     const handleDeleteClass = async (classId) => {
         if (!window.confirm("Are you sure? This will wipe the class, its games, and all student scores associated with it.")) return;
-        
         try {
             await fetch(`https://arcads-api.onrender.com/api/delete-class/${classId}`, {
                 method: 'DELETE'
             });
-            fetchAllAdminData(); // Refresh table
+            fetchAllAdminData();
         } catch (error) {
             console.error("Error deleting class:", error);
         }
     };
 
-    // --- STYLES ---
+    // --- STYLES & HELPERS ---
     const tableHeaderStyle = { padding: '10px', borderBottom: '2px solid #ccc', textAlign: 'left', color: 'black' };
     const tableCellStyle = { padding: '10px', borderBottom: '1px solid #eee', color: 'black' };
+    
+    // Find the highest game count to scale the graph bars accurately
+    const maxGameCount = gameStats.length > 0 ? Math.max(...gameStats.map(g => g.count)) : 1;
 
     return (
         <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
             
+            {/* 🟢 CSS INJECTION: This violently hides any header/navbar coming from App.jsx! */}
+            <style>{`
+                nav, header, .navbar, .header, .nav-container { display: none !important; }
+                body { background-color: #f4f4f9; }
+            `}</style>
+
             {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginBottom: '30px' }}>
                 <button onClick={handleDatabaseExport} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -96,24 +104,55 @@ function AdminDashboard() {
             {/* 1. LIVE SYSTEM ANALYTICS */}
             <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
                 <div style={{ flex: 1, backgroundColor: '#fca311', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0' }}>{stats.students}</h2>
+                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.students}</h2>
                     <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Registered Students</p>
                 </div>
                 <div style={{ flex: 1, backgroundColor: '#14213d', color: 'white', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0' }}>{stats.teachers}</h2>
+                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'white' }}>{stats.teachers}</h2>
                     <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Active Teachers</p>
                 </div>
                 <div style={{ flex: 1, backgroundColor: '#e5e5e5', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0' }}>{stats.games}</h2>
+                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.games}</h2>
                     <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Game Instances Running</p>
+                </div>
+            </div>
+
+            {/* 🟢 2. NEW: SIMPLE BAR GRAPH FOR MOST POPULAR GAMES */}
+            <div style={{ backgroundColor: 'white', border: '1px solid #ddd', padding: '25px', borderRadius: '10px', marginBottom: '40px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Most Popular Game Types (Created by Teachers)</h3>
+                <div style={{ marginTop: '20px' }}>
+                    {gameStats.map((game, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                            {/* Game Name Label */}
+                            <div style={{ width: '180px', fontWeight: 'bold', color: '#333', textTransform: 'capitalize' }}>
+                                {game.game_type.replace(/_/g, ' ')}
+                            </div>
+                            
+                            {/* The Bar */}
+                            <div style={{ flex: 1, backgroundColor: '#eee', borderRadius: '5px', height: '24px', overflow: 'hidden', margin: '0 20px' }}>
+                                <div style={{ 
+                                    width: `${(game.count / maxGameCount) * 100}%`, 
+                                    backgroundColor: idx === 0 ? '#fca311' : '#14213d', // Highest gets gold, rest get dark blue
+                                    height: '100%',
+                                    transition: 'width 1s ease-in-out'
+                                }}></div>
+                            </div>
+
+                            {/* The Number */}
+                            <div style={{ width: '40px', textAlign: 'right', fontWeight: 'bold', color: '#14213d', fontSize: '1.1rem' }}>
+                                {game.count}
+                            </div>
+                        </div>
+                    ))}
+                    {gameStats.length === 0 && <p style={{ color: '#666' }}>No games have been created yet.</p>}
                 </div>
             </div>
 
             {/* MIDDLE SECTION: TABLES */}
             <div style={{ display: 'flex', gap: '30px', marginBottom: '40px' }}>
                 
-                {/* 2. USER MANAGEMENT TABLE */}
-                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: '#fafafa', maxHeight: '400px', overflowY: 'auto' }}>
+                {/* 3. USER MANAGEMENT TABLE */}
+                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '400px', overflowY: 'auto' }}>
                     <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>User Management</h3>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -138,8 +177,8 @@ function AdminDashboard() {
                     </table>
                 </div>
 
-                {/* 3. CONTENT MODERATION (CLASSES) */}
-                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: '#fafafa', maxHeight: '400px', overflowY: 'auto' }}>
+                {/* 4. CONTENT MODERATION (CLASSES) */}
+                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '400px', overflowY: 'auto' }}>
                     <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Global Class Moderation</h3>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -165,7 +204,7 @@ function AdminDashboard() {
                 </div>
             </div>
 
-            {/* 4. LIVE ACTIVITY FEED */}
+            {/* 5. LIVE ACTIVITY FEED */}
             <div style={{ border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: '#14213d', color: 'white' }}>
                 <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginTop: 0, color: '#fca311' }}>Live System Activity Log</h3>
                 <div style={{ maxHeight: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5' }}>
