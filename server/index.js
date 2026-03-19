@@ -9,8 +9,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 Updated Database Connection for Cloud with SSL Fix
-const db = mysql.createConnection({
+// 🟢 Upgraded to Connection Pool to prevent Render/Aiven sleep crashes
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
@@ -19,15 +19,20 @@ const db = mysql.createConnection({
   ssl: {
     // 🟢 Set to false to solve the "self-signed certificate" error on Render
     rejectUnauthorized: false 
-  }
+  },
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect((err) => {
+// Test the pool connection on startup
+db.getConnection((err, connection) => {
   if (err) {
-    console.error("❌ Database Connection Failed:", err.message);
-    return;
+    console.error("❌ Database Pool Connection Failed:", err.message);
+  } else {
+    console.log("✅ Connected securely to AIVEN via Pool!");
+    connection.release(); // Return the connection back to the pool
   }
-  console.log("✅ Connected to AIVEN Cloud Database!");
 });
 
 // --- AUTH ROUTES ---
@@ -424,6 +429,7 @@ app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
         res.json(results);
     });
 });
+
 app.get('/api/get-games/:teacher_fid', (req, res) => {
     const sql = `SELECT g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
     db.query(sql, [req.params.teacher_fid], (err, results) => {
@@ -526,7 +532,6 @@ app.delete('/api/delete-user', (req, res) => {
     const { uid, role } = req.body;
     
     // Depending on the role, delete from the correct table. 
-    // (Note: If you set up ON DELETE CASCADE in MySQL, this will also wipe their scores, answers, or classes automatically!)
     const sql = role === 'teacher' 
         ? "DELETE FROM teacher WHERE teacher_fid = ?" 
         : "DELETE FROM student WHERE student_fid = ?";
@@ -542,7 +547,7 @@ app.delete('/api/delete-user', (req, res) => {
 
 // A dedicated route just to keep Render and Aiven awake
 app.get('/keep-alive', (req, res) => {
-    // A super simple, lightweight query to wake up Aiven
+    // A super simple, lightweight query to wake up Aiven via the pool
     db.query('SELECT 1', (err, result) => {
         if (err) {
             console.error("Keep-alive error:", err);
@@ -551,6 +556,7 @@ app.get('/keep-alive', (req, res) => {
         res.status(200).json({ status: "Render and Aiven are awake!" });
     });
 });
+
 // 🟢 Updated Port for Cloud Deployment
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
