@@ -152,6 +152,9 @@ const Maze = () => {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   
+  // 🟢 NEW: Global keys reference so the Virtual D-Pad can talk to the game engine
+  const keysRef = useRef({ ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false });
+
   // --- AUDIO SETUP ---
   const bgMusicRef = useRef(new Audio('/assets/sounds/maze_bg.mp3'));
   
@@ -191,11 +194,8 @@ const Maze = () => {
 
   // --- AUDIO CLEANUP EFFECT ---
   useEffect(() => {
-    // Set music to loop continuously
     bgMusicRef.current.loop = true;
-    bgMusicRef.current.volume = 0.4; // Slightly lowered so it isn't overpowering
-
-    // Stop music if the user navigates away from the component
+    bgMusicRef.current.volume = 0.4; 
     return () => {
       bgMusicRef.current.pause();
       bgMusicRef.current.currentTime = 0;
@@ -262,7 +262,7 @@ const Maze = () => {
                         else if (char === 'E') { gameRow.push(4); end = {x:c, y:r}; }
                         else if (char === '.') { gameRow.push(0); }
                         else if (isLock) {
-                            gameRow.push(3); // 3 = Lock/Portal
+                            gameRow.push(3); 
                             let qIdx = char === 'A' ? 10 : parseInt(char);
                             locks[`${r},${c}`] = qIdx;
                         }
@@ -302,9 +302,7 @@ const Maze = () => {
   }, [activeScreen, timeLeft]);
 
   const handleTimeUp = () => {
-    // Stop the music when time is up
     bgMusicRef.current.pause();
-
     gameState.current.isAlertOpen = true;
     gameState.current.gameEnded = true;
     setShowTimeUp(true);
@@ -362,19 +360,18 @@ const Maze = () => {
       });
     }
 
-    const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
     const handleKeyDown = (e) => { 
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
-        if (keys.hasOwnProperty(e.key)) keys[e.key] = true; 
+        if (keysRef.current.hasOwnProperty(e.key)) keysRef.current[e.key] = true; 
     };
     const handleKeyUp = (e) => { 
-        if (keys.hasOwnProperty(e.key)) keys[e.key] = false; 
+        if (keysRef.current.hasOwnProperty(e.key)) keysRef.current[e.key] = false; 
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
     const loop = () => {
-      update(keys);
+      update();
       draw(ctx);
       animationFrameId = requestAnimationFrame(loop);
     };
@@ -388,10 +385,10 @@ const Maze = () => {
   }, [loading, errorMsg]);
 
   // --- 4. PLAYER MOVEMENT ---
-  const update = (keys) => {
+  const update = () => {
     const state = gameState.current;
+    const keys = keysRef.current; // Read from the global ref!
     
-    // Prevent moving if game is not in 'playing' mode or a custom alert is showing
     if (state.screen !== 'playing' || state.isAlertOpen) return;
 
     if (state.moving) {
@@ -442,6 +439,8 @@ const Maze = () => {
       const qData = s.questions[qId];
       
       if (qData) {
+          // Release keys so player doesn't move automatically after answering
+          keysRef.current = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
           s.activePopup = { ...qData, loc: {x: tileX, y: tileY} };
           setActiveScreen('question');
       } else {
@@ -454,9 +453,7 @@ const Maze = () => {
     if (cell === 4) {
       if (s.answeredCount >= s.totalQs) {
         if (!s.gameEnded) {
-            // Stop the music on winning
             bgMusicRef.current.pause();
-
             s.gameEnded = true;
             const time = Math.floor((Date.now() - s.startTime) / 1000);
             s.screen = 'win';
@@ -465,7 +462,6 @@ const Maze = () => {
             saveScoreToDB(s.score, time);
         }
       } else {
-        // Warning Modal
         setAlertData({ 
             title: "PATH LOCKED", 
             message: `You must unlock all paths first! (${s.answeredCount}/${s.totalQs} unlocked)`, 
@@ -473,7 +469,6 @@ const Maze = () => {
         });
         s.isAlertOpen = true;
 
-        // Push player back
         s.player.tileX = s.startPos.x; 
         s.player.tileY = s.startPos.y;
         s.player.px = s.startPos.x * TILE; 
@@ -482,7 +477,7 @@ const Maze = () => {
     }
   };
 
-  // --- 6. ANSWER LOGIC (VANISHING LOCKS) ---
+  // --- 6. ANSWER LOGIC ---
   const handleAnswer = (choiceIndex) => {
     const s = gameState.current;
     const q = s.activePopup;
@@ -506,13 +501,12 @@ const Maze = () => {
     s.isAlertOpen = true;
 
     s.answeredCount++;
-    s.mapData[q.loc.y][q.loc.x] = 0; // Transforms Lock to Path
-
+    s.mapData[q.loc.y][q.loc.x] = 0; 
     s.screen = 'playing'; 
     setActiveScreen('playing'); 
   };
 
-  // --- 7. DRAWING ENGINE (WITH RESTORED CENTERING) ---
+  // --- 7. DRAWING ENGINE ---
   const draw = (ctx) => {
     const s = gameState.current;
     ctx.fillStyle = BG_COLOR;
@@ -527,7 +521,6 @@ const Maze = () => {
         return; 
     }
 
-    // 🟢 RESTORED CENTERING LOGIC
     const cols = s.mapData[0].length;
     const rows = s.mapData.length;
     const offsetX = (800 - (cols * TILE)) / 2;
@@ -546,16 +539,14 @@ const Maze = () => {
         ctx.textBaseline = "middle";
 
         if (cell === 3) ctx.fillText("🔒", x + TILE/2, y + TILE/2);
-        if (cell === 4) ctx.fillText("🏁", x + TILE/2, y + TILE/2);
+        if (cell === 4) ctx.fillText("🚪", x + TILE/2, y + TILE/2);
       });
     });
 
-    // Player
     const px = offsetX + s.player.px;
     const py = offsetY + s.player.py;
-    ctx.fillText("🏃", px + TILE/2, py + TILE/2);
+    ctx.fillText("🚶", px + TILE/2, py + TILE/2);
 
-    // HUD
     ctx.fillStyle = "#111"; 
     ctx.fillRect(0, 500, 800, 50);
     ctx.strokeStyle = "#0ac8f0"; 
@@ -579,91 +570,133 @@ const Maze = () => {
   };
 
   const startGame = () => {
-    // Start playing the music
-    bgMusicRef.current.play().catch((err) => {
-        console.log("Audio play was prevented by the browser.", err);
-    });
-
+    bgMusicRef.current.play().catch((err) => console.log("Audio play prevented", err));
     gameState.current.screen = 'playing';
     gameState.current.score = 0;
     gameState.current.startTime = Date.now();
-    if (gameState.current.timeLimit > 0) {
-        setTimeLeft(gameState.current.timeLimit * 60);
-    }
+    if (gameState.current.timeLimit > 0) setTimeLeft(gameState.current.timeLimit * 60);
     setActiveScreen('playing');
   };
 
+  // 🟢 NEW: Virtual D-Pad Interaction Handlers
+  const handleDpadPress = (key) => { keysRef.current[key] = true; };
+  const handleDpadRelease = (key) => { keysRef.current[key] = false; };
+
+  // --- STYLES ---
   const overlayStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 };
+  
+  const dpadBtnStyle = {
+      width: '60px', height: '60px', borderRadius: '50%', backgroundColor: '#14213d', 
+      border: '2px solid #0ac8f0', color: 'white', fontSize: '24px', display: 'flex', 
+      justifyContent: 'center', alignItems: 'center', cursor: 'pointer', outline: 'none', 
+      WebkitTapHighlightColor: 'transparent', userSelect: 'none'
+  };
 
   if (loading) return <div style={{ color: '#fff', textAlign: 'center', marginTop: '50px' }}>Loading Game Data...</div>;
   if (errorMsg) return <div style={{ color: 'red', textAlign: 'center', marginTop: '50px' }}>{errorMsg}<br/><button className="btn btn-secondary" onClick={()=>navigate('/student-menu')}>Back</button></div>;
 
   return (
-    <div style={{ position: 'relative', width: 800, height: 550, margin: '0 auto' }}>
-      <canvas ref={canvasRef} width={800} height={550} style={{ border: `4px solid #00b4ff`, borderRadius: '8px', background: '#0c0e17' }} />
+    // 🟢 NEW: Responsive Game Wrapper
+    <div className="game-wrapper" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        
+        {/* CSS INJECTION FOR RESPONSIVENESS AND D-PAD VISIBILITY */}
+        <style>{`
+            .dpad-container { display: none; }
+            @media (max-width: 850px) {
+                .dpad-container { display: flex !important; }
+                .game-wrapper { padding: 10px; }
+                .mobile-title { font-size: 2rem !important; }
+            }
+        `}</style>
 
-      {activeScreen === 'menu' && (
-        <div style={overlayStyle}>
-          <h1 style={{ color: '#0ac8f0', fontSize: '3rem', marginBottom: '40px' }}>MAZE ESCAPE</h1>
-          <button onClick={startGame} className="btn btn-primary" style={{ fontSize: '1.5rem', padding: '15px 40px' }}>START GAME</button>
+        {/* 🟢 THE GAME CANVAS (Now uses Aspect Ratio to scale perfectly!) */}
+        <div style={{ position: 'relative', width: '100%', aspectRatio: '800/550', backgroundColor: '#0c0e17', borderRadius: '8px', overflow: 'hidden', border: '4px solid #00b4ff' }}>
+            <canvas ref={canvasRef} width={800} height={550} style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none' }} />
+
+            {activeScreen === 'menu' && (
+                <div style={overlayStyle}>
+                <h1 className="mobile-title" style={{ color: '#0ac8f0', fontSize: '3rem', marginBottom: '40px' }}>MAZE ESCAPE</h1>
+                <button onClick={startGame} className="btn btn-primary" style={{ fontSize: '1.5rem', padding: '15px 40px' }}>START GAME</button>
+                </div>
+            )}
+
+            {activeScreen === 'question' && (
+                <div style={overlayStyle}>
+                <div className="modal-box" style={{ width: '90%', maxWidth: '500px', backgroundColor:'#222', padding:'20px', borderRadius:'10px', textAlign:'center' }}>
+                    <h2 style={{ color: 'white', marginBottom: '20px', fontSize:'1.2rem' }}>{gameState.current.activePopup?.q}</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {gameState.current.activePopup?.choices.map((choice, idx) => (
+                        <button key={idx} onClick={() => handleAnswer(idx)} className="btn btn-secondary" style={{ textAlign: 'left', padding:'12px', fontSize: '1rem' }}>
+                        {String.fromCharCode(65 + idx)}. {choice}
+                        </button>
+                    ))}
+                    </div>
+                </div>
+                </div>
+            )}
+
+            {activeScreen === 'win' && (
+                <div style={overlayStyle}>
+                <h1 className="mobile-title" style={{ color: '#14a014', fontSize: '3rem', textAlign: 'center' }}>CONGRATULATIONS!</h1>
+                <p style={{ color: 'white', margin: '20px 0', fontSize: '1.2rem', textAlign: 'center' }}>
+                    Score: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.score} / {gameState.current.totalQs}</span><br/>
+                    Time: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.time}s</span>
+                </p>
+                <p style={{fontSize: '1rem', color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>{saveStatus}</p>
+                <button onClick={() => navigate('/student-menu')} className="btn btn-primary">RETURN TO MENU</button>
+                </div>
+            )}
+
+            {showTimeUp && (
+                <div style={{...overlayStyle, zIndex: 1000}}>
+                    <div className="modal-box" style={{backgroundColor: '#222', border: `3px solid #ff4c4c`, padding: '30px', borderRadius: '15px', textAlign: 'center', width: '90%', maxWidth: '400px'}}>
+                        <h1 className="mobile-title" style={{color: '#ff4c4c', fontSize: '2.5rem', margin: '0 0 10px 0'}}>TIME'S UP!</h1>
+                        <p style={{color: '#fff', fontSize: '1rem', marginBottom: '20px'}}>Your time has expired. Your current progress has been saved.</p>
+                        <div style={{backgroundColor: 'rgba(10, 200, 240, 0.1)', padding: '15px', borderRadius: '10px', marginBottom: '20px'}}>
+                            <h3 style={{color: '#0ac8f0', margin: 0}}>SCORE: {gameState.current.score} / {gameState.current.totalQs}</h3>
+                        </div>
+                        <button className="btn btn-primary" onClick={() => navigate('/student-menu')}>RETURN TO MENU</button>
+                    </div>
+                </div>
+            )}
+
+            {/* CUSTOM ALERT MODAL */}
+            {alertData && (
+                <div style={{...overlayStyle, zIndex: 1000}}>
+                    <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '20px', borderRadius: '10px', textAlign: 'center', width: '80%', maxWidth: '300px'}}>
+                        <h2 style={{color: alertData.color, marginBottom: '15px', fontSize: '1.5rem'}}>{alertData.title}</h2>
+                        <p style={{color: '#fff', fontSize: '1rem', marginBottom: '20px'}}>{alertData.message}</p>
+                        <button className="btn-primary" style={{padding: '10px 30px'}} onClick={() => {
+                            setAlertData(null);
+                            gameState.current.isAlertOpen = false;
+                        }}>OK</button>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
 
-      {activeScreen === 'question' && (
-        <div style={overlayStyle}>
-          <div className="modal-box" style={{ width: '80%', backgroundColor:'#222', padding:'30px', borderRadius:'10px', textAlign:'center' }}>
-            <h2 style={{ color: 'white', marginBottom: '30px', fontSize:'1.5rem' }}>{gameState.current.activePopup?.q}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {gameState.current.activePopup?.choices.map((choice, idx) => (
-                <button key={idx} onClick={() => handleAnswer(idx)} className="btn btn-secondary" style={{ textAlign: 'left', padding:'15px', fontSize: '1.2rem' }}>
-                  {String.fromCharCode(65 + idx)}. {choice}
-                </button>
-              ))}
+        {/* 🟢 NEW: VIRTUAL D-PAD (Only visible on mobile screens!) */}
+        <div className="dpad-container" style={{ marginTop: '20px', flexDirection: 'column', alignItems: 'center', gap: '10px', touchAction: 'none' }}>
+            <button 
+                onMouseDown={() => handleDpadPress('ArrowUp')} onMouseUp={() => handleDpadRelease('ArrowUp')} onMouseLeave={() => handleDpadRelease('ArrowUp')}
+                onTouchStart={(e) => { e.preventDefault(); handleDpadPress('ArrowUp'); }} onTouchEnd={(e) => { e.preventDefault(); handleDpadRelease('ArrowUp'); }}
+                style={dpadBtnStyle}>⬆️</button>
+            <div style={{ display: 'flex', gap: '40px' }}>
+                <button 
+                    onMouseDown={() => handleDpadPress('ArrowLeft')} onMouseUp={() => handleDpadRelease('ArrowLeft')} onMouseLeave={() => handleDpadRelease('ArrowLeft')}
+                    onTouchStart={(e) => { e.preventDefault(); handleDpadPress('ArrowLeft'); }} onTouchEnd={(e) => { e.preventDefault(); handleDpadRelease('ArrowLeft'); }}
+                    style={dpadBtnStyle}>⬅️</button>
+                <button 
+                    onMouseDown={() => handleDpadPress('ArrowRight')} onMouseUp={() => handleDpadRelease('ArrowRight')} onMouseLeave={() => handleDpadRelease('ArrowRight')}
+                    onTouchStart={(e) => { e.preventDefault(); handleDpadPress('ArrowRight'); }} onTouchEnd={(e) => { e.preventDefault(); handleDpadRelease('ArrowRight'); }}
+                    style={dpadBtnStyle}>➡️</button>
             </div>
-          </div>
+            <button 
+                onMouseDown={() => handleDpadPress('ArrowDown')} onMouseUp={() => handleDpadRelease('ArrowDown')} onMouseLeave={() => handleDpadRelease('ArrowDown')}
+                onTouchStart={(e) => { e.preventDefault(); handleDpadPress('ArrowDown'); }} onTouchEnd={(e) => { e.preventDefault(); handleDpadRelease('ArrowDown'); }}
+                style={dpadBtnStyle}>⬇️</button>
         </div>
-      )}
 
-      {activeScreen === 'win' && (
-        <div style={overlayStyle}>
-          <h1 style={{ color: '#14a014', fontSize: '3rem' }}>CONGRATULATIONS!</h1>
-          <p style={{ color: 'white', margin: '20px 0', fontSize: '1.5rem' }}>
-            Score: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.score} / {gameState.current.totalQs}</span><br/>
-            Time: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.time}s</span>
-          </p>
-          <p style={{fontSize: '1rem', color: '#aaa', marginBottom: '20px'}}>
-             {saveStatus}
-          </p>
-          <button onClick={() => navigate('/student-menu')} className="btn btn-primary" style={{fontSize: '1.2rem', padding: '10px 30px'}}>RETURN TO MENU</button>
-        </div>
-      )}
-
-      {showTimeUp && (
-          <div style={{...overlayStyle, zIndex: 1000}}>
-              <div className="modal-box" style={{backgroundColor: '#222', border: `3px solid #ff4c4c`, padding: '40px', borderRadius: '15px', textAlign: 'center', maxWidth: '500px'}}>
-                  <h1 style={{color: '#ff4c4c', fontSize: '2.5rem', margin: '0 0 10px 0'}}>TIME'S UP!</h1>
-                  <p style={{color: '#fff', fontSize: '1.2rem', marginBottom: '30px'}}>Your time has expired. Your current progress has been saved.</p>
-                  <div style={{backgroundColor: 'rgba(10, 200, 240, 0.1)', padding: '20px', borderRadius: '10px', marginBottom: '30px'}}>
-                      <h3 style={{color: '#0ac8f0', margin: 0}}>SCORE: {gameState.current.score} / {gameState.current.totalQs}</h3>
-                  </div>
-                  <button className="btn btn-primary" onClick={() => navigate('/student-menu')}>RETURN TO MENU</button>
-              </div>
-          </div>
-      )}
-
-      {/* --- CUSTOM ALERT MODAL --- */}
-      {alertData && (
-          <div style={{...overlayStyle, zIndex: 1000}}>
-              <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
-                  <h2 style={{color: alertData.color, marginBottom: '20px'}}>{alertData.title}</h2>
-                  <p style={{color: '#fff', fontSize: '1.1rem', marginBottom: '30px'}}>{alertData.message}</p>
-                  <button className="btn-primary" onClick={() => {
-                      setAlertData(null);
-                      gameState.current.isAlertOpen = false;
-                  }}>OK</button>
-              </div>
-          </div>
-      )}
     </div>
   );
 };
