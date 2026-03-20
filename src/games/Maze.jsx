@@ -8,7 +8,6 @@ const WALL_COLOR = "#323232";
 const PATH_COLOR = "#ffffff";  
 const BG_COLOR = "#0c0e17";    
 
-// RESTORED: 21x11 Maps. S=Start, E=End, 1-9/A=Locks. #=Wall, .=Path
 const MAZE_LIBRARY = {
   EASY: [
     [
@@ -152,10 +151,7 @@ const Maze = () => {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   
-  // 🟢 NEW: Global keys reference so the Virtual D-Pad can talk to the game engine
   const keysRef = useRef({ ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false });
-
-  // --- AUDIO SETUP ---
   const bgMusicRef = useRef(new Audio('/assets/sounds/maze_bg.mp3'));
   
   const [loading, setLoading] = useState(true); 
@@ -163,7 +159,6 @@ const Maze = () => {
   const [saveStatus, setSaveStatus] = useState(""); 
   const [difficulty, setDifficulty] = useState("NORMAL");
 
-  // Custom Modal & Schedule State
   const [alertData, setAlertData] = useState(null); 
   const [timeLeft, setTimeLeft] = useState(null); 
   const [showTimeUp, setShowTimeUp] = useState(false); 
@@ -192,7 +187,6 @@ const Maze = () => {
 
   const [activeScreen, setActiveScreen] = useState('menu'); 
 
-  // --- AUDIO CLEANUP EFFECT ---
   useEffect(() => {
     bgMusicRef.current.loop = true;
     bgMusicRef.current.volume = 0.4; 
@@ -202,7 +196,6 @@ const Maze = () => {
     };
   }, []);
 
-  // --- 1. FETCH DATA & GENERATE MAP ---
   useEffect(() => {
     if (!gameId) {
         setErrorMsg("No Game ID found.");
@@ -289,7 +282,6 @@ const Maze = () => {
     fetchGameData();
   }, [gameId]);
 
-  // --- TIMER LOGIC ---
   useEffect(() => {
     if (gameState.current.screen === 'playing' && !gameState.current.gameEnded && timeLeft !== null) {
         if (timeLeft <= 0) {
@@ -309,7 +301,6 @@ const Maze = () => {
     saveScoreToDB(gameState.current.score, gameState.current.timeLimit * 60);
   };
 
-  // --- 2. SAVE LOGIC ---
   const saveScoreToDB = async (finalScore, timeTaken) => {
     if (!auth.currentUser) return;
     setSaveStatus("Saving score...");
@@ -334,7 +325,6 @@ const Maze = () => {
     }
   };
 
-  // --- 3. ENGINE LOOP ---
   useEffect(() => {
     if (loading || errorMsg) return;
     const canvas = canvasRef.current;
@@ -351,7 +341,6 @@ const Maze = () => {
     };
     resetPlayer();
 
-    // Generate Particles for Menu
     for (let i = 0; i < 60; i++) {
       gameState.current.particles.push({
         x: Math.random() * 800, y: Math.random() * 550,
@@ -384,10 +373,9 @@ const Maze = () => {
     };
   }, [loading, errorMsg]);
 
-  // --- 4. PLAYER MOVEMENT ---
   const update = () => {
     const state = gameState.current;
-    const keys = keysRef.current; // Read from the global ref!
+    const keys = keysRef.current; 
     
     if (state.screen !== 'playing' || state.isAlertOpen) return;
 
@@ -427,7 +415,6 @@ const Maze = () => {
     }
   };
 
-  // --- 5. EVENT TRIGGERS ---
   const checkTileEvents = () => {
     const s = gameState.current;
     const { tileX, tileY } = s.player;
@@ -439,7 +426,6 @@ const Maze = () => {
       const qData = s.questions[qId];
       
       if (qData) {
-          // Release keys so player doesn't move automatically after answering
           keysRef.current = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
           s.activePopup = { ...qData, loc: {x: tileX, y: tileY} };
           setActiveScreen('question');
@@ -464,7 +450,7 @@ const Maze = () => {
       } else {
         setAlertData({ 
             title: "PATH LOCKED", 
-            message: `You must unlock all paths first! (${s.answeredCount}/${s.totalQs} unlocked)`, 
+            message: `Unlock all paths first! (${s.answeredCount}/${s.totalQs})`, 
             color: "#ff9900" 
         });
         s.isAlertOpen = true;
@@ -477,7 +463,6 @@ const Maze = () => {
     }
   };
 
-  // --- 6. ANSWER LOGIC ---
   const handleAnswer = (choiceIndex) => {
     const s = gameState.current;
     const q = s.activePopup;
@@ -506,7 +491,6 @@ const Maze = () => {
     setActiveScreen('playing'); 
   };
 
-  // --- 7. DRAWING ENGINE ---
   const draw = (ctx) => {
     const s = gameState.current;
     ctx.fillStyle = BG_COLOR;
@@ -578,11 +562,9 @@ const Maze = () => {
     setActiveScreen('playing');
   };
 
-  // 🟢 NEW: Virtual D-Pad Interaction Handlers
   const handleDpadPress = (key) => { keysRef.current[key] = true; };
   const handleDpadRelease = (key) => { keysRef.current[key] = false; };
 
-  // --- STYLES ---
   const overlayStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 };
   
   const dpadBtnStyle = {
@@ -593,69 +575,90 @@ const Maze = () => {
   };
 
   if (loading) return <div style={{ color: '#fff', textAlign: 'center', marginTop: '50px' }}>Loading Game Data...</div>;
-  if (errorMsg) return <div style={{ color: 'red', textAlign: 'center', marginTop: '50px' }}>{errorMsg}<br/><button className="btn btn-secondary" onClick={()=>navigate('/student-menu')}>Back</button></div>;
+  if (errorMsg) return <div style={{ color: 'red', textAlign: 'center', marginTop: '50px' }}>{errorMsg}<br/><button className="btn btn-secondary responsive-btn" onClick={()=>navigate('/student-menu')}>Back</button></div>;
 
   return (
-    // 🟢 NEW: Responsive Game Wrapper
     <div className="game-wrapper" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         
-        {/* CSS INJECTION FOR RESPONSIVENESS AND D-PAD VISIBILITY */}
+        {/* 🟢 CSS INJECTION: Shrinks fonts and modals perfectly on small screens */}
         <style>{`
             .dpad-container { display: none; }
+            
+            /* Rules for Mobile Screens */
             @media (max-width: 850px) {
                 .dpad-container { display: flex !important; }
                 .game-wrapper { padding: 10px; }
-                .mobile-title { font-size: 2rem !important; }
+                
+                /* Dynamically shrink text so it never gets cropped */
+                .responsive-title { font-size: clamp(1.5rem, 5vw, 3rem) !important; margin-bottom: 15px !important; }
+                .responsive-subtitle { font-size: clamp(1.1rem, 3vw, 1.5rem) !important; margin-bottom: 10px !important; }
+                .responsive-text { font-size: clamp(0.9rem, 2.5vw, 1.2rem) !important; }
+                .responsive-btn { font-size: clamp(0.8rem, 2.5vw, 1rem) !important; padding: 10px 15px !important; }
+                
+                /* Fix Modal Boxes so they fit on the screen */
+                .modal-box { 
+                    padding: 15px !important; 
+                    width: 95% !important; 
+                    max-height: 90vh !important; /* Prevents long text from spilling off screen */
+                    overflow-y: auto !important; /* Adds a scrollbar if the question is huge */
+                }
+                .choices-container { gap: 8px !important; }
             }
         `}</style>
 
-        {/* 🟢 THE GAME CANVAS (Now uses Aspect Ratio to scale perfectly!) */}
+        {/* THE GAME CANVAS */}
         <div style={{ position: 'relative', width: '100%', aspectRatio: '800/550', backgroundColor: '#0c0e17', borderRadius: '8px', overflow: 'hidden', border: '4px solid #00b4ff' }}>
             <canvas ref={canvasRef} width={800} height={550} style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none' }} />
 
+            {/* START SCREEN */}
             {activeScreen === 'menu' && (
                 <div style={overlayStyle}>
-                <h1 className="mobile-title" style={{ color: '#0ac8f0', fontSize: '3rem', marginBottom: '40px' }}>MAZE ESCAPE</h1>
-                <button onClick={startGame} className="btn btn-primary" style={{ fontSize: '1.5rem', padding: '15px 40px' }}>START GAME</button>
+                    <h1 className="responsive-title" style={{ color: '#0ac8f0', textAlign: 'center' }}>MAZE ESCAPE</h1>
+                    <button onClick={startGame} className="btn btn-primary responsive-btn">START GAME</button>
                 </div>
             )}
 
+            {/* QUESTION MODAL */}
             {activeScreen === 'question' && (
                 <div style={overlayStyle}>
-                <div className="modal-box" style={{ width: '90%', maxWidth: '500px', backgroundColor:'#222', padding:'20px', borderRadius:'10px', textAlign:'center' }}>
-                    <h2 style={{ color: 'white', marginBottom: '20px', fontSize:'1.2rem' }}>{gameState.current.activePopup?.q}</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {gameState.current.activePopup?.choices.map((choice, idx) => (
-                        <button key={idx} onClick={() => handleAnswer(idx)} className="btn btn-secondary" style={{ textAlign: 'left', padding:'12px', fontSize: '1rem' }}>
-                        {String.fromCharCode(65 + idx)}. {choice}
-                        </button>
-                    ))}
+                    <div className="modal-box" style={{ width: '90%', maxWidth: '500px', backgroundColor:'#222', padding:'20px', borderRadius:'10px', textAlign:'center' }}>
+                        <h2 className="responsive-subtitle" style={{ color: 'white', marginBottom: '20px' }}>{gameState.current.activePopup?.q}</h2>
+                        <div className="choices-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {gameState.current.activePopup?.choices.map((choice, idx) => (
+                            <button key={idx} onClick={() => handleAnswer(idx)} className="btn btn-secondary responsive-btn" style={{ textAlign: 'left', padding:'12px' }}>
+                            {String.fromCharCode(65 + idx)}. {choice}
+                            </button>
+                        ))}
+                        </div>
                     </div>
                 </div>
-                </div>
             )}
 
+            {/* WIN SCREEN */}
             {activeScreen === 'win' && (
                 <div style={overlayStyle}>
-                <h1 className="mobile-title" style={{ color: '#14a014', fontSize: '3rem', textAlign: 'center' }}>CONGRATULATIONS!</h1>
-                <p style={{ color: 'white', margin: '20px 0', fontSize: '1.2rem', textAlign: 'center' }}>
-                    Score: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.score} / {gameState.current.totalQs}</span><br/>
-                    Time: <span style={{color: '#0ac8f0'}}>{gameState.current.activePopup?.time}s</span>
-                </p>
-                <p style={{fontSize: '1rem', color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>{saveStatus}</p>
-                <button onClick={() => navigate('/student-menu')} className="btn btn-primary">RETURN TO MENU</button>
+                    <div className="modal-box" style={{ width: '90%', maxWidth: '500px', backgroundColor:'#222', padding:'30px', borderRadius:'15px', textAlign:'center', border: '2px solid #14a014' }}>
+                        <h1 className="responsive-title" style={{ color: '#14a014', margin: '0 0 10px 0' }}>CONGRATULATIONS!</h1>
+                        <p className="responsive-text" style={{ color: 'white', margin: '15px 0' }}>
+                            Score: <span style={{color: '#0ac8f0', fontWeight: 'bold'}}>{gameState.current.activePopup?.score} / {gameState.current.totalQs}</span><br/>
+                            Time: <span style={{color: '#0ac8f0', fontWeight: 'bold'}}>{gameState.current.activePopup?.time}s</span>
+                        </p>
+                        <p className="responsive-text" style={{ color: '#aaa', marginBottom: '20px' }}>{saveStatus}</p>
+                        <button onClick={() => navigate('/student-menu')} className="btn btn-primary responsive-btn">RETURN TO MENU</button>
+                    </div>
                 </div>
             )}
 
+            {/* TIME UP SCREEN */}
             {showTimeUp && (
                 <div style={{...overlayStyle, zIndex: 1000}}>
                     <div className="modal-box" style={{backgroundColor: '#222', border: `3px solid #ff4c4c`, padding: '30px', borderRadius: '15px', textAlign: 'center', width: '90%', maxWidth: '400px'}}>
-                        <h1 className="mobile-title" style={{color: '#ff4c4c', fontSize: '2.5rem', margin: '0 0 10px 0'}}>TIME'S UP!</h1>
-                        <p style={{color: '#fff', fontSize: '1rem', marginBottom: '20px'}}>Your time has expired. Your current progress has been saved.</p>
+                        <h1 className="responsive-title" style={{color: '#ff4c4c', margin: '0 0 10px 0'}}>TIME'S UP!</h1>
+                        <p className="responsive-text" style={{color: '#fff', marginBottom: '20px'}}>Your time has expired. Your current progress has been saved.</p>
                         <div style={{backgroundColor: 'rgba(10, 200, 240, 0.1)', padding: '15px', borderRadius: '10px', marginBottom: '20px'}}>
-                            <h3 style={{color: '#0ac8f0', margin: 0}}>SCORE: {gameState.current.score} / {gameState.current.totalQs}</h3>
+                            <h3 className="responsive-subtitle" style={{color: '#0ac8f0', margin: 0}}>SCORE: {gameState.current.score} / {gameState.current.totalQs}</h3>
                         </div>
-                        <button className="btn btn-primary" onClick={() => navigate('/student-menu')}>RETURN TO MENU</button>
+                        <button className="btn btn-primary responsive-btn" onClick={() => navigate('/student-menu')}>RETURN TO MENU</button>
                     </div>
                 </div>
             )}
@@ -664,9 +667,9 @@ const Maze = () => {
             {alertData && (
                 <div style={{...overlayStyle, zIndex: 1000}}>
                     <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.color}`, padding: '20px', borderRadius: '10px', textAlign: 'center', width: '80%', maxWidth: '300px'}}>
-                        <h2 style={{color: alertData.color, marginBottom: '15px', fontSize: '1.5rem'}}>{alertData.title}</h2>
-                        <p style={{color: '#fff', fontSize: '1rem', marginBottom: '20px'}}>{alertData.message}</p>
-                        <button className="btn-primary" style={{padding: '10px 30px'}} onClick={() => {
+                        <h2 className="responsive-subtitle" style={{color: alertData.color, marginBottom: '15px'}}>{alertData.title}</h2>
+                        <p className="responsive-text" style={{color: '#fff', marginBottom: '20px'}}>{alertData.message}</p>
+                        <button className="btn-primary responsive-btn" style={{padding: '10px 30px'}} onClick={() => {
                             setAlertData(null);
                             gameState.current.isAlertOpen = false;
                         }}>OK</button>
@@ -675,7 +678,7 @@ const Maze = () => {
             )}
         </div>
 
-        {/* 🟢 NEW: VIRTUAL D-PAD (Only visible on mobile screens!) */}
+        {/* VIRTUAL D-PAD */}
         <div className="dpad-container" style={{ marginTop: '20px', flexDirection: 'column', alignItems: 'center', gap: '10px', touchAction: 'none' }}>
             <button 
                 onMouseDown={() => handleDpadPress('ArrowUp')} onMouseUp={() => handleDpadRelease('ArrowUp')} onMouseLeave={() => handleDpadRelease('ArrowUp')}
