@@ -4,25 +4,24 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/LogInAuthenticate'; 
-import { FaTimes, FaUserCircle, FaBars } from 'react-icons/fa'; // 🟢 Added FaBars for the menu icon
+import { FaTimes, FaUserCircle } from 'react-icons/fa';
 
 function Header() {
   const { userLoggedIn } = useAuth();
   const navigate = useNavigate();
 
+  // 🟢 NEW: Check if the user is a student or teacher from local storage
+  // (Adjust the key 'role' or 'userRole' based on what you used in your Login files)
   const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
   const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
 
+  // Popups
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  
-  // 🟢 NEW: State to track if the mobile hamburger menu is open
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleAccountClick = () => {
     setShowAccountModal(true);
-    setIsMobileMenuOpen(false); // Close mobile menu when opening modals
   };
 
   const handleLogoutClick = () => {
@@ -33,6 +32,7 @@ function Header() {
   const confirmLogout = async () => {
     try {
       await signOut(auth);
+      // Clear the role from storage when logging out
       localStorage.removeItem('role'); 
       localStorage.removeItem('userRole');
       setShowLogoutConfirm(false); 
@@ -44,45 +44,17 @@ function Header() {
 
   return (
     <>
-      {/* 🟢 CSS INJECTION: Hamburger Menu & Mobile Layout Fixes */}
-      <style>{`
-        * { box-sizing: border-box; } /* Prevents padding from causing horizontal scrolling */
-        
-        .mobile-menu-toggle { display: none; background: transparent; border: none; color: #fca311; font-size: 2rem; cursor: pointer; }
-        
-        @media (max-width: 768px) {
-          .site-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 15px 20px; }
-          .mobile-menu-toggle { display: block; }
-          
-          /* Hide nav by default on mobile, show when toggled */
-          .main-nav { display: ${isMobileMenuOpen ? 'block' : 'none'}; width: 100%; margin-top: 15px; }
-          .main-nav .nav-links { flex-direction: column; width: 100%; gap: 10px; align-items: center; }
-          .main-nav .nav-links li { width: 100%; text-align: center; }
-          
-          .modal-box { width: 90% !important; padding: 20px !important; }
-          .modal-actions { flex-direction: column !important; gap: 10px !important; }
-          .modal-actions .btn { width: 100% !important; margin: 0 !important; }
-          .modal-actions-row { flex-direction: column; gap: 10px; }
-          .modal-actions-row .btn { width: 100%; margin: 0; }
-        }
-      `}</style>
-
       <header className="site-header" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         
         <Link to="/" className="logo">ARCADS</Link>
 
-        {/* 🟢 NEW: The Hamburger Button */}
-        <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
-        </button>
-
         <nav className="main-nav">
           <ul className="nav-links">
             <li>
+              {/* 🟢 CHANGED: Now uses the dynamic dashboardRoute */}
               <NavLink 
                 to={userLoggedIn ? dashboardRoute : "/games"} 
                 className={({ isActive }) => isActive ? "active-link" : ""}
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 {userLoggedIn ? "Dashboard" : "Games"}
               </NavLink>
@@ -91,7 +63,6 @@ function Header() {
               <NavLink 
                 to="/contact" 
                 className={({ isActive }) => isActive ? "active-link" : ""}
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Contact Us
               </NavLink>
@@ -99,13 +70,13 @@ function Header() {
             
             {userLoggedIn ? (
               <li>
-                <button onClick={handleAccountClick} className="logout-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
+                <button onClick={handleAccountClick} className="logout-link" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaUserCircle size={26} /> Account
                 </button>
               </li>
             ) : (
               <li>
-                <button onClick={() => { setShowLoginModal(true); setIsMobileMenuOpen(false); }} className="logout-link" style={{ width: '100%' }}>
+                <button onClick={() => setShowLoginModal(true)} className="logout-link">
                   Login
                 </button>
               </li>
@@ -114,7 +85,6 @@ function Header() {
         </nav>
       </header>
 
-      {/* --- MODALS REMAIN THE SAME --- */}
       {showLoginModal && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -140,12 +110,14 @@ function Header() {
             <button className="close-modal-btn" onClick={() => setShowAccountModal(false)}>
               <FaTimes />
             </button>
+            
             <h2 style={{ fontFamily: "'Orbitron', sans-serif", marginBottom: '20px' }}>MY ACCOUNT</h2>
+
             <div className="modal-actions">
               <Link to="/profile" className="btn btn-primary modal-btn" onClick={() => setShowAccountModal(false)}>
                 Account Settings
               </Link>
-              <button onClick={handleLogoutClick} className="btn btn-secondary modal-btn">
+              <button onClick={handleLogoutClick} className="btn btn-secondary modal-btn" style={{width: '100%'}}>
                 Logout
               </button>
             </div>
