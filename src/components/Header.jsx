@@ -4,24 +4,25 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/LogInAuthenticate'; 
-import { FaTimes, FaUserCircle } from 'react-icons/fa';
+import { FaTimes, FaUserCircle, FaBars } from 'react-icons/fa'; 
 
 function Header() {
   const { userLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  // 🟢 NEW: Check if the user is a student or teacher from local storage
-  // (Adjust the key 'role' or 'userRole' based on what you used in your Login files)
   const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
   const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
 
-  // Popups
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleAccountClick = () => {
     setShowAccountModal(true);
+    setIsMobileMenuOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -32,7 +33,6 @@ function Header() {
   const confirmLogout = async () => {
     try {
       await signOut(auth);
-      // Clear the role from storage when logging out
       localStorage.removeItem('role'); 
       localStorage.removeItem('userRole');
       setShowLogoutConfirm(false); 
@@ -44,17 +44,41 @@ function Header() {
 
   return (
     <>
+      <style>{`
+        * { box-sizing: border-box; }
+        .mobile-menu-btn { display: none; background: transparent; border: none; font-size: 1.8rem; color: inherit; cursor: pointer; }
+        
+        @media (max-width: 768px) {
+          .site-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 15px 20px; }
+          .mobile-menu-btn { display: block; }
+          .main-nav { display: ${isMobileMenuOpen ? 'block' : 'none'}; width: 100%; margin-top: 15px; }
+          .main-nav .nav-links { flex-direction: column; width: 100%; gap: 15px; align-items: center; padding: 0; }
+          .main-nav .nav-links li { width: 100%; text-align: center; }
+          .main-nav .nav-links a, .main-nav .nav-links button { width: 100%; display: flex; justify-content: center; }
+          
+          /* Modal mobile sizing */
+          .modal-box { width: 90% !important; max-width: 350px !important; padding: 20px !important; }
+          .modal-actions, .modal-actions-row { flex-direction: column !important; gap: 10px !important; }
+          .modal-actions .btn, .modal-actions-row .btn { width: 100% !important; margin: 0 !important; }
+        }
+      `}</style>
+
       <header className="site-header" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         
-        <Link to="/" className="logo">ARCADS</Link>
+        <Link to="/" className="logo" onClick={() => setIsMobileMenuOpen(false)}>ARCADS</Link>
+
+        {/* Hamburger Menu Icon */}
+        <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+        </button>
 
         <nav className="main-nav">
           <ul className="nav-links">
             <li>
-              {/* 🟢 CHANGED: Now uses the dynamic dashboardRoute */}
               <NavLink 
                 to={userLoggedIn ? dashboardRoute : "/games"} 
                 className={({ isActive }) => isActive ? "active-link" : ""}
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 {userLoggedIn ? "Dashboard" : "Games"}
               </NavLink>
@@ -63,6 +87,7 @@ function Header() {
               <NavLink 
                 to="/contact" 
                 className={({ isActive }) => isActive ? "active-link" : ""}
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Contact Us
               </NavLink>
@@ -76,7 +101,7 @@ function Header() {
               </li>
             ) : (
               <li>
-                <button onClick={() => setShowLoginModal(true)} className="logout-link">
+                <button onClick={() => { setShowLoginModal(true); setIsMobileMenuOpen(false); }} className="logout-link">
                   Login
                 </button>
               </li>
@@ -85,6 +110,7 @@ function Header() {
         </nav>
       </header>
 
+      {/* --- MODALS --- */}
       {showLoginModal && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -110,9 +136,7 @@ function Header() {
             <button className="close-modal-btn" onClick={() => setShowAccountModal(false)}>
               <FaTimes />
             </button>
-            
             <h2 style={{ fontFamily: "'Orbitron', sans-serif", marginBottom: '20px' }}>MY ACCOUNT</h2>
-
             <div className="modal-actions">
               <Link to="/profile" className="btn btn-primary modal-btn" onClick={() => setShowAccountModal(false)}>
                 Account Settings

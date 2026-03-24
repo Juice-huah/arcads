@@ -11,13 +11,23 @@ function Footer() {
   return (
     <footer className="site-footer">
       
+      <style>{`
+        * { box-sizing: border-box; }
+        @media (max-width: 768px) {
+          .footer-main { flex-direction: column; align-items: center; text-align: center; gap: 30px; }
+          .footer-links { flex-direction: column; align-items: center; gap: 30px; text-align: center; }
+          .cta-mobile-wrap { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+          .cta-mobile-wrap .btn { width: 100%; max-width: 300px; text-align: center; margin: 0; }
+        }
+      `}</style>
+
       {/* Smart CTA SECTION - Only shows if not logged in */}
       {!userLoggedIn && (
         <div style={{ textAlign: 'center', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <h3 style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '1rem', lineHeight: '1.5', letterSpacing: '1px', marginBottom: '20px' }}>
               READY TO GAMIFY YOUR CLASSROOM?
             </h3>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+            <div className="cta-mobile-wrap" style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
                 <Link to="/signup" className="btn btn-primary">Teacher Sign Up</Link>
                 <Link to="/student-signup" className="btn btn-secondary">Student Sign Up</Link>
             </div>

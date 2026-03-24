@@ -12,7 +12,6 @@ function HomePage() {
   const { userLoggedIn } = useAuth();
   const navigate = useNavigate();
   
-  // 🟢 NEW: Get the role from localStorage to determine dashboard routing
   const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
   const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
 
@@ -27,23 +26,47 @@ function HomePage() {
 
   const handleSeeNowClick = () => {
     if (userLoggedIn) {
-      // 🟢 ROUTE FIX: Sends them to their respective dashboard instead of just teacher
       navigate(dashboardRoute); 
     } else {
-      // Otherwise, show the prompt (Since only teachers create activities)
       setShowTeacherPrompt(true);
     }
   };
 
   return (
     <main className="homepage-container">
+      
+      {/* 🟢 CSS INJECTION: Prevents side-scrolling, stacks layout ONLY on mobile */}
+      <style>{`
+        html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
+        .homepage-container { overflow-x: hidden; width: 100%; }
+        * { box-sizing: border-box; }
+        
+        /* Desktop Image Safety (Ensures they never blow up too big) */
+        .hero-image-container img { max-width: 100%; height: auto; }
+        .content-image img { max-width: 100%; height: auto; }
+
+        @media (max-width: 768px) {
+          .hero-logo { font-size: clamp(2.5rem, 10vw, 4rem) !important; word-wrap: break-word; }
+          .hero-buttons { display: flex; flex-direction: column; width: 100%; padding: 0 20px; gap: 15px; align-items: center; }
+          .hero-buttons button, .hero-buttons a { width: 100%; margin: 0 !important; text-align: center; }
+          
+          .content-section { flex-direction: column; text-align: center; padding: 40px 20px; }
+          .content-section.reverse { flex-direction: column; }
+          .content-image { margin-top: 30px; }
+          
+          .info-grid { flex-direction: column; gap: 20px; padding: 40px 20px; }
+          .info-column { width: 100%; text-align: center; }
+          
+          .feature-icons { flex-wrap: wrap; justify-content: center; gap: 20px; }
+        }
+      `}</style>
+
       <section className="hero">
         <h1 className="hero-logo">ARCADS</h1>
         <p className="tagline">MAKING ACTIVITIES FUN!</p>
         
         <div className="hero-buttons">
           {userLoggedIn ? (
-            // 🟢 ROUTE FIX: Updates link to point to the correct dynamic dashboard
             <Link to={dashboardRoute} className="btn btn-primary" style={{ fontSize: '1.2rem', padding: '15px 40px' }}>
               PLAY NOW
             </Link>
