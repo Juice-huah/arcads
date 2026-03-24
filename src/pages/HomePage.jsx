@@ -35,20 +35,29 @@ function HomePage() {
   return (
     <main className="homepage-container">
       
-      {/* 🟢 MOBILE RESPONSIVE CSS INJECTION */}
+      {/* 🟢 CSS INJECTION: Kills horizontal scroll and forces text/buttons to stay inside the screen */}
       <style>{`
+        html, body, #root { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
+        .homepage-container { width: 100%; overflow-x: hidden; box-sizing: border-box; }
+        * { box-sizing: border-box; }
+
         @media (max-width: 768px) {
-          .hero-logo { font-size: clamp(2.5rem, 10vw, 5rem) !important; }
-          .tagline { font-size: clamp(0.8rem, 4vw, 1.5rem) !important; }
-          .hero-buttons { flex-direction: column; gap: 15px; width: 100%; padding: 0 20px; }
+          .hero-logo { font-size: clamp(2rem, 10vw, 4rem) !important; word-wrap: break-word; }
+          .tagline { font-size: clamp(0.8rem, 4vw, 1.2rem) !important; }
+          
+          /* Force buttons to fit */
+          .hero-buttons { flex-direction: column; width: 100%; padding: 0 20px; }
           .hero-buttons .btn { width: 100%; margin: 0 !important; }
+          
+          /* Shrink massive section titles so they don't break the layout */
+          .features h2, .content-text h2 { font-size: clamp(1.2rem, 5vw, 2rem) !important; word-wrap: break-word; text-align: center; }
           
           .content-section { flex-direction: column !important; padding: 40px 20px !important; text-align: center; }
           .content-section.reverse { flex-direction: column !important; }
           .content-image { margin-top: 30px; width: 100%; }
           .content-image img { width: 100%; max-width: 300px; height: auto; }
           
-          .info-grid { flex-direction: column; padding: 40px 20px !important; gap: 40px; }
+          .info-grid { flex-direction: column; padding: 40px 20px !important; gap: 30px; }
           .info-column { width: 100%; text-align: center; }
           
           .feature-icons { flex-wrap: wrap; justify-content: center; gap: 20px; }
@@ -76,12 +85,12 @@ function HomePage() {
           )}
         </div>
 
-        <div className="hero-image-container" style={{ marginTop: '40px' }}>
-          <img src={spaceInvadersImg} alt="Pixelated space aliens game" style={{ maxWidth: '100%', height: 'auto' }} />
+        <div className="hero-image-container" style={{ marginTop: '40px', width: '100%', padding: '0 20px' }}>
+          <img src={spaceInvadersImg} alt="Pixelated space aliens game" style={{ maxWidth: '100%', height: 'auto', border: '2px solid #fca311' }} />
         </div>
       </section>
 
-      <section className="features">
+      <section className="features" style={{ width: '100%', padding: '40px 20px', overflow: 'hidden' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>MULTIPLE FUN GAMES</h2>
         <div className="feature-icons" style={{ display: 'flex', justifyContent: 'center', gap: '40px', fontSize: '3rem', color: '#0ac8f0' }}>
           <span><FaGhost /></span>
@@ -91,6 +100,7 @@ function HomePage() {
         </div>
       </section>
 
+      {/* --- REST OF THE HOMEPAGE REMAINS THE SAME --- */}
       <section className="content-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '60px 5%' }}>
         <div className="content-text" style={{ flex: 1, maxWidth: '500px' }}>
           <h2 style={{ color: '#0ac8f0', marginBottom: '20px' }}>Diversify Your Activities!</h2>
@@ -132,12 +142,8 @@ function HomePage() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ width: '90%', maxWidth: '400px' }}>
-            <button className="close-modal-btn" onClick={() => setShowModal(false)}>
-              <FaTimes />
-            </button>
-            <h2 style={{ marginBottom: '20px', fontSize: '1.2rem' }}>
-              {modalType === 'login' ? 'LOGIN AS:' : 'CREATE ACCOUNT:'}
-            </h2>
+            <button className="close-modal-btn" onClick={() => setShowModal(false)}><FaTimes /></button>
+            <h2 style={{ marginBottom: '20px', fontSize: '1.2rem' }}>{modalType === 'login' ? 'LOGIN AS:' : 'CREATE ACCOUNT:'}</h2>
             <div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <Link to={modalType === 'login' ? "/teacher-login" : "/signup"} className="btn btn-primary modal-btn" style={{ width: '100%' }}>Teacher</Link>
               <Link to={modalType === 'login' ? "/student-login" : "/student-signup"} className="btn btn-secondary modal-btn" style={{ width: '100%' }}>Student</Link>
@@ -149,25 +155,16 @@ function HomePage() {
       {showTeacherPrompt && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: '2px solid #0ac8f0', textAlign: 'center', width: '90%', maxWidth: '400px' }}>
-            <button className="close-modal-btn" onClick={() => setShowTeacherPrompt(false)}>
-              <FaTimes />
-            </button>
+            <button className="close-modal-btn" onClick={() => setShowTeacherPrompt(false)}><FaTimes /></button>
             <h2 style={{ color: '#0ac8f0', marginBottom: '15px', fontSize: '1.2rem' }}>TEACHER ACCESS REQUIRED</h2>
-            <p style={{ marginBottom: '25px', lineHeight: '1.5' }}>
-              You need a Teacher account to create and manage gamified activities.
-            </p>
+            <p style={{ marginBottom: '25px', lineHeight: '1.5' }}>You need a Teacher account to create and manage gamified activities.</p>
             <div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <Link to="/teacher-login" className="btn btn-primary modal-btn" style={{ width: '100%' }}>
-                LOGIN AS TEACHER
-              </Link>
-              <Link to="/signup" className="btn btn-secondary modal-btn" style={{ width: '100%' }}>
-                CREATE TEACHER ACCOUNT
-              </Link>
+              <Link to="/teacher-login" className="btn btn-primary modal-btn" style={{ width: '100%' }}>LOGIN AS TEACHER</Link>
+              <Link to="/signup" className="btn btn-secondary modal-btn" style={{ width: '100%' }}>CREATE TEACHER ACCOUNT</Link>
             </div>
           </div>
         </div>
       )}
-
     </main>
   );
 }

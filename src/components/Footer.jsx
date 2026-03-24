@@ -9,23 +9,25 @@ function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="site-footer" style={{ padding: '40px 5%', backgroundColor: '#0b1120', color: 'white' }}>
+    <footer className="site-footer" style={{ padding: '40px 20px', backgroundColor: '#0b1120', color: 'white', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       
-      {/* 🟢 MOBILE RESPONSIVE CSS INJECTION */}
+      {/* 🟢 CSS INJECTION: Mobile Fixes */}
       <style>{`
+        * { box-sizing: border-box; }
         @media (max-width: 768px) {
-          .cta-buttons { flex-direction: column; gap: 15px; width: 100%; padding: 0 20px; }
-          .cta-buttons .btn { width: 100%; text-align: center; }
-          .footer-main { flex-direction: column; gap: 40px; text-align: center; }
-          .footer-about { align-items: center; margin: 0 auto; }
-          .footer-links { flex-direction: column; gap: 30px; text-align: center; }
+          .cta-container { padding: 0 10px; width: 100%; }
+          .cta-buttons { flex-direction: column; gap: 15px; width: 100%; }
+          .cta-buttons .btn { width: 100%; text-align: center; margin: 0; }
+          .footer-main { flex-direction: column; gap: 40px; text-align: center; width: 100%; }
+          .footer-about { align-items: center; margin: 0 auto; width: 100%; }
+          .footer-links { flex-direction: column; gap: 30px; text-align: center; width: 100%; }
           .social-icons { justify-content: center; }
         }
       `}</style>
 
       {/* Smart CTA SECTION */}
       {!userLoggedIn && (
-        <div style={{ textAlign: 'center', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="cta-container" style={{ textAlign: 'center', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <h3 style={{ fontFamily: "'Press Start 2P', cursive", fontSize: 'clamp(0.8rem, 3vw, 1rem)', lineHeight: '1.5', letterSpacing: '1px', marginBottom: '20px' }}>
               READY TO GAMIFY YOUR CLASSROOM?
             </h3>
