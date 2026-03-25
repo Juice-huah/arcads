@@ -42,7 +42,7 @@ function HomePage() {
         * { box-sizing: border-box; }
         
         /* Desktop Image Safety (Ensures they never blow up too big) */
-        .hero-image-container img { max-width: 100%; height: auto; }
+        .hero-image-container img { max-width: %; 50height: auto; }
         .content-image img { max-width: 100%; height: auto; }
 
         @media (max-width: 768px) {
