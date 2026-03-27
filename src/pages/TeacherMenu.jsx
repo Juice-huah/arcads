@@ -6,43 +6,51 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
+// 🟢 NEW: The Mapping Dictionary to make raw DB strings look beautiful in the UI
+const GAME_DISPLAY_NAMES = {
+    'adventure': 'ADVENTURE BATTLE',
+    'word_quest': 'WORD QUEST',
+    'enchanted_forest': 'ENCHANTED FOREST',
+    'whack_a_mole': 'WHACK-A-MOLE',
+    'startype': 'STARTYPE',
+    'tower_defense': 'WORD TOWER DEFENSE',
+    'hamsterball': 'HAMSTERBALL'
+};
+
+const getDisplayName = (dbType) => {
+    return GAME_DISPLAY_NAMES[dbType] || String(dbType).replace(/_/g, ' ').toUpperCase();
+};
+
 function TeacherMenu() {
   const [user, setUser] = useState(null);
   
-  // Tabs: 'classes', 'library', 'active'
   const [activeTab, setActiveTab] = useState('classes'); 
   const [classes, setClasses] = useState([]);
   const [games, setGames] = useState([]); 
 
-  // Class Management States
   const [selectedClass, setSelectedClass] = useState(null); 
   const [classStudents, setClassStudents] = useState([]);
   
-  // Gradebook States
   const [gradebookClass, setGradebookClass] = useState(null); 
   const [gradebookGame, setGradebookGame] = useState(null);   
   const [gradebookData, setGradebookData] = useState([]);     
 
-  // Item Analysis States
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
   const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
 
-  // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showEditClassModal, setShowEditClassModal] = useState(false);
   const [showDeleteClassModal, setShowDeleteClassModal] = useState(false);
   const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
   
-  // Input & Tracking States
   const [newClassName, setNewClassName] = useState('');
   const [editClassNameInput, setEditClassNameInput] = useState('');
   const [studentIdentifier, setStudentIdentifier] = useState(''); 
   const [studentToRemove, setStudentToRemove] = useState(null); 
   const [statusMsg, setStatusMsg] = useState('');
 
-  // --- NEW: SCHEDULE MANAGEMENT STATES ---
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [selectedGameForSchedule, setSelectedGameForSchedule] = useState(null);
   
@@ -113,7 +121,6 @@ function TeacherMenu() {
     fetchStudents(cls.class_id);
   };
 
-  // --- GRADEBOOK & ITEM ANALYSIS FUNCTIONS ---
   const fetchGradebook = async (game) => {
       setGradebookGame(game);
       try {
@@ -157,13 +164,12 @@ function TeacherMenu() {
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${gradebookGame.game_type}_Grades.csv`);
+      link.setAttribute("download", `${getDisplayName(gradebookGame.game_type)}_Grades.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
   };
 
-  // --- CLASS MANAGEMENT ACTIONS ---
   const handleCreateClass = async (e) => {
     e.preventDefault();
     if (!user || !user.uid) return;
@@ -265,53 +271,37 @@ function TeacherMenu() {
       }
   };
 
-  // --- NEW: SCHEDULE MANAGEMENT ACTIONS ---
   const openEditSchedule = (game) => {
       setSelectedGameForSchedule(game);
-      
-      // Parse existing open dates if they exist
       if (game.open_datetime) {
           const od = new Date(game.open_datetime);
           setEditOpenDate(od.toISOString().split('T')[0]);
           setEditOpenTime(od.toTimeString().substring(0,5));
       } else {
-          setEditOpenDate('');
-          setEditOpenTime('');
+          setEditOpenDate(''); setEditOpenTime('');
       }
-
-      // Parse existing close dates if they exist
       if (game.close_datetime) {
           const cd = new Date(game.close_datetime);
           setEditCloseDate(cd.toISOString().split('T')[0]);
           setEditCloseTime(cd.toTimeString().substring(0,5));
           setEditNoCloseDate(false);
       } else {
-          setEditCloseDate('');
-          setEditCloseTime('');
-          setEditNoCloseDate(true);
+          setEditCloseDate(''); setEditCloseTime(''); setEditNoCloseDate(true);
       }
-
-      // Parse existing time limit
       if (game.time_limit > 0) {
-          setEditTimeLimit(game.time_limit);
-          setEditUnlimitedTime(false);
+          setEditTimeLimit(game.time_limit); setEditUnlimitedTime(false);
       } else {
-          setEditTimeLimit(15);
-          setEditUnlimitedTime(true);
+          setEditTimeLimit(15); setEditUnlimitedTime(true);
       }
-
       setShowEditScheduleModal(true);
   };
 
   const submitEditSchedule = async (e) => {
       e.preventDefault();
-      
       let formattedOpenDate = null;
       if (editOpenDate && editOpenTime) formattedOpenDate = `${editOpenDate} ${editOpenTime}:00`;
-      
       let formattedCloseDate = null;
       if (!editNoCloseDate && editCloseDate && editCloseTime) formattedCloseDate = `${editCloseDate} ${editCloseTime}:00`;
-
       const finalTimeLimit = editUnlimitedTime ? 0 : parseInt(editTimeLimit);
 
       try {
@@ -326,7 +316,7 @@ function TeacherMenu() {
           });
           if (res.ok) {
               setShowEditScheduleModal(false);
-              fetchGames(user.uid); // Refresh games list
+              fetchGames(user.uid);
           }
       } catch (err) {
           console.error(err);
@@ -348,7 +338,7 @@ function TeacherMenu() {
           });
           if (res.ok) {
               setShowToggleActivityModal(false);
-              fetchGames(user.uid); // Refresh games list
+              fetchGames(user.uid); 
           }
       } catch (err) {
           console.error(err);
@@ -364,6 +354,30 @@ function TeacherMenu() {
 
   return (
     <div className="teacher-dashboard">
+      {/* 🟢 CSS INJECTION: Mobile Responsive Dashboard Fixes */}
+      <style>{`
+        * { box-sizing: border-box; }
+        @media (max-width: 850px) {
+          .teacher-dashboard { flex-direction: column !important; }
+          .sidebar { width: 100% !important; flex-direction: row !important; overflow-x: auto; padding: 10px !important; }
+          .sidebar h3 { display: none; }
+          .sidebar-btn { flex: 1; min-width: 120px; text-align: center !important; font-size: 0.7rem !important; padding: 10px !important; }
+          
+          .content-area { padding: 20px 10px !important; }
+          .section-header { flex-direction: column; align-items: flex-start !important; gap: 15px; }
+          .header-actions { display: flex; flex-direction: column; width: 100%; gap: 10px; }
+          .header-actions button { width: 100%; }
+          
+          /* Wrap tables so they scroll instead of breaking the page */
+          .table-responsive { width: 100%; overflow-x: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
+          .students-table { min-width: 600px; } /* Ensures table content doesn't squish too much */
+
+          .modal-box { width: 95% !important; padding: 20px !important; max-height: 90vh; overflow-y: auto; }
+          .modal-actions-row { flex-direction: column !important; gap: 10px !important; }
+          .modal-actions-row button { width: 100% !important; margin: 0 !important; }
+        }
+      `}</style>
+
       <div className="sidebar">
         <h3 style={{color: '#ff9900', textAlign:'center'}}>MENU</h3>
         <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>My Classes</button>
@@ -376,7 +390,9 @@ function TeacherMenu() {
           <>
             <div className="section-header">
               <h2>MY CLASSES</h2>
-              <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ CREATE CLASS</button>
+              <div className="header-actions">
+                <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ CREATE CLASS</button>
+              </div>
             </div>
 
             <div className="classes-grid">
@@ -393,14 +409,14 @@ function TeacherMenu() {
 
         {activeTab === 'classes' && selectedClass && (
           <>
-            <div className="section-header" style={{alignItems: 'flex-start'}}>
+            <div className="section-header">
               <div>
                   <h2 style={{margin: 0}}>{selectedClass.class_name}</h2>
                   <p style={{color: '#ffd700', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
                       Class Code: <b>{selectedClass.class_code || 'Old Class (No Code)'}</b>
                   </p>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
                 <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
                 <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>+ ADD STUDENT</button>
                 <button className="btn btn-secondary" onClick={() => { setEditClassNameInput(selectedClass.class_name); setShowEditClassModal(true); }} style={{ backgroundColor: '#2b2b2b', borderColor: '#444', color: '#fff' }}>EDIT CLASS</button>
@@ -408,22 +424,25 @@ function TeacherMenu() {
               </div>
             </div>
 
-            <table className="students-table" style={{marginTop: '20px'}}>
-              <thead><tr><th>Name</th><th>Username</th><th>Remove</th></tr></thead>
-              <tbody>
-                {!Array.isArray(classStudents) || classStudents.length === 0 ? (
-                  <tr><td colSpan="3" style={{textAlign:'center'}}>No students in this class yet. Give them the class code!</td></tr>
-                ) : (
-                  classStudents.map((st) => (
-                    <tr key={st.cm_fid}>
-                      <td>{st.student_name ? `${st.student_name} ${st.student_surname}` : <span style={{color:'red'}}>⚠ Missing Record</span>}</td>
-                      <td>{st.student_username || <span style={{color:'red'}}>Broken ID</span>}</td>
-                      <td><button className="remove-btn" onClick={(e) => { e.stopPropagation(); promptRemoveStudent(st.cm_fid); }}>REMOVE</button></td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            {/* 🟢 Responsive Table Wrapper */}
+            <div className="table-responsive" style={{marginTop: '20px'}}>
+              <table className="students-table">
+                <thead><tr><th>Name</th><th>Username</th><th>Remove</th></tr></thead>
+                <tbody>
+                  {!Array.isArray(classStudents) || classStudents.length === 0 ? (
+                    <tr><td colSpan="3" style={{textAlign:'center'}}>No students in this class yet. Give them the class code!</td></tr>
+                  ) : (
+                    classStudents.map((st) => (
+                      <tr key={st.cm_fid}>
+                        <td>{st.student_name ? `${st.student_name} ${st.student_surname}` : <span style={{color:'red'}}>⚠ Missing Record</span>}</td>
+                        <td>{st.student_username || <span style={{color:'red'}}>Broken ID</span>}</td>
+                        <td><button className="remove-btn" onClick={(e) => { e.stopPropagation(); promptRemoveStudent(st.cm_fid); }}>REMOVE</button></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
 
@@ -434,7 +453,7 @@ function TeacherMenu() {
             <div className="classes-grid">
                <div className="class-card" style={{border: '2px solid #0ac8f0'}}>
                  <h3 style={{color: '#0ac8f0', fontSize: '1rem'}}>MAZE ESCAPE</h3>
-                 <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Students find clues and answer questions to unlock doors.</p>
+                 <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Find clues and answer questions to unlock doors.</p>
                  <Link to="/teacher/create-maze"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem'}}>+ CREATE</button></Link>
                </div>
                
@@ -479,7 +498,6 @@ function TeacherMenu() {
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Galactic Typing Combat. Your keyboard is your weapon. Type words to destroy enemy ships!</p>
                  <Link to="/teacher/create-startype"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#00f5ff', color:'#000', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
-
             </div>
           </>
         )}
@@ -495,78 +513,94 @@ function TeacherMenu() {
           </div>
         )}
 
-        {/* --- UPDATE: ADDED STATUS BADGE AND SCHEDULING BUTTONS TO ACTIVITIES TABLE --- */}
         {activeTab === 'active' && gradebookClass && !gradebookGame && (
           <>
             <div className="section-header">
                 <h2>{gradebookClass.class_name} Activities</h2>
-                <button className="btn btn-secondary" onClick={() => setGradebookClass(null)}>BACK</button>
+                <div className="header-actions">
+                  <button className="btn btn-secondary" onClick={() => setGradebookClass(null)}>BACK</button>
+                </div>
             </div>
-            <table className="students-table">
-                <thead><tr><th>GAME TYPE</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
-                <tbody>
-                    {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
-                        <tr key={g.game_id}>
-                            <td>
-                                <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{g.game_type}</div>
-                                <div style={{fontSize: '0.7rem', marginTop: '5px', color: g.is_active ? '#14a014' : '#ff4c4c'}}>
-                                    {g.is_active ? "● OPEN" : "● CLOSED"}
-                                </div>
-                            </td>
-                            <td>{new Date(g.created_at).toLocaleDateString()}</td>
-                            <td>
-                                <div style={{display: 'flex', gap: '5px'}}>
-                                    <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
-                                    <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
-                                    {/* NEW: Schedule Management Buttons */}
-                                    <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0ac8f0', color: '#0ac8f0'}} onClick={() => openEditSchedule(g)}>
-                                        SCHEDULE
-                                    </button>
-                                    <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
-                                        {g.is_active ? "CLOSE" : "REOPEN"}
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            {/* 🟢 Responsive Table Wrapper */}
+            <div className="table-responsive">
+              <table className="students-table">
+                  <thead><tr><th>GAME TYPE</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
+                  <tbody>
+                      {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
+                          <tr key={g.game_id}>
+                              <td>
+                                  {/* 🟢 TRANSLATED USING DICTIONARY */}
+                                  <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g.game_type)}</div>
+                                  <div style={{fontSize: '0.7rem', marginTop: '5px', color: g.is_active ? '#14a014' : '#ff4c4c'}}>
+                                      {g.is_active ? "● OPEN" : "● CLOSED"}
+                                  </div>
+                              </td>
+                              <td>{new Date(g.created_at).toLocaleDateString()}</td>
+                              <td>
+                                  <div style={{display: 'flex', gap: '5px'}}>
+                                      <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
+                                      <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
+                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0ac8f0', color: '#0ac8f0'}} onClick={() => openEditSchedule(g)}>
+                                          SCHEDULE
+                                      </button>
+                                      <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
+                                          {g.is_active ? "CLOSE" : "REOPEN"}
+                                      </button>
+                                  </div>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+            </div>
           </>
         )}
 
         {activeTab === 'active' && gradebookClass && gradebookGame && (
           <>
             <div className="section-header">
-                <div><h2 style={{margin: 0}}>{gradebookGame.game_type} Grades</h2><p style={{color: '#aaa'}}>Class: {gradebookClass.class_name}</p></div>
-                <div style={{ display: 'flex', gap: '10px' }}><button className="btn btn-secondary" onClick={() => setGradebookGame(null)}>BACK</button><button className="btn btn-primary" onClick={exportToCSV}>📥 EXPORT</button></div>
+                <div>
+                  {/* 🟢 TRANSLATED USING DICTIONARY */}
+                  <h2 style={{margin: 0}}>{getDisplayName(gradebookGame.game_type)} Grades</h2>
+                  <p style={{color: '#aaa'}}>Class: {gradebookClass.class_name}</p>
+                </div>
+                <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn btn-secondary" onClick={() => setGradebookGame(null)}>BACK</button>
+                  <button className="btn btn-primary" onClick={exportToCSV}>📥 EXPORT</button>
+                </div>
             </div>
-            <table className="students-table">
-                <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th></tr></thead>
-                <tbody>
-                    {gradebookData.map((row) => {
-                        const hasPlayed = row.raw_score !== null;
-                        const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
-                        return (
-                            <tr key={row.student_fid}>
-                                <td>{row.student_surname}, {row.student_name}</td>
-                                <td>{hasPlayed ? `${row.raw_score} / ${row.total_items}` : '-'}</td>
-                                <td style={{color: hasPlayed && grade >= 75 ? '#14a014' : '#ff4c4c'}}>{hasPlayed ? `${grade}%` : '-'}</td>
-                                <td><span style={{ backgroundColor: hasPlayed && grade >= 75 ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)', padding: '3px 8px', borderRadius: '4px' }}>{hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING'}</span></td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+            
+            {/* 🟢 Responsive Table Wrapper */}
+            <div className="table-responsive">
+              <table className="students-table">
+                  <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th></tr></thead>
+                  <tbody>
+                      {gradebookData.map((row) => {
+                          const hasPlayed = row.raw_score !== null;
+                          const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
+                          return (
+                              <tr key={row.student_fid}>
+                                  <td>{row.student_surname}, {row.student_name}</td>
+                                  <td>{hasPlayed ? `${row.raw_score} / ${row.total_items}` : '-'}</td>
+                                  <td style={{color: hasPlayed && grade >= 75 ? '#14a014' : '#ff4c4c'}}>{hasPlayed ? `${grade}%` : '-'}</td>
+                                  <td><span style={{ backgroundColor: hasPlayed && grade >= 75 ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)', padding: '3px 8px', borderRadius: '4px' }}>{hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING'}</span></td>
+                              </tr>
+                          );
+                      })}
+                  </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>
 
-      {/* --- ORIGINAL MODALS --- */}
+      {/* --- MODALS --- */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {itemAnalysisGame?.game_type}</h2>
-            <div style={{maxHeight: '400px', overflowY: 'auto'}}>
+            {/* 🟢 TRANSLATED USING DICTIONARY */}
+            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame?.game_type)}</h2>
+            <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
                     <tbody>
@@ -585,7 +619,7 @@ function TeacherMenu() {
                     </tbody>
                 </table>
             </div>
-            <button type="button" onClick={() => setShowItemAnalysisModal(false)} className="btn btn-secondary" style={{marginTop: '20px'}}>CLOSE</button>
+            <button type="button" onClick={() => setShowItemAnalysisModal(false)} className="btn btn-secondary" style={{marginTop: '20px', width: '100%'}}>CLOSE</button>
           </div>
         </div>
       )}
@@ -639,16 +673,13 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* --- NEW: SCHEDULE MANAGEMENT MODALS --- */}
-      
-      {/* 1. Edit Schedule Modal */}
+      {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0ac8f0'}}>
             <h2 style={{color: '#0ac8f0'}}>EDIT SCHEDULE</h2>
             <form onSubmit={submitEditSchedule}>
               <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
-                  
                   <div style={{marginBottom: '15px'}}>
                       <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
                       <div style={{display: 'flex', gap: '10px'}}>
@@ -656,12 +687,11 @@ function TeacherMenu() {
                           <input type="time" className="game-input" value={editOpenTime} onChange={e => setEditOpenTime(e.target.value)} required />
                       </div>
                   </div>
-
                   <div style={{marginBottom: '15px'}}>
                       <label style={{display: 'block', color: '#ff4c4c', marginBottom: '5px'}}>CLOSING DATE & TIME:</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
                           <input type="checkbox" checked={editNoCloseDate} onChange={(e) => setEditNoCloseDate(e.target.checked)} />
-                          No Closing Date (Open Indefinitely)
+                          No Closing Date
                       </label>
                       {!editNoCloseDate && (
                           <div style={{display: 'flex', gap: '10px'}}>
@@ -670,7 +700,6 @@ function TeacherMenu() {
                           </div>
                       )}
                   </div>
-
                   <div>
                       <label style={{display: 'block', color: '#ff9900', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
@@ -687,10 +716,9 @@ function TeacherMenu() {
                           </select>
                       )}
                   </div>
-
               </div>
               <div className="modal-actions-row">
-                  <button type="submit" className="btn btn-primary">SAVE CHANGES</button>
+                  <button type="submit" className="btn btn-primary">SAVE</button>
                   <button type="button" onClick={() => setShowEditScheduleModal(false)} className="btn btn-secondary">CANCEL</button>
               </div>
             </form>
@@ -698,7 +726,7 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* 2. Toggle Activity Confirm Modal */}
+      {/* TOGGLE ACTIVITY MODAL */}
       {showToggleActivityModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: `2px solid ${selectedGameForToggle?.is_active ? '#ff4c4c' : '#14a014'}` }}>
