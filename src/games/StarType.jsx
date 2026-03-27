@@ -99,7 +99,6 @@ export default function StarType() {
       }
   }, [screen, timeLeft, showTimeUp]);
 
-  // 🟢 AUTO-SAVE FOR TIME UP
   useEffect(() => {
       if (screen === 'timeup' && !isScoreSaved && !isSavingRef.current && user) {
           isSavingRef.current = true;

@@ -1,15 +1,15 @@
 import express from "express";
-import mysql from "mysql2"; // 🟢 Switched to mysql2
+import mysql from "mysql2"; 
 import cors from "cors";
-import dotenv from "dotenv"; // 🟢 Added dotenv
+import dotenv from "dotenv"; 
 
-dotenv.config(); // 🟢 Initialize environment variables
+dotenv.config(); 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 Upgraded to Connection Pool to prevent Render/Aiven sleep crashes
+// 🟢 Connection Pool with Keep-Alive to prevent Render/Aiven sleep crashes
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -17,24 +17,21 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   ssl: {
-    // 🟢 Set to false to solve the "self-signed certificate" error on Render
     rejectUnauthorized: false 
   },
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // 🟢 NEW: These two lines force the connection to stay awake and prevent Aiven TCP drops!
   enableKeepAlive: true,
   keepAliveInitialDelay: 0
 });
 
-// Test the pool connection on startup
 db.getConnection((err, connection) => {
   if (err) {
     console.error("❌ Database Pool Connection Failed:", err.message);
   } else {
     console.log("✅ Connected securely to AIVEN via Pool!");
-    connection.release(); // Return the connection back to the pool
+    connection.release(); 
   }
 });
 
@@ -239,7 +236,7 @@ app.put('/api/toggle-activity/:game_id', (req, res) => {
     });
 });
 
-// --- CORE GAME CREATION ROUTE (Updated) ---
+// --- CORE GAME CREATION ROUTE ---
 app.post('/api/create-game', (req, res) => {
     const { teacher_fid, class_id, game_type, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?)";
@@ -276,11 +273,11 @@ app.post('/api/add-question', (req, res) => {
     });
 });
 
-// --- SPECIALIZED GAME ROUTES (Updated) ---
+// --- SPECIALIZED GAME ROUTES (🟢 RESTORED TO RAW DB FORMAT) ---
 
 app.post('/api/create-adventure', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Adventure Battle', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
@@ -312,7 +309,7 @@ app.post('/api/create-adventure', (req, res) => {
 
 app.post('/api/create-word-quest', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Word Quest', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create" });
         const newGameId = result.insertId; 
@@ -330,7 +327,7 @@ app.post('/api/create-word-quest', (req, res) => {
 
 app.post('/api/create-enchanted-forest', (req, res) => {
     const { teacher_fid, class_id, game_data, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Enchanted Forest', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
@@ -354,7 +351,7 @@ app.post('/api/create-enchanted-forest', (req, res) => {
 
 app.post('/api/create-whack-a-mole', (req, res) => {
     const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Whack A Mole', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
@@ -372,7 +369,7 @@ app.post('/api/create-whack-a-mole', (req, res) => {
 
 app.post('/api/create-startype', (req, res) => {
     const { teacher_fid, class_id, words, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'Star Type', ?, ?, ?)";
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?)";
     
     db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
@@ -391,7 +388,7 @@ app.post('/api/create-startype', (req, res) => {
 });
 
 // ==========================================
-// 5. RESTORED: STATS & ANSWER TRACKING ROUTES
+// 5. STATS & ANSWER TRACKING ROUTES
 // ==========================================
 
 app.post('/api/save-answers', (req, res) => {
@@ -457,7 +454,6 @@ app.get('/api/gradebook/:game_id', (req, res) => {
     });
 });
 
-// 🟢 UPDATED: Pulls schedule info for StudentMenu
 app.get('/api/student-games/:student_fid', (req, res) => {
     const sql = `
         SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, sc.score as raw_score, sc.time_taken,
@@ -499,7 +495,7 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
     });
 });
 
-// --- RESTORED: FULL CLASS DELETION ---
+// --- FULL CLASS DELETION ---
 app.delete("/api/delete-class/:class_id", (req, res) => {
   const classId = req.params.class_id;
 
@@ -533,8 +529,6 @@ app.delete("/api/delete-class/:class_id", (req, res) => {
 // --- DELETE USER ACCOUNT ---
 app.delete('/api/delete-user', (req, res) => {
     const { uid, role } = req.body;
-    
-    // Depending on the role, delete from the correct table. 
     const sql = role === 'teacher' 
         ? "DELETE FROM teacher WHERE teacher_fid = ?" 
         : "DELETE FROM student WHERE student_fid = ?";
@@ -548,21 +542,15 @@ app.delete('/api/delete-user', (req, res) => {
     });
 });
 
-// A dedicated route just to keep Render and Aiven awake
+// 🟢 CRON-JOB KEEP-ALIVE ROUTE
 app.get('/keep-alive', (req, res) => {
-    // 1. Respond to cron-job.org INSTANTLY so it never times out or gets an HTML error page
     res.status(200).json({ status: "Render is awake!" });
-    
-    // 2. Silently ping Aiven in the background to keep the TCP connection hot
     db.query('SELECT 1', (err, result) => {
-        if (err) {
-            console.error("Background Aiven ping failed:", err.message);
-        }
+        if (err) console.error("Background Aiven ping failed:", err.message);
     });
 });
 
 app.get('/api/admin/backup', (req, res) => {
-    // 1. Grab all registered users
     const sqlUsers = `
         SELECT 'Student' as role, student_name as name, student_username as username FROM student
         UNION
@@ -571,12 +559,8 @@ app.get('/api/admin/backup', (req, res) => {
     
     db.query(sqlUsers, (err, users) => {
         if (err) return res.status(500).json({ error: "Failed to backup users" });
-        
-        // 2. Grab all scores
         db.query("SELECT * FROM scores", (err, scores) => {
              if (err) return res.status(500).json({ error: "Failed to backup scores" });
-             
-             // 3. Package it all together
              const backupData = {
                  backupDate: new Date().toLocaleString(),
                  system: "ARCADS Gamified LMS",
@@ -585,8 +569,6 @@ app.get('/api/admin/backup', (req, res) => {
                  accounts: users,
                  scores: scores
              };
-
-             // 4. Tell the browser to download this as a file
              res.setHeader('Content-Type', 'application/json');
              res.setHeader('Content-Disposition', 'attachment; filename=arcads_database_backup.json');
              res.send(JSON.stringify(backupData, null, 2));
@@ -594,18 +576,15 @@ app.get('/api/admin/backup', (req, res) => {
     });
 });
 
-// 🟢 UPGRADED: MASSIVE ADMIN DASHBOARD DATA ROUTE (NOW WITH NAMES & TEACHERS)
 app.get('/api/admin/dashboard-data', (req, res) => {
     const sqlStats = "SELECT (SELECT COUNT(*) FROM student) as students, (SELECT COUNT(*) FROM teacher) as teachers, (SELECT COUNT(*) FROM game_instances) as games";
 
-    // 🟢 NEW: Grab the UID and Full Name for the User Table
     const sqlUsers = `
         SELECT student_fid as uid, 'Student' as role, student_username as username, CONCAT(student_name, ' ', student_surname) as name FROM student
         UNION
         SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username, CONCAT(teacher_name, ' ', teacher_surname) as name FROM teacher
     `;
 
-    // 🟢 NEW: JOIN the classes table with the teacher table to get the Creator's Name
     const sqlClasses = `
         SELECT c.class_id, c.class_name, c.class_code, CONCAT(t.teacher_name, ' ', t.teacher_surname) as teacher_name 
         FROM classes c 
