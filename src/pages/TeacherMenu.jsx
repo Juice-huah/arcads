@@ -445,7 +445,6 @@ function TeacherMenu() {
             </div>
           </>
         )}
-
         {activeTab === 'library' && (
           <>
             <div className="section-header"><h2>GAME LIBRARY</h2></div>
