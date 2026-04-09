@@ -65,6 +65,10 @@ function TeacherMenu() {
   const [showToggleActivityModal, setShowToggleActivityModal] = useState(false);
   const [selectedGameForToggle, setSelectedGameForToggle] = useState(null);
 
+  // 🟢 NEW: Delete Game States
+  const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
+  const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -345,6 +349,27 @@ function TeacherMenu() {
       }
   };
 
+  // 🟢 NEW: Delete Game Functions
+  const promptDeleteGame = (game) => {
+      setSelectedGameToDelete(game);
+      setShowDeleteGameModal(true);
+  };
+
+  const confirmDeleteGame = async () => {
+      try {
+          const res = await fetch(`https://arcads-api.onrender.com/api/delete-game/${selectedGameToDelete.game_id}`, {
+              method: 'DELETE'
+          });
+          if (res.ok) {
+              setShowDeleteGameModal(false);
+              fetchGames(user.uid); 
+              setGradebookGame(null); // Clear gradebook if they deleted the game they were viewing
+          }
+      } catch (err) {
+          console.error("Error deleting game:", err);
+      }
+  };
+
   const switchTab = (tabName) => {
       setActiveTab(tabName);
       setSelectedClass(null);
@@ -545,6 +570,10 @@ function TeacherMenu() {
                                       <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
                                           {g.is_active ? "CLOSE" : "REOPEN"}
                                       </button>
+                                      {/* 🟢 NEW: DELETE GAME BUTTON ADDED HERE */}
+                                      <button className="btn btn-danger" style={{backgroundColor: '#dc3545', color: '#fff', border: 'none'}} onClick={() => promptDeleteGame(g)}>
+                                          DELETE
+                                      </button>
                                   </div>
                               </td>
                           </tr>
@@ -740,6 +769,24 @@ function TeacherMenu() {
                     YES, {selectedGameForToggle?.is_active ? "CLOSE IT" : "REOPEN"}
                 </button>
                 <button type="button" onClick={() => setShowToggleActivityModal(false)} className="btn btn-secondary">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 NEW: DELETE GAME MODAL INTEGRATED HERE */}
+      {showDeleteGameModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: '2px solid #dc3545' }}>
+            <h2 style={{color: '#dc3545'}}>DELETE ACTIVITY</h2>
+            <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>
+                Are you sure you want to delete this activity? All grades and data associated with it will be permanently lost.
+            </p>
+            <div className="modal-actions-row">
+                <button type="button" onClick={confirmDeleteGame} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>
+                    CONFIRM DELETE
+                </button>
+                <button type="button" onClick={() => setShowDeleteGameModal(false)} className="btn btn-secondary">CANCEL</button>
             </div>
           </div>
         </div>
