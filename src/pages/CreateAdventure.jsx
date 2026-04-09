@@ -1,3 +1,4 @@
+// src/pages/CreateAdventure.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -11,6 +12,9 @@ function CreateAdventure() {
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // 🟢 NEW: Game Title State
+  const [gameTitle, setGameTitle] = useState('Adventure Battle');
 
   // Custom Modal States
   const [alertData, setAlertData] = useState(null);
@@ -109,6 +113,7 @@ function CreateAdventure() {
         body: JSON.stringify({
           teacher_fid: auth.currentUser.uid,
           class_id: selectedClass,
+          custom_title: gameTitle, // 🟢 NEW: Sends the custom title
           questions: payload,
           open_datetime: formattedOpenDate,
           close_datetime: formattedCloseDate,
@@ -151,6 +156,18 @@ function CreateAdventure() {
           <li>Set opening, closing, and time limits in Step 3.</li>
           <li>Assign the game to your active classes in Step 4.</li>
         </ul>
+      </div>
+
+      {/* 🟢 NEW: Game Title Input added here */}
+      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '10px', border: '1px solid #4a5568', marginBottom: '30px', textAlign: 'left' }}>
+        <label style={{ display: 'block', color: '#ff9900', fontWeight: 'bold', marginBottom: '10px' }}>Activity / Game Title</label>
+        <input 
+            type="text" 
+            value={gameTitle} 
+            onChange={(e) => setGameTitle(e.target.value)} 
+            style={{ width: '100%', padding: '12px', background: '#1a202c', border: '1px solid #4a5568', color: 'white', borderRadius: '5px', boxSizing: 'border-box' }} 
+            required 
+        />
       </div>
 
       <div style={{display:'flex', justifyContent: 'center', gap: '20px'}}>

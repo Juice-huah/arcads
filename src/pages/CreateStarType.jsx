@@ -1,3 +1,4 @@
+// src/pages/CreateStarType.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -126,7 +127,7 @@ function CreateStarType() {
                 body: JSON.stringify({
                     teacher_fid: auth.currentUser.uid,
                     class_id: classId, 
-                    title: title.trim(),
+                    custom_title: title.trim(), // 🟢 FIXED: Sends as custom_title to match DB
                     words: wordsPayload,
                     open_datetime: formattedOpenDate,
                     close_datetime: formattedCloseDate,

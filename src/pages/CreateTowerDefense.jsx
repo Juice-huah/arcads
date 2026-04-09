@@ -11,6 +11,9 @@ export default function CreateTowerDefense() {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState('');
     
+    // 🟢 NEW: Game Title State
+    const [gameTitle, setGameTitle] = useState('Word Tower Defense');
+    
     const [waveLevel, setWaveLevel] = useState('Easy');
     const [pairs, setPairs] = useState(
         Array.from({ length: 6 }, () => ({ prompt: '', answer: '' }))
@@ -114,6 +117,7 @@ export default function CreateTowerDefense() {
     };
 
     const handleDeployClick = () => {
+        if (!gameTitle.trim()) return setAlertData({ title: "ATTENTION", message: "Please enter a Game Title.", color: "#ffd700" });
         if (!selectedClass) return setAlertData({ title: "ATTENTION", message: "Please select a class to assign this game to.", color: "#ffd700" });
         if (savedSets.length === 0) return setAlertData({ title: "ATTENTION", message: "Please create and save at least one Wave Set.", color: "#ffd700" });
         
@@ -139,6 +143,7 @@ export default function CreateTowerDefense() {
                     teacher_fid: user.uid,
                     class_id: selectedClass,
                     game_type: 'Tower Defense',
+                    custom_title: gameTitle, // 🟢 FIXED: Sends custom title to backend
                     open_datetime: formattedOpenDate,
                     close_datetime: formattedCloseDate,
                     time_limit: finalTimeLimit
@@ -204,7 +209,6 @@ export default function CreateTowerDefense() {
                 </button>
             </header>
 
-            {/* 🟢 NEW: Retro Pixel Instruction Block */}
             <div style={{ textAlign: 'left', backgroundColor: 'rgba(255, 215, 0, 0.05)', padding: '20px', borderRadius: '12px', border: '1px dashed #ffd700', marginBottom: '20px', maxWidth: '100%' }}>
                 <h3 style={{ color: '#ffd700', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
                 <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
@@ -291,6 +295,21 @@ export default function CreateTowerDefense() {
                 {/* RIGHT COLUMN: Settings & Preview */}
                 <div className="td-sidebar">
                     
+                    {/* 🟢 NEW: GAME TITLE SETTING */}
+                    <div className="td-publish-card" style={{ marginBottom: '20px' }}>
+                        <h2>📝 Game Title</h2>
+                        <div className="form-group" style={{ marginBottom: '10px' }}>
+                            <input 
+                                type="text" 
+                                value={gameTitle} 
+                                onChange={(e) => setGameTitle(e.target.value)} 
+                                placeholder="Enter activity name..."
+                                required 
+                                style={{ width: '100%', padding: '12px', borderRadius: '6px', background: '#161b22', border: '1px solid #30363d', color: '#fff', boxSizing: 'border-box' }} 
+                            />
+                        </div>
+                    </div>
+
                     {/* SCHEDULE SETTINGS */}
                     <div className="td-publish-card" style={{ marginBottom: '20px' }}>
                         <h2>📅 Schedule Settings</h2>
@@ -351,7 +370,7 @@ export default function CreateTowerDefense() {
                         <button 
                             className="btn-publish" 
                             onClick={handleDeployClick} 
-                            disabled={isSaving || savedSets.length === 0 || !selectedClass}
+                            disabled={isSaving || savedSets.length === 0 || !selectedClass || !gameTitle.trim()}
                         >
                             {isSaving ? "Publishing..." : "💾 PUBLISH GAME"}
                         </button>

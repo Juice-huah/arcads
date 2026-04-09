@@ -1,3 +1,4 @@
+// src/pages/CreateWhackAMole.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -92,7 +93,7 @@ export default function CreateWhackAMole() {
         body: JSON.stringify({
           teacher_fid: user.uid,
           class_id: selectedClass,
-          game_title: gameTitle,
+          custom_title: gameTitle, // 🟢 FIXED: Send custom_title instead of game_title
           questions: questions,
           open_datetime: formattedOpenDate,
           close_datetime: formattedCloseDate,

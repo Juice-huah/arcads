@@ -116,7 +116,7 @@ function CreateHamsterBall() {
               teacher_fid: user.uid,
               class_id: classId,
               game_type: 'Hamster Ball',
-              game_title: gameTitle,
+              custom_title: gameTitle, // 🟢 FIXED: Sends as custom_title to match the DB
               open_datetime: formattedOpenDate,
               close_datetime: formattedCloseDate,
               time_limit: finalTimeLimit

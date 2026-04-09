@@ -1,3 +1,4 @@
+// src/pages/CreateWordQuest.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -9,6 +10,9 @@ const CreateWordQuest = () => {
   const [loading, setLoading] = useState(false);
   const [availableClasses, setAvailableClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
+
+  // 🟢 NEW: Game Title State
+  const [gameTitle, setGameTitle] = useState('Word Quest');
 
   // Custom Modal States
   const [alertData, setAlertData] = useState(null);
@@ -92,6 +96,7 @@ const CreateWordQuest = () => {
             body: JSON.stringify({
                 teacher_fid: auth.currentUser.uid,
                 class_id: selectedClass,
+                custom_title: gameTitle, // 🟢 FIXED: Add custom_title to payload
                 questions: questions,
                 open_datetime: formattedOpenDate,
                 close_datetime: formattedCloseDate,
@@ -133,6 +138,18 @@ const CreateWordQuest = () => {
             <li style={{marginBottom: '10px'}}>Set your opening, closing, and time limits in the Schedule step.</li>
             <li>Assign the board game to your active classes!</li>
         </ul>
+      </div>
+
+      {/* 🟢 NEW: Title Input Box */}
+      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '10px', border: '1px solid #4a5568', marginBottom: '30px', textAlign: 'left' }}>
+        <label style={{ display: 'block', color: '#ce93d8', fontWeight: 'bold', marginBottom: '10px', fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem' }}>Activity Title</label>
+        <input 
+            type="text" 
+            value={gameTitle} 
+            onChange={(e) => setGameTitle(e.target.value)} 
+            style={{ width: '100%', padding: '12px', background: '#1a202c', border: '1px solid #4a5568', color: 'white', borderRadius: '5px', boxSizing: 'border-box' }} 
+            required 
+        />
       </div>
 
       <div className="btn-group">

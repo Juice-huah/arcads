@@ -157,7 +157,7 @@ function CreateEnchantedForest() {
       class_id: selectedClassId,
       class_name: selectedClass ? selectedClass.class_name : 'Unknown Class',
       game_type: 'ENCHANTED_FOREST',
-      game_title: gameTitle,
+      custom_title: gameTitle, // 🟢 FIXED: Sends as custom_title
       game_data: JSON.stringify({ locations: activeLocations }),
       open_datetime: formattedOpenDate,
       close_datetime: formattedCloseDate,

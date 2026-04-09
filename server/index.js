@@ -238,9 +238,10 @@ app.put('/api/toggle-activity/:game_id', (req, res) => {
 
 // --- CORE GAME CREATION ROUTE ---
 app.post('/api/create-game', (req, res) => {
-    const { teacher_fid, class_id, game_type, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, game_type, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    // 🟢 ADDED: custom_title
+    const { teacher_fid, class_id, game_type, custom_title, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, game_type, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create game" });
         const newGameId = result.insertId; 
 
@@ -272,13 +273,13 @@ app.post('/api/add-question', (req, res) => {
         res.json({ message: "Question added successfully!" });
     });
 });
-
-// --- SPECIALIZED GAME ROUTES (🟢 RESTORED TO RAW DB FORMAT) ---
+// --- SPECIALIZED GAME ROUTES (🟢 UPDATED FOR CUSTOM TITLES) ---
 
 app.post('/api/create-adventure', (req, res) => {
-    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    // 🟢 ADDED custom_title
+    const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
@@ -308,9 +309,10 @@ app.post('/api/create-adventure', (req, res) => {
 });
 
 app.post('/api/create-word-quest', (req, res) => {
-    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    // 🟢 ADDED custom_title
+    const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
@@ -326,9 +328,10 @@ app.post('/api/create-word-quest', (req, res) => {
 });
 
 app.post('/api/create-enchanted-forest', (req, res) => {
-    const { teacher_fid, class_id, game_data, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    // 🟢 ADDED custom_title
+    const { teacher_fid, class_id, custom_title, game_data, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
         const parsedData = JSON.parse(game_data);
@@ -350,9 +353,10 @@ app.post('/api/create-enchanted-forest', (req, res) => {
 });
 
 app.post('/api/create-whack-a-mole', (req, res) => {
-    const { teacher_fid, class_id, questions, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?)";
-    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    // 🟢 ADDED custom_title
+    const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?, ?)";
+    db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed" });
         const newGameId = result.insertId; 
         const questionValues = questions.map(q => {
@@ -368,10 +372,11 @@ app.post('/api/create-whack-a-mole', (req, res) => {
 });
 
 app.post('/api/create-startype', (req, res) => {
-    const { teacher_fid, class_id, words, open_datetime, close_datetime, time_limit } = req.body;
-    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?)";
+    // 🟢 ADDED custom_title
+    const { teacher_fid, class_id, custom_title, words, open_datetime, close_datetime, time_limit } = req.body;
+    const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?, ?)";
     
-    db.query(sqlGame, [teacher_fid, class_id, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
+    db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
         
@@ -431,7 +436,8 @@ app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
 });
 
 app.get('/api/get-games/:teacher_fid', (req, res) => {
-    const sql = `SELECT g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
+    // 🟢 ADDED g.custom_title
+    const sql = `SELECT g.game_id, g.game_type, g.custom_title, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
     db.query(sql, [req.params.teacher_fid], (err, results) => {
         if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
@@ -455,8 +461,9 @@ app.get('/api/gradebook/:game_id', (req, res) => {
 });
 
 app.get('/api/student-games/:student_fid', (req, res) => {
+    // 🟢 ADDED g.custom_title
     const sql = `
-        SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, sc.score as raw_score, sc.time_taken,
+        SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.custom_title, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, sc.score as raw_score, sc.time_taken,
                (SELECT COUNT(*) FROM game_questions WHERE game_id = g.game_id) as total_items
         FROM class_members cm
         LEFT JOIN classes c ON cm.class_id = c.class_id
