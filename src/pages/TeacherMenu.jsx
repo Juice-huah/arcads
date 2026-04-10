@@ -6,7 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
-// 🟢 NEW: The Mapping Dictionary to make raw DB strings look beautiful in the UI
+// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -17,7 +17,12 @@ const GAME_DISPLAY_NAMES = {
     'hamsterball': 'HAMSTERBALL'
 };
 
-const getDisplayName = (dbType) => {
+// 🟢 UPDATED: This function now prioritizes the custom_title from the DB
+const getDisplayName = (game) => {
+    if (game.custom_title && game.custom_title.trim() !== "") {
+        return game.custom_title.toUpperCase();
+    }
+    const dbType = game.game_type;
     return GAME_DISPLAY_NAMES[dbType] || String(dbType).replace(/_/g, ' ').toUpperCase();
 };
 
@@ -168,7 +173,7 @@ function TeacherMenu() {
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${getDisplayName(gradebookGame.game_type)}_Grades.csv`);
+      link.setAttribute("download", `${getDisplayName(gradebookGame)}_Grades.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -376,7 +381,6 @@ function TeacherMenu() {
       setGradebookClass(null);
       setGradebookGame(null);
   };
-
   return (
     <div className="teacher-dashboard">
       {/* 🟢 CSS INJECTION: Mobile Responsive Dashboard Fixes */}
@@ -548,13 +552,13 @@ function TeacherMenu() {
             {/* 🟢 Responsive Table Wrapper */}
             <div className="table-responsive">
               <table className="students-table">
-                  <thead><tr><th>GAME TYPE</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
+                  <thead><tr><th>ACTIVITY NAME</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
                   <tbody>
                       {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                           <tr key={g.game_id}>
                               <td>
-                                  {/* 🟢 TRANSLATED USING DICTIONARY */}
-                                  <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g.game_type)}</div>
+                                  {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
+                                  <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
                                   <div style={{fontSize: '0.7rem', marginTop: '5px', color: g.is_active ? '#14a014' : '#ff4c4c'}}>
                                       {g.is_active ? "● OPEN" : "● CLOSED"}
                                   </div>
@@ -588,8 +592,8 @@ function TeacherMenu() {
           <>
             <div className="section-header">
                 <div>
-                  {/* 🟢 TRANSLATED USING DICTIONARY */}
-                  <h2 style={{margin: 0}}>{getDisplayName(gradebookGame.game_type)} Grades</h2>
+                  {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
+                  <h2 style={{margin: 0}}>{getDisplayName(gradebookGame)} Grades</h2>
                   <p style={{color: '#aaa'}}>Class: {gradebookClass.class_name}</p>
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
@@ -626,8 +630,8 @@ function TeacherMenu() {
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            {/* 🟢 TRANSLATED USING DICTIONARY */}
-            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame?.game_type)}</h2>
+            {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
+            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
@@ -735,7 +739,7 @@ function TeacherMenu() {
                           Unlimited Time
                       </label>
                       {!editUnlimitedTime && (
-                          <select className="game-select" value={editTimeLimit} onChange={e => setEditTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#222', color: '#fff', border: '1px solid #555'}}>
+                          <select className="game-select" value={editTimeLimit} onChange={e => setTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#222', color: '#fff', border: '1px solid #555'}}>
                               <option value="5">5 Minutes</option>
                               <option value="10">10 Minutes</option>
                               <option value="15">15 Minutes</option>
@@ -780,7 +784,7 @@ function TeacherMenu() {
           <div className="modal-box" style={{ border: '2px solid #dc3545' }}>
             <h2 style={{color: '#dc3545'}}>DELETE ACTIVITY</h2>
             <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>
-                Are you sure you want to delete this activity? All grades and data associated with it will be permanently lost.
+                Are you sure you want to delete <b>{getDisplayName(selectedGameToDelete)}</b>? All grades and data associated with it will be permanently lost.
             </p>
             <div className="modal-actions-row">
                 <button type="button" onClick={confirmDeleteGame} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>
