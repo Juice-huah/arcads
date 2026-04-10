@@ -1,3 +1,4 @@
+// src/pages/StudentMenu.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -5,7 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
-// 🟢 NEW: The Mapping Dictionary for students
+// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -16,7 +17,12 @@ const GAME_DISPLAY_NAMES = {
     'hamsterball': 'HAMSTERBALL'
 };
 
-const getDisplayName = (dbType) => {
+// 🟢 UPDATED: This function now prioritizes the custom_title from the DB
+const getDisplayName = (game) => {
+    if (game && game.custom_title && game.custom_title.trim() !== "") {
+        return game.custom_title.toUpperCase();
+    }
+    const dbType = game?.game_type || game; // fallback if just string is passed
     return GAME_DISPLAY_NAMES[dbType] || String(dbType).replace(/_/g, ' ').toUpperCase();
 };
 
@@ -136,7 +142,6 @@ const StudentMenu = () => {
       }
   };
 
-  // 🟢 Fixed to use EXACT db match so routing doesn't break
   const getGameRoute = (gameType, gameId) => {
       const type = String(gameType).toLowerCase();
       if (type === 'adventure') return `/student/play-adventure/${gameId}`;
@@ -183,7 +188,6 @@ const StudentMenu = () => {
           textAlign: 'center', boxShadow: `0 0 15px ${rank === 0 ? 'rgba(255, 215, 0, 0.3)' : 'transparent'}`, position: 'relative'
       };
   };
-
   return (
     <div className="teacher-dashboard">
       
@@ -268,8 +272,8 @@ const StudentMenu = () => {
                                 const status = getGameStatus(game);
                                 return (
                                     <div key={game.game_id} className="class-card" style={{borderColor: status.color}}>
-                                        {/* 🟢 TRANSLATED USING DICTIONARY */}
-                                        <h3 style={{color: status.color}}>{getDisplayName(game.game_type)}</h3>
+                                        {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
+                                        <h3 style={{color: status.color}}>{getDisplayName(game)}</h3>
                                         <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
                                         
                                         {game.raw_score !== null ? (
@@ -335,8 +339,8 @@ const StudentMenu = () => {
                                             const grade = Math.round((game.raw_score / (game.total_items || 1)) * 50 + 50);
                                             return (
                                                 <tr key={game.game_id}>
-                                                    {/* 🟢 TRANSLATED USING DICTIONARY */}
-                                                    <td style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(game.game_type)}</td>
+                                                    {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
+                                                    <td style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(game)}</td>
                                                     <td>{game.raw_score} / {game.total_items}</td>
                                                     <td style={{color: grade >= 75 ? '#14a014' : '#ff4c4c', fontWeight: 'bold'}}>{grade}%</td>
                                                     <td>
@@ -381,8 +385,8 @@ const StudentMenu = () => {
                         <div className="classes-grid">
                             {groupedGames[selectedClass].filter(g => g.game_id).map((game) => (
                                 <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
-                                    {/* 🟢 TRANSLATED USING DICTIONARY */}
-                                    <h3 style={{color: '#0ac8f0'}}>{getDisplayName(game.game_type)}</h3>
+                                    {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
+                                    <h3 style={{color: '#0ac8f0'}}>{getDisplayName(game)}</h3>
                                     <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
                                 </div>
                             ))}
@@ -393,8 +397,8 @@ const StudentMenu = () => {
                 {activeTab === 'leaderboard' && leaderboardView === 'ranking' && leaderboardGame && (
                     <>
                         <div className="section-header">
-                            {/* 🟢 TRANSLATED USING DICTIONARY */}
-                            <h2>{getDisplayName(leaderboardGame.game_type)} <span style={{fontSize:'0.6em', color:'#aaa'}}>LEADERBOARD</span></h2>
+                            {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
+                            <h2>{getDisplayName(leaderboardGame)} <span style={{fontSize:'0.6em', color:'#aaa'}}>LEADERBOARD</span></h2>
                             <div className="header-actions">
                                 <button className="btn btn-secondary" onClick={() => setLeaderboardView('games')}>BACK</button>
                             </div>
