@@ -6,17 +6,14 @@ import { auth } from '../firebase';
 function AdminDashboard() {
     const navigate = useNavigate();
 
-    // --- STATE MANAGEMENT ---
     const [stats, setStats] = useState({ students: 0, teachers: 0, games: 0 });
     const [users, setUsers] = useState([]);
     const [classes, setClasses] = useState([]);
     const [logs, setLogs] = useState([]);
     const [gameStats, setGameStats] = useState([]); 
     
-    // 🟢 NEW: Tab State Navigation
     const [activeTab, setActiveTab] = useState('dashboard');
 
-    // --- SECURITY & DATA FETCHING ---
     useEffect(() => {
         const role = localStorage.getItem('role');
         if (role !== 'admin') {
@@ -41,7 +38,6 @@ function AdminDashboard() {
         }
     };
 
-    // --- ACTIONS ---
     const handleLogout = async () => {
         await signOut(auth);
         localStorage.clear();
@@ -78,13 +74,11 @@ function AdminDashboard() {
         }
     };
 
-    // --- STYLES & HELPERS ---
     const tableHeaderStyle = { padding: '15px', borderBottom: '2px solid #ccc', textAlign: 'left', color: 'black', fontSize: '1rem' };
     const tableCellStyle = { padding: '15px', borderBottom: '1px solid #eee', color: 'black', fontSize: '0.95rem' };
     
     const maxGameCount = gameStats.length > 0 ? Math.max(...gameStats.map(g => g.count)) : 1;
 
-    // 🟢 NEW: Reusable Tab Button Style
     const getTabStyle = (tabName) => ({
         padding: '12px 24px',
         backgroundColor: activeTab === tabName ? '#fca311' : 'transparent',
@@ -105,7 +99,6 @@ function AdminDashboard() {
                 body { background-color: #14213d; } 
             `}</style>
 
-            {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h1 style={{ color: '#fca311', margin: 0 }}>ARCADS Admin Panel</h1>
                 <div style={{ display: 'flex', gap: '15px' }}>
@@ -118,25 +111,20 @@ function AdminDashboard() {
                 </div>
             </div>
 
-            {/* 🟢 NEW: TAB NAVIGATION */}
             <div style={{ display: 'flex', gap: '15px', marginBottom: '40px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '20px' }}>
                 <button style={getTabStyle('dashboard')} onClick={() => setActiveTab('dashboard')}>
-                    📊 System Overview
+                    System Overview
                 </button>
                 <button style={getTabStyle('users')} onClick={() => setActiveTab('users')}>
-                    👥 User Management
+                    User Management
                 </button>
                 <button style={getTabStyle('classes')} onClick={() => setActiveTab('classes')}>
-                    🏫 Class Moderation
+                    Class Moderation
                 </button>
             </div>
 
-            {/* =========================================
-                TAB 1: SYSTEM OVERVIEW
-            ========================================= */}
             {activeTab === 'dashboard' && (
                 <div>
-                    {/* LIVE SYSTEM ANALYTICS */}
                     <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
                         <div style={{ flex: 1, backgroundColor: '#fca311', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
                             <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.students}</h2>
@@ -181,7 +169,6 @@ function AdminDashboard() {
                             </div>
                         </div>
 
-                        {/* LIVE ACTIVITY FEED */}
                         <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
                             <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '10px', marginTop: 0, color: '#fca311' }}>Live System Activity Log</h3>
                             <div style={{ maxHeight: '300px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5', paddingRight: '10px' }}>
@@ -199,10 +186,6 @@ function AdminDashboard() {
                     </div>
                 </div>
             )}
-
-            {/* =========================================
-                TAB 2: USER MANAGEMENT
-            ========================================= */}
             {activeTab === 'users' && (
                 <div style={{ border: '1px solid #ddd', padding: '30px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
                     <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '15px', marginTop: 0, fontSize: '1.5rem' }}>Full User Directory</h3>
@@ -237,10 +220,6 @@ function AdminDashboard() {
                     </table>
                 </div>
             )}
-
-            {/* =========================================
-                TAB 3: CLASS MODERATION
-            ========================================= */}
             {activeTab === 'classes' && (
                 <div style={{ border: '1px solid #ddd', padding: '30px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
                     <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '15px', marginTop: 0, fontSize: '1.5rem' }}>Global Class Moderation</h3>
