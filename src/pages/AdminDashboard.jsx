@@ -169,9 +169,11 @@ function AdminDashboard() {
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '10px', marginTop: 0, color: '#fca311' }}>Live System Activity Log</h3>
-                            <div style={{ maxHeight: '300px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5', paddingRight: '10px' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '10px', marginTop: 0, color: '#fca311', flexShrink: 0 }}>Live System Activity Log</h3>
+                            
+                            {/* 🟢 FIXED: Replaced maxHeight: '300px' with flex: 1 so it fills the box perfectly */}
+                            <div style={{ flex: 1, overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5', paddingRight: '10px' }}>
                                 {logs.map((log, idx) => (
                                     <div key={idx} style={{ marginBottom: '10px', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
                                         <span style={{ color: '#aaa' }}>[{new Date(log.activity_timestamp).toLocaleString()}]</span> 
