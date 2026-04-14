@@ -95,7 +95,7 @@ const CreateMazeGame = () => {
     const gameData = {
       teacher_fid: teacherId, 
       class_id: selectedClass,
-      game_type: `maze_escape`, 
+      game_type: `maze_${difficulty.toLowerCase()}`, 
       custom_title: gameTitle,
       questions: questions,
       open_datetime: formattedOpenDate, 
