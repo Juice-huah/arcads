@@ -115,7 +115,7 @@ function CreateHamsterBall() {
             body: JSON.stringify({
               teacher_fid: user.uid,
               class_id: classId,
-              game_type: 'Hamster Ball',
+              game_type: 'hamster_ball',
               custom_title: gameTitle, // 🟢 FIXED: Sends as custom_title to match the DB
               open_datetime: formattedOpenDate,
               close_datetime: formattedCloseDate,
