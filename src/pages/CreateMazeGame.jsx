@@ -95,8 +95,8 @@ const CreateMazeGame = () => {
     const gameData = {
       teacher_fid: teacherId, 
       class_id: selectedClass,
-      game_type: `MAZE ESCAPE`, 
-      custom_title: gameTitle, // 🟢 FIXED: Sending custom_title
+      game_type: `maze_escape`, 
+      custom_title: gameTitle,
       questions: questions,
       open_datetime: formattedOpenDate, 
       close_datetime: formattedCloseDate, 

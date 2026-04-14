@@ -96,7 +96,7 @@ const CreateWordQuest = () => {
             body: JSON.stringify({
                 teacher_fid: auth.currentUser.uid,
                 class_id: selectedClass,
-                custom_title: gameTitle, // 🟢 FIXED: Add custom_title to payload
+                custom_title: gameTitle,
                 questions: questions,
                 open_datetime: formattedOpenDate,
                 close_datetime: formattedCloseDate,

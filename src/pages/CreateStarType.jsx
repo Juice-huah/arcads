@@ -127,7 +127,7 @@ function CreateStarType() {
                 body: JSON.stringify({
                     teacher_fid: auth.currentUser.uid,
                     class_id: classId, 
-                    custom_title: title.trim(), // 🟢 FIXED: Sends as custom_title to match DB
+                    custom_title: title.trim(),
                     words: wordsPayload,
                     open_datetime: formattedOpenDate,
                     close_datetime: formattedCloseDate,
