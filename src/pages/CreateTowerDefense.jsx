@@ -142,7 +142,7 @@ export default function CreateTowerDefense() {
                 body: JSON.stringify({
                     teacher_fid: user.uid,
                     class_id: selectedClass,
-                    game_type: 'Tower Defense',
+                    game_type: 'tower_defense',
                     custom_title: gameTitle, // 🟢 FIXED: Sends custom title to backend
                     open_datetime: formattedOpenDate,
                     close_datetime: formattedCloseDate,
