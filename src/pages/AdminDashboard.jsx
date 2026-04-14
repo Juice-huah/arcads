@@ -12,6 +12,9 @@ function AdminDashboard() {
     const [classes, setClasses] = useState([]);
     const [logs, setLogs] = useState([]);
     const [gameStats, setGameStats] = useState([]); 
+    
+    // 🟢 NEW: Tab State Navigation
+    const [activeTab, setActiveTab] = useState('dashboard');
 
     // --- SECURITY & DATA FETCHING ---
     useEffect(() => {
@@ -76,22 +79,34 @@ function AdminDashboard() {
     };
 
     // --- STYLES & HELPERS ---
-    const tableHeaderStyle = { padding: '10px', borderBottom: '2px solid #ccc', textAlign: 'left', color: 'black', fontSize: '0.9rem' };
-    const tableCellStyle = { padding: '10px', borderBottom: '1px solid #eee', color: 'black', fontSize: '0.9rem' };
+    const tableHeaderStyle = { padding: '15px', borderBottom: '2px solid #ccc', textAlign: 'left', color: 'black', fontSize: '1rem' };
+    const tableCellStyle = { padding: '15px', borderBottom: '1px solid #eee', color: 'black', fontSize: '0.95rem' };
     
     const maxGameCount = gameStats.length > 0 ? Math.max(...gameStats.map(g => g.count)) : 1;
+
+    // 🟢 NEW: Reusable Tab Button Style
+    const getTabStyle = (tabName) => ({
+        padding: '12px 24px',
+        backgroundColor: activeTab === tabName ? '#fca311' : 'transparent',
+        color: activeTab === tabName ? 'black' : '#fca311',
+        border: `2px solid #fca311`,
+        borderRadius: '5px',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        fontSize: '1rem',
+        transition: 'all 0.2s ease'
+    });
 
     return (
         <div style={{ padding: '40px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
             
-            {/* 🟢 CSS INJECTION: Hides standard navbar, sets dark blue background! */}
             <style>{`
                 nav, header, .navbar, .header, .nav-container { display: none !important; }
-                body { background-color: #14213d; } /* Arcads Dark Blue */
+                body { background-color: #14213d; } 
             `}</style>
 
             {/* HEADER */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h1 style={{ color: '#fca311', margin: 0 }}>ARCADS Admin Panel</h1>
                 <div style={{ display: 'flex', gap: '15px' }}>
                     <button onClick={handleDatabaseExport} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -103,56 +118,94 @@ function AdminDashboard() {
                 </div>
             </div>
 
-            {/* 1. LIVE SYSTEM ANALYTICS */}
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
-                <div style={{ flex: 1, backgroundColor: '#fca311', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.students}</h2>
-                    <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Registered Students</p>
-                </div>
-                <div style={{ flex: 1, backgroundColor: 'white', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.teachers}</h2>
-                    <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Active Teachers</p>
-                </div>
-                <div style={{ flex: 1, backgroundColor: '#e5e5e5', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.games}</h2>
-                    <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Game Instances Running</p>
-                </div>
+            {/* 🟢 NEW: TAB NAVIGATION */}
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '40px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '20px' }}>
+                <button style={getTabStyle('dashboard')} onClick={() => setActiveTab('dashboard')}>
+                    📊 System Overview
+                </button>
+                <button style={getTabStyle('users')} onClick={() => setActiveTab('users')}>
+                    👥 User Management
+                </button>
+                <button style={getTabStyle('classes')} onClick={() => setActiveTab('classes')}>
+                    🏫 Class Moderation
+                </button>
             </div>
 
-            {/* 2. SIMPLE BAR GRAPH FOR MOST POPULAR GAMES */}
-            <div style={{ backgroundColor: 'white', border: '1px solid #ddd', padding: '25px', borderRadius: '10px', marginBottom: '40px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Most Popular Game Types (Created by Teachers)</h3>
-                <div style={{ marginTop: '20px' }}>
-                    {gameStats.map((game, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                            <div style={{ width: '180px', fontWeight: 'bold', color: '#333', textTransform: 'capitalize' }}>
-                                {game.game_type.replace(/_/g, ' ')}
-                            </div>
-                            
-                            <div style={{ flex: 1, backgroundColor: '#eee', borderRadius: '5px', height: '24px', overflow: 'hidden', margin: '0 20px' }}>
-                                <div style={{ 
-                                    width: `${(game.count / maxGameCount) * 100}%`, 
-                                    backgroundColor: idx === 0 ? '#fca311' : '#14213d', 
-                                    height: '100%',
-                                    transition: 'width 1s ease-in-out'
-                                }}></div>
-                            </div>
+            {/* =========================================
+                TAB 1: SYSTEM OVERVIEW
+            ========================================= */}
+            {activeTab === 'dashboard' && (
+                <div>
+                    {/* LIVE SYSTEM ANALYTICS */}
+                    <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
+                        <div style={{ flex: 1, backgroundColor: '#fca311', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.students}</h2>
+                            <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Registered Students</p>
+                        </div>
+                        <div style={{ flex: 1, backgroundColor: 'white', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.teachers}</h2>
+                            <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Active Teachers</p>
+                        </div>
+                        <div style={{ flex: 1, backgroundColor: '#e5e5e5', color: 'black', padding: '25px', borderRadius: '10px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h2 style={{ fontSize: '3rem', margin: '0 0 10px 0', color: 'black' }}>{stats.games}</h2>
+                            <p style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>Game Instances Running</p>
+                        </div>
+                    </div>
 
-                            <div style={{ width: '40px', textAlign: 'right', fontWeight: 'bold', color: '#14213d', fontSize: '1.1rem' }}>
-                                {game.count}
+                    <div style={{ display: 'flex', gap: '30px' }}>
+                        {/* SIMPLE BAR GRAPH FOR MOST POPULAR GAMES */}
+                        <div style={{ flex: 1, backgroundColor: 'white', border: '1px solid #ddd', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Most Popular Game Types</h3>
+                            <div style={{ marginTop: '20px' }}>
+                                {gameStats.map((game, idx) => (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                                        <div style={{ width: '180px', fontWeight: 'bold', color: '#333', textTransform: 'capitalize' }}>
+                                            {game.game_type.replace(/_/g, ' ')}
+                                        </div>
+                                        
+                                        <div style={{ flex: 1, backgroundColor: '#eee', borderRadius: '5px', height: '24px', overflow: 'hidden', margin: '0 20px' }}>
+                                            <div style={{ 
+                                                width: `${(game.count / maxGameCount) * 100}%`, 
+                                                backgroundColor: idx === 0 ? '#fca311' : '#14213d', 
+                                                height: '100%',
+                                                transition: 'width 1s ease-in-out'
+                                            }}></div>
+                                        </div>
+
+                                        <div style={{ width: '40px', textAlign: 'right', fontWeight: 'bold', color: '#14213d', fontSize: '1.1rem' }}>
+                                            {game.count}
+                                        </div>
+                                    </div>
+                                ))}
+                                {gameStats.length === 0 && <p style={{ color: '#666' }}>No games have been created yet.</p>}
                             </div>
                         </div>
-                    ))}
-                    {gameStats.length === 0 && <p style={{ color: '#666' }}>No games have been created yet.</p>}
-                </div>
-            </div>
 
-            {/* MIDDLE SECTION: TABLES */}
-            <div style={{ display: 'flex', gap: '30px', marginBottom: '40px' }}>
-                
-                {/* 3. USER MANAGEMENT TABLE (NOW WITH UID AND NAME) */}
-                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '400px', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>User Management</h3>
+                        {/* LIVE ACTIVITY FEED */}
+                        <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '10px', marginTop: 0, color: '#fca311' }}>Live System Activity Log</h3>
+                            <div style={{ maxHeight: '300px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5', paddingRight: '10px' }}>
+                                {logs.map((log, idx) => (
+                                    <div key={idx} style={{ marginBottom: '10px', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                                        <span style={{ color: '#aaa' }}>[{new Date(log.activity_timestamp).toLocaleString()}]</span> 
+                                        <div style={{ color: '#fff', marginTop: '4px' }}>
+                                            Student (UID: {log.student_fid.substring(0,6)}...) performed action: <strong style={{color: '#fca311'}}>{log.activity_type}</strong>
+                                        </div>
+                                    </div>
+                                ))}
+                                {logs.length === 0 && <div style={{ color: '#aaa' }}>No recent activity detected.</div>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* =========================================
+                TAB 2: USER MANAGEMENT
+            ========================================= */}
+            {activeTab === 'users' && (
+                <div style={{ border: '1px solid #ddd', padding: '30px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                    <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '15px', marginTop: 0, fontSize: '1.5rem' }}>Full User Directory</h3>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
@@ -166,12 +219,16 @@ function AdminDashboard() {
                         <tbody>
                             {users.map((user, idx) => (
                                 <tr key={idx}>
-                                    <td style={tableCellStyle}><strong>{user.role}</strong></td>
-                                    <td style={tableCellStyle}>{user.name}</td>
-                                    <td style={tableCellStyle}>{user.username}</td>
-                                    <td style={{...tableCellStyle, fontFamily: 'monospace', fontSize: '0.8rem', color: '#666'}}>{user.uid.substring(0,8)}...</td>
                                     <td style={tableCellStyle}>
-                                        <button onClick={() => handleDeleteUser(user.uid, user.role.toLowerCase())} style={{ backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}>Delete</button>
+                                        <span style={{ padding: '5px 10px', backgroundColor: user.role.toLowerCase() === 'teacher' ? '#14213d' : '#e5e5e5', color: user.role.toLowerCase() === 'teacher' ? 'white' : 'black', borderRadius: '15px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                            {user.role}
+                                        </span>
+                                    </td>
+                                    <td style={{...tableCellStyle, fontWeight: 'bold'}}>{user.name}</td>
+                                    <td style={tableCellStyle}>{user.username}</td>
+                                    <td style={{...tableCellStyle, fontFamily: 'monospace', color: '#666'}}>{user.uid}</td>
+                                    <td style={tableCellStyle}>
+                                        <button onClick={() => handleDeleteUser(user.uid, user.role.toLowerCase())} style={{ backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Revoke Access</button>
                                     </td>
                                 </tr>
                             ))}
@@ -179,27 +236,31 @@ function AdminDashboard() {
                         </tbody>
                     </table>
                 </div>
+            )}
 
-                {/* 4. CONTENT MODERATION (NOW WITH CREATOR NAME) */}
-                <div style={{ flex: 1, border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '400px', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Global Class Moderation</h3>
+            {/* =========================================
+                TAB 3: CLASS MODERATION
+            ========================================= */}
+            {activeTab === 'classes' && (
+                <div style={{ border: '1px solid #ddd', padding: '30px', borderRadius: '10px', backgroundColor: 'white', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                    <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '15px', marginTop: 0, fontSize: '1.5rem' }}>Global Class Moderation</h3>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
                                 <th style={tableHeaderStyle}>Class Name</th>
-                                <th style={tableHeaderStyle}>Code</th>
-                                <th style={tableHeaderStyle}>Created By</th>
+                                <th style={tableHeaderStyle}>Access Code</th>
+                                <th style={tableHeaderStyle}>Created By (Teacher)</th>
                                 <th style={tableHeaderStyle}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {classes.map((cls, idx) => (
                                 <tr key={idx}>
-                                    <td style={tableCellStyle}>{cls.class_name}</td>
-                                    <td style={tableCellStyle}><strong>{cls.class_code}</strong></td>
-                                    <td style={tableCellStyle}>{cls.teacher_name || 'Unknown'}</td>
+                                    <td style={{...tableCellStyle, fontWeight: 'bold', fontSize: '1.1rem'}}>{cls.class_name}</td>
+                                    <td style={{...tableCellStyle, color: '#14213d'}}><strong style={{ letterSpacing: '2px', backgroundColor: '#eee', padding: '5px 10px', borderRadius: '5px' }}>{cls.class_code}</strong></td>
+                                    <td style={tableCellStyle}>{cls.teacher_name || 'Unknown User'}</td>
                                     <td style={tableCellStyle}>
-                                        <button onClick={() => handleDeleteClass(cls.class_id)} style={{ backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}>Wipe</button>
+                                        <button onClick={() => handleDeleteClass(cls.class_id)} style={{ backgroundColor: '#ff4c4c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Wipe Class Data</button>
                                     </td>
                                 </tr>
                             ))}
@@ -207,23 +268,7 @@ function AdminDashboard() {
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* 5. LIVE ACTIVITY FEED */}
-            <div style={{ border: '1px solid #ddd', padding: '25px', borderRadius: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '10px', marginTop: 0, color: '#fca311' }}>Live System Activity Log</h3>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                    {logs.map((log, idx) => (
-                        <div key={idx} style={{ marginBottom: '8px', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
-                            <span style={{ color: '#aaa' }}>[{new Date(log.activity_timestamp).toLocaleString()}]</span> 
-                            <span style={{ color: '#fff', marginLeft: '10px' }}>
-                                Student (UID: {log.student_fid.substring(0,6)}...) performed action: <strong style={{color: '#fca311'}}>{log.activity_type}</strong>
-                            </span>
-                        </div>
-                    ))}
-                    {logs.length === 0 && <div style={{ color: '#aaa' }}>No recent activity detected.</div>}
-                </div>
-            </div>
+            )}
 
         </div>
     );
