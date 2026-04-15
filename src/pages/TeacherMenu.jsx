@@ -70,10 +70,26 @@ function TeacherMenu() {
   const [showToggleActivityModal, setShowToggleActivityModal] = useState(false);
   const [selectedGameForToggle, setSelectedGameForToggle] = useState(null);
 
-  // 🟢 NEW: Delete Game States
+
   const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
 
+  const getActivityStatus = (game) => {
+      if (!game.is_active) return { text: "● CLOSED", color: "#ff4c4c" }; // Manually closed
+
+      const now = new Date();
+      const openDate = game.open_datetime ? new Date(game.open_datetime.replace(' ', 'T')) : null;
+      const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
+
+      if (openDate && now < openDate) {
+          return { text: "● SCHEDULED", color: "#ff9900" };
+      }
+      if (closeDate && now > closeDate) {
+          return { text: "● CLOSED", color: "#ff4c4c" };
+      }
+      
+      return { text: "● OPEN", color: "#14a014" }; 
+  };
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -280,28 +296,34 @@ function TeacherMenu() {
       }
   };
 
-  const openEditSchedule = (game) => {
+const openEditSchedule = (game) => {
       setSelectedGameForSchedule(game);
+      
       if (game.open_datetime) {
-          const od = new Date(game.open_datetime);
-          setEditOpenDate(od.toISOString().split('T')[0]);
-          setEditOpenTime(od.toTimeString().substring(0,5));
+          const dateTimeStr = game.open_datetime.replace('T', ' '); 
+          const [datePart, timePart] = dateTimeStr.split(' ');
+          setEditOpenDate(datePart);
+          setEditOpenTime(timePart.substring(0, 5));
       } else {
           setEditOpenDate(''); setEditOpenTime('');
       }
+      
       if (game.close_datetime) {
-          const cd = new Date(game.close_datetime);
-          setEditCloseDate(cd.toISOString().split('T')[0]);
-          setEditCloseTime(cd.toTimeString().substring(0,5));
+          const dateTimeStr = game.close_datetime.replace('T', ' ');
+          const [datePart, timePart] = dateTimeStr.split(' ');
+          setEditCloseDate(datePart);
+          setEditCloseTime(timePart.substring(0, 5));
           setEditNoCloseDate(false);
       } else {
           setEditCloseDate(''); setEditCloseTime(''); setEditNoCloseDate(true);
       }
+      
       if (game.time_limit > 0) {
           setEditTimeLimit(game.time_limit); setEditUnlimitedTime(false);
       } else {
           setEditTimeLimit(15); setEditUnlimitedTime(true);
       }
+      
       setShowEditScheduleModal(true);
   };
 
@@ -559,8 +581,8 @@ function TeacherMenu() {
                               <td>
                                   {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
                                   <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
-                                  <div style={{fontSize: '0.7rem', marginTop: '5px', color: g.is_active ? '#14a014' : '#ff4c4c'}}>
-                                      {g.is_active ? "● OPEN" : "● CLOSED"}
+                                  <div style={{fontSize: '0.7rem', marginTop: '5px', color: getActivityStatus(g).color}}>
+                                      {getActivityStatus(g).text}
                                   </div>
                               </td>
                               <td>{new Date(g.created_at).toLocaleDateString()}</td>

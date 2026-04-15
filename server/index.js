@@ -9,7 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 Connection Pool with Keep-Alive to prevent Render/Aiven sleep crashes
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -23,7 +22,9 @@ const db = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  dateStrings: true,
+  timezone: '+08:00'
 });
 
 db.getConnection((err, connection) => {
@@ -35,7 +36,6 @@ db.getConnection((err, connection) => {
   }
 });
 
-// --- AUTH ROUTES ---
 
 app.post("/api/teacher-signup", (req, res) => {
   const { uid, name, surname, username } = req.body;
