@@ -44,17 +44,44 @@ const StudentMenu = () => {
   const [leaderboardGame, setLeaderboardGame] = useState(null); 
   const [leaderboardData, setLeaderboardData] = useState([]); 
 
+  // 🟢 NEW: Frontend Clock State for Schedule Updates
+  const [clockTick, setClockTick] = useState(0);
+
+  // 🟢 NEW: Invisible Clock Tick (Runs every 60 seconds)
   useEffect(() => {
+      const timer = setInterval(() => {
+          setClockTick(prev => prev + 1); // Forces React to recalculate the open/close times
+      }, 60000); 
+      return () => clearInterval(timer);
+  }, []);
+
+  // 🟢 UPDATED: Auth Listener with Background Polling
+  useEffect(() => {
+    let pollingInterval; // Define the interval variable
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        
+        // 1. Initial fetch when they log in
         fetchAvailableGames(currentUser.uid);
+
+        // 2. Background Poller: Ask the database for new games every 30 seconds
+        pollingInterval = setInterval(() => {
+            fetchAvailableGames(currentUser.uid);
+        }, 30000); 
+
       } else {
         setUser(null);
         setLoading(false);
+        if (pollingInterval) clearInterval(pollingInterval); // Stop polling if logged out
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+        unsubscribe();
+        if (pollingInterval) clearInterval(pollingInterval); // Stop polling if they leave the page
+    };
   }, []);
 
   const fetchAvailableGames = async (studentId) => {
@@ -161,7 +188,7 @@ const StudentMenu = () => {
   };
 
   const getGameStatus = (game) => {
-      const now = new Date();
+      const now = new Date(); // 🟢 Every time the clockTick forces a render, this grabs the fresh time!
       const openTime = game.open_datetime ? new Date(game.open_datetime) : null;
       const closeTime = game.close_datetime ? new Date(game.close_datetime) : null;
 

@@ -38,7 +38,7 @@ function TeacherMenu() {
   
   const [gradebookClass, setGradebookClass] = useState(null); 
   const [gradebookGame, setGradebookGame] = useState(null);   
-  const [gradebookData, setGradebookData] = useState([]);     
+  const [gradebookData, setGradebookData] = useState([]);    
 
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
@@ -70,14 +70,24 @@ function TeacherMenu() {
   const [showToggleActivityModal, setShowToggleActivityModal] = useState(false);
   const [selectedGameForToggle, setSelectedGameForToggle] = useState(null);
 
-
   const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
+
+  // 🟢 NEW: Frontend Clock State for Schedule Updates
+  const [clockTick, setClockTick] = useState(0);
+
+  // 🟢 NEW: Invisible Clock Tick (Runs every 60 seconds)
+  useEffect(() => {
+      const timer = setInterval(() => {
+          setClockTick(prev => prev + 1); // Forces React to recalculate the open/close times
+      }, 60000); 
+      return () => clearInterval(timer);
+  }, []);
 
   const getActivityStatus = (game) => {
       if (!game.is_active) return { text: "● CLOSED", color: "#ff4c4c" }; // Manually closed
 
-      const now = new Date();
+      const now = new Date(); // Updates automatically with clockTick
       const openDate = game.open_datetime ? new Date(game.open_datetime.replace(' ', 'T')) : null;
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
@@ -90,6 +100,8 @@ function TeacherMenu() {
       
       return { text: "● OPEN", color: "#14a014" }; 
   };
+
+  // 🟢 UPDATED: Auth Listener (Runs once on load)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -104,6 +116,30 @@ function TeacherMenu() {
     });
     return () => unsubscribe();
   }, []);
+
+  // 🟢 NEW: THE MASTER POLLER (Runs every 30 seconds)
+  useEffect(() => {
+      if (!user) return;
+
+      const pollingInterval = setInterval(() => {
+          // Keep the background lists fresh
+          fetchClasses(user.uid);
+          fetchGames(user.uid);
+
+          // If the teacher is staring at a class roster, fetch new students live
+          if (selectedClass && selectedClass.class_id) {
+              fetchStudents(selectedClass.class_id);
+          }
+
+          // If the teacher is staring at the gradebook, fetch new scores live
+          if (gradebookGame) {
+              fetchGradebook(gradebookGame);
+          }
+          
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(pollingInterval);
+  }, [user, selectedClass, gradebookGame]); // Dependencies ensure it polls the *currently open* tab
 
   const fetchClasses = async (userId) => {
     try {
