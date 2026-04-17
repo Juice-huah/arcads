@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -14,13 +15,24 @@ function AdminDashboard() {
     
     const [activeTab, setActiveTab] = useState('dashboard');
 
+    // 🟢 UPDATED: The Master Poller for the Admin Command Center
     useEffect(() => {
         const role = localStorage.getItem('role');
         if (role !== 'admin') {
             navigate('/teacher-login');
             return;
         }
+        
+        // 1. Initial fetch when the admin first loads the page
         fetchAllAdminData();
+
+        // 2. Background Poller: Silently fetch fresh system data every 30 seconds
+        const pollingInterval = setInterval(() => {
+            fetchAllAdminData();
+        }, 30000); // 30 seconds
+
+        // 3. Always clean up the interval when leaving the page!
+        return () => clearInterval(pollingInterval);
     }, [navigate]);
 
     const fetchAllAdminData = async () => {
@@ -56,7 +68,7 @@ function AdminDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid, role })
             });
-            fetchAllAdminData();
+            fetchAllAdminData(); // Instantly refresh after deletion
         } catch (error) {
             console.error("Error deleting user:", error);
         }
@@ -68,7 +80,7 @@ function AdminDashboard() {
             await fetch(`https://arcads-api.onrender.com/api/delete-class/${classId}`, {
                 method: 'DELETE'
             });
-            fetchAllAdminData();
+            fetchAllAdminData(); // Instantly refresh after deletion
         } catch (error) {
             console.error("Error deleting class:", error);
         }
