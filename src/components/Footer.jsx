@@ -1,7 +1,6 @@
 // src/components/Footer.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
 import { useAuth } from '../context/LogInAuthenticate';
 
 function Footer() {
@@ -43,12 +42,6 @@ function Footer() {
           <p style={{ color: '#aaa', fontSize: '0.9rem', maxWidth: '250px', marginBottom: '20px', lineHeight: '1.6' }}>
             Transforming everyday online activities into engaging, interactive gaming experiences.
           </p>
-          <div className="social-icons">
-            <a href="#" target="_blank" rel="noreferrer"><FaFacebook /></a>
-            <a href="#" target="_blank" rel="noreferrer"><FaTwitter /></a>
-            <a href="#" target="_blank" rel="noreferrer"><FaInstagram /></a>
-            <a href="#" target="_blank" rel="noreferrer"><FaLinkedin /></a>
-          </div>
         </div>
 
         <div className="footer-links">
@@ -62,14 +55,6 @@ function Footer() {
           <div className="links-column">
             <h4 style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '0.7rem', marginBottom: '20px', lineHeight: '1.4' }}>Support</h4>
             <Link to="/contact">Contact Us</Link>
-            <a href="#">FAQ</a>
-            <a href="#">Scoring Guide</a>
-          </div>
-
-          <div className="links-column">
-            <h4 style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '0.7rem', marginBottom: '20px', lineHeight: '1.4' }}>Legal</h4>
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
           </div>
         </div>
       </div>
