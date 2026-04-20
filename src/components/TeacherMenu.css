@@ -103,21 +103,35 @@
 }
 
 /* ==========================================================================
-   🟢 TEACHER DASHBOARD SPECIFIC THEME OVERRIDES 
-   This safely isolates these color changes so they NEVER touch the Student Menu!
-   ========================================================================== */
-/* ==========================================================================
-   🟢 TEACHER DASHBOARD - "THE GAME MASTER" (GREEN)
+   🟡 TEACHER DASHBOARD - "YELLOW BACKGROUND & GREEN BORDERS"
    ========================================================================== */
 .teacher-dashboard.teacher-theme {
-  /* Almost black/graphite backgrounds to blend smoothly under the header */
-  --primary-blue: #121212; 
-  --darker-blue: #0a0a0a;  
+  /* ARCADS Yellow Backgrounds */
+  --primary-blue: #fca311; /* The ARCADS Yellow/Orange */
+  --darker-blue: #e08e0b;  /* Slightly darker yellow for the sidebar and cards */
   
-  /* Bright Neon Terminal Green for all borders, active tabs, and accents */
-  --arcade-yellow: #00ff66; 
-  --arcade-orange: #00cc55; 
-  
-  /* Keep warnings/deletes red */
-  --arcade-red: #ff4c4c; 
+  /* Green for buttons, borders, and active tabs */
+  --arcade-yellow: #14a014; /* Classic Arcade Green */
+  --arcade-orange: #0a730a; /* Darker Green for hover states */
+  --arcade-red: #ff4c4c;    /* Keep destructive actions red */
+}
+
+/* ⚠️ FORCED TEXT COLOR FIX: White text is invisible on a yellow background! 
+   This forces your text to be dark navy without you having to rewrite your JSX. */
+.teacher-dashboard.teacher-theme h2,
+.teacher-dashboard.teacher-theme h3,
+.teacher-dashboard.teacher-theme p,
+.teacher-dashboard.teacher-theme th,
+.teacher-dashboard.teacher-theme td,
+.teacher-dashboard.teacher-theme label,
+.teacher-dashboard.teacher-theme input,
+.teacher-dashboard.teacher-theme select {
+  color: #14213d !important;
+}
+
+/* Keep the text inside the green buttons white! */
+.teacher-dashboard.teacher-theme .btn,
+.teacher-dashboard.teacher-theme .remove-btn,
+.teacher-dashboard.teacher-theme .sidebar-btn.active {
+  color: #ffffff !important;
 }
