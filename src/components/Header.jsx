@@ -13,7 +13,6 @@ function Header() {
   const userRole = localStorage.getItem('role') || localStorage.getItem('userRole'); 
   const dashboardRoute = userRole === 'student' ? '/student-menu' : '/teacher-menu';
   
-  // 🟢 NEW: Check if the user is a teacher for the color override
   const isTeacher = userRole?.toLowerCase() === 'teacher';
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -66,8 +65,12 @@ function Header() {
         }
       `}</style>
 
-      {/* 🟢 NEW: Conditionally apply the darker plum background only for teachers */}
-      <header className="site-header" style={{ position: 'sticky', top: 0, zIndex: 100, backgroundColor: isTeacher ? '#170a1e' : undefined }}>
+      {/* Hides the blue border under the header by matching the background color */}
+      <header className="site-header" style={{ 
+          position: 'sticky', top: 0, zIndex: 100, 
+          backgroundColor: isTeacher ? '#170a1e' : undefined,
+          borderBottomColor: isTeacher ? '#170a1e' : undefined 
+      }}>
         
         <Link to="/" className="logo" onClick={() => setIsMobileMenuOpen(false)}>ARCADS</Link>
 

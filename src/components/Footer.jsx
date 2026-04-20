@@ -11,7 +11,10 @@ function Footer() {
   const isTeacher = userRole?.toLowerCase() === 'teacher';
 
   return (
-    <footer className="site-footer" style={{ backgroundColor: isTeacher ? '#170a1e' : undefined }}>
+    <footer className="site-footer" style={{ 
+        backgroundColor: isTeacher ? '#170a1e' : undefined,
+        marginTop: isTeacher ? '0' : undefined /* Removes the thick blue gap above the footer */
+    }}>
       
       <style>{`
         * { box-sizing: border-box; }
@@ -36,7 +39,8 @@ function Footer() {
         </div>
       )}
 
-      <div className="footer-main">
+      {/* Removes the thin blue line above the copyright text */}
+      <div className="footer-main" style={{ borderBottomColor: isTeacher ? 'rgba(255,255,255,0.05)' : undefined }}>
         <div className="footer-about">
           {/* Logo with 8-bit Pixel font */}
           <div className="logo" style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '1.4rem', letterSpacing: '2px', marginBottom: '15px' }}>
