@@ -6,9 +6,12 @@ import { useAuth } from '../context/LogInAuthenticate';
 function Footer() {
   const { userLoggedIn } = useAuth();
   const currentYear = new Date().getFullYear();
+  
+  const userRole = localStorage.getItem('role') || localStorage.getItem('userRole');
+  const isTeacher = userRole?.toLowerCase() === 'teacher';
 
   return (
-    <footer className="site-footer">
+    <footer className="site-footer" style={{ backgroundColor: isTeacher ? '#170a1e' : undefined }}>
       
       <style>{`
         * { box-sizing: border-box; }
