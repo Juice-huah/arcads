@@ -17,7 +17,6 @@ const GAME_DISPLAY_NAMES = {
     'hamsterball': 'HAMSTERBALL'
 };
 
-// 🟢 UPDATED: This function now prioritizes the custom_title from the DB
 const getDisplayName = (game) => {
     if (game.custom_title && game.custom_title.trim() !== "") {
         return game.custom_title.toUpperCase();
@@ -51,6 +50,9 @@ function TeacherMenu() {
   const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
   
   const [newClassName, setNewClassName] = useState('');
+  const [classSearchQuery, setClassSearchQuery] = useState('');
+  const [createClassError, setCreateClassError] = useState('');
+
   const [editClassNameInput, setEditClassNameInput] = useState('');
   const [studentIdentifier, setStudentIdentifier] = useState(''); 
   const [studentToRemove, setStudentToRemove] = useState(null); 
@@ -73,26 +75,24 @@ function TeacherMenu() {
   const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
 
-  // 🟢 NEW: Frontend Clock State for Schedule Updates
   const [clockTick, setClockTick] = useState(0);
 
-  // 🟢 NEW: Invisible Clock Tick (Runs every 60 seconds)
   useEffect(() => {
       const timer = setInterval(() => {
-          setClockTick(prev => prev + 1); // Forces React to recalculate the open/close times
+          setClockTick(prev => prev + 1); 
       }, 60000); 
       return () => clearInterval(timer);
   }, []);
 
   const getActivityStatus = (game) => {
-      if (!game.is_active) return { text: "● CLOSED", color: "#ff4c4c" }; // Manually closed
+      if (!game.is_active) return { text: "● CLOSED", color: "#ff4c4c" }; 
 
-      const now = new Date(); // Updates automatically with clockTick
+      const now = new Date(); 
       const openDate = game.open_datetime ? new Date(game.open_datetime.replace(' ', 'T')) : null;
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
       if (openDate && now < openDate) {
-          return { text: "● SCHEDULED", color: "#ff9900" };
+          return { text: "● SCHEDULED", color: "#fca311" }; // 🟢 Updated Orange
       }
       if (closeDate && now > closeDate) {
           return { text: "● CLOSED", color: "#ff4c4c" };
@@ -101,7 +101,6 @@ function TeacherMenu() {
       return { text: "● OPEN", color: "#14a014" }; 
   };
 
-  // 🟢 UPDATED: Auth Listener (Runs once on load)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -117,36 +116,31 @@ function TeacherMenu() {
     return () => unsubscribe();
   }, []);
 
-  // 🟢 NEW: THE MASTER POLLER (Runs every 30 seconds)
   useEffect(() => {
       if (!user) return;
-
       const pollingInterval = setInterval(() => {
-          // Keep the background lists fresh
           fetchClasses(user.uid);
           fetchGames(user.uid);
-
-          // If the teacher is staring at a class roster, fetch new students live
           if (selectedClass && selectedClass.class_id) {
               fetchStudents(selectedClass.class_id);
           }
-
-          // If the teacher is staring at the gradebook, fetch new scores live
           if (gradebookGame) {
               fetchGradebook(gradebookGame);
           }
-          
-      }, 30000); // 30 seconds
+      }, 30000); 
 
       return () => clearInterval(pollingInterval);
-  }, [user, selectedClass, gradebookGame]); // Dependencies ensure it polls the *currently open* tab
+  }, [user, selectedClass, gradebookGame]); 
 
   const fetchClasses = async (userId) => {
     try {
       if (!userId) return;
       const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
-      if (Array.isArray(data)) setClasses(data);
+      if (Array.isArray(data)) {
+          const sortedData = data.sort((a, b) => b.class_id - a.class_id);
+          setClasses(sortedData);
+      }
       else setClasses([]); 
     } catch (err) {
       console.error("Error fetching classes:", err);
@@ -165,7 +159,7 @@ function TeacherMenu() {
     }
   };
 
-const fetchStudents = async (classId) => {
+  const fetchStudents = async (classId) => {
     try {
       const res = await fetch(`https://arcads-api.onrender.com/api/class-members/${classId}`);
       const data = await res.json();
@@ -176,7 +170,6 @@ const fetchStudents = async (classId) => {
               const nameB = (b.student_surname || "").toLowerCase();
               return nameA.localeCompare(nameB);
           });
-          
           setClassStudents(sortedStudents);
       } else {
           setClassStudents([]);
@@ -244,15 +237,27 @@ const fetchStudents = async (classId) => {
   const handleCreateClass = async (e) => {
     e.preventDefault();
     if (!user || !user.uid) return;
+
+    const trimmedName = newClassName.trim();
+
+    const isDuplicate = classes.some(cls => cls.class_name.toLowerCase() === trimmedName.toLowerCase());
+    if (isDuplicate) {
+        setCreateClassError("A class with this exact name already exists!");
+        return;
+    }
+
+    setCreateClassError(''); 
+
     try {
       const res = await fetch('https://arcads-api.onrender.com/api/create-class', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ teacher_fid: user.uid, class_name: newClassName })
+        body: JSON.stringify({ teacher_fid: user.uid, class_name: trimmedName })
       });
       if(res.ok) {
         setShowCreateModal(false);
         setNewClassName('');
+        setClassSearchQuery(''); 
         fetchClasses(user.uid); 
       }
     } catch (err) {
@@ -306,7 +311,14 @@ const fetchStudents = async (classId) => {
   const submitEditClass = async (e) => {
       e.preventDefault();
       const newName = editClassNameInput.trim();
+      
       if (newName && newName !== selectedClass.class_name) {
+          const isDuplicate = classes.some(cls => cls.class_name.toLowerCase() === newName.toLowerCase() && cls.class_id !== selectedClass.class_id);
+          if (isDuplicate) {
+              alert("Another class with this name already exists.");
+              return;
+          }
+
           try {
               const res = await fetch(`https://arcads-api.onrender.com/api/edit-class/${selectedClass.class_id}`, {
                   method: 'PUT',
@@ -342,7 +354,7 @@ const fetchStudents = async (classId) => {
       }
   };
 
-const openEditSchedule = (game) => {
+  const openEditSchedule = (game) => {
       setSelectedGameForSchedule(game);
       
       if (game.open_datetime) {
@@ -422,7 +434,6 @@ const openEditSchedule = (game) => {
       }
   };
 
-  // 🟢 NEW: Delete Game Functions
   const promptDeleteGame = (game) => {
       setSelectedGameToDelete(game);
       setShowDeleteGameModal(true);
@@ -436,7 +447,7 @@ const openEditSchedule = (game) => {
           if (res.ok) {
               setShowDeleteGameModal(false);
               fetchGames(user.uid); 
-              setGradebookGame(null); // Clear gradebook if they deleted the game they were viewing
+              setGradebookGame(null); 
           }
       } catch (err) {
           console.error("Error deleting game:", err);
@@ -448,11 +459,60 @@ const openEditSchedule = (game) => {
       setSelectedClass(null);
       setGradebookClass(null);
       setGradebookGame(null);
+      setClassSearchQuery(''); 
   };
+
+  const filteredClasses = classes.filter(cls => 
+      cls.class_name.toLowerCase().includes(classSearchQuery.toLowerCase())
+  );
+
   return (
     <div className="teacher-dashboard">
-      {/* 🟢 CSS INJECTION: Mobile Responsive Dashboard Fixes */}
+      {/* 🟢 CSS INJECTION: Custom Orange & Dark Blue Theme */}
       <style>{`
+        .teacher-dashboard {
+            background-color: #14213d !important;
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar {
+            background-color: #0a1128 !important; 
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-btn {
+            color: #fca311 !important;
+        }
+        .sidebar-btn.active {
+            background-color: #fca311 !important;
+            color: #000 !important;
+            border-left: 4px solid #fff;
+        }
+        .btn-primary {
+            background-color: #fca311 !important;
+            color: black !important;
+            border: none !important;
+            font-weight: bold;
+        }
+        .btn-primary:hover {
+            background-color: #e08e0b !important;
+        }
+        .class-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .class-card:hover {
+            border-color: #fca311 !important;
+        }
+        .modal-box {
+            background-color: #14213d !important;
+            color: white !important;
+            border: 1px solid #fca311 !important;
+        }
+        .game-input, .game-select {
+            background-color: #0a1128 !important;
+            color: white !important;
+            border: 1px solid #444 !important;
+        }
         * { box-sizing: border-box; }
         @media (max-width: 850px) {
           .teacher-dashboard { flex-direction: column !important; }
@@ -463,11 +523,10 @@ const openEditSchedule = (game) => {
           .content-area { padding: 20px 10px !important; }
           .section-header { flex-direction: column; align-items: flex-start !important; gap: 15px; }
           .header-actions { display: flex; flex-direction: column; width: 100%; gap: 10px; }
-          .header-actions button { width: 100%; }
+          .header-actions button, .header-actions input { width: 100%; }
           
-          /* Wrap tables so they scroll instead of breaking the page */
           .table-responsive { width: 100%; overflow-x: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
-          .students-table { min-width: 600px; } /* Ensures table content doesn't squish too much */
+          .students-table { min-width: 600px; } 
 
           .modal-box { width: 95% !important; padding: 20px !important; max-height: 90vh; overflow-y: auto; }
           .modal-actions-row { flex-direction: column !important; gap: 10px !important; }
@@ -476,7 +535,7 @@ const openEditSchedule = (game) => {
       `}</style>
 
       <div className="sidebar">
-        <h3 style={{color: '#ff9900', textAlign:'center'}}>MENU</h3>
+        <h3 style={{color: '#fca311', textAlign:'center'}}>MENU</h3>
         <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>My Classes</button>
         <button className={`sidebar-btn ${activeTab === 'library' ? 'active' : ''}`} onClick={() => switchTab('library')}>Game Library</button>
         <button className={`sidebar-btn ${activeTab === 'active' ? 'active' : ''}`} onClick={() => switchTab('active')}>My Activities</button>
@@ -487,14 +546,21 @@ const openEditSchedule = (game) => {
           <>
             <div className="section-header">
               <h2>MY CLASSES</h2>
-              <div className="header-actions">
-                <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ CREATE CLASS</button>
+              <div className="header-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input 
+                    type="text" 
+                    placeholder="Search classes..." 
+                    value={classSearchQuery}
+                    onChange={(e) => setClassSearchQuery(e.target.value)}
+                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+                />
+                <button className="btn btn-primary" onClick={() => { setShowCreateModal(true); setCreateClassError(''); setNewClassName(''); }}>+ CREATE CLASS</button>
               </div>
             </div>
 
             <div className="classes-grid">
-              {Array.isArray(classes) && classes.length === 0 ? <p>No classes yet. Create one!</p> : null}
-              {Array.isArray(classes) && classes.map((cls) => (
+              {Array.isArray(filteredClasses) && filteredClasses.length === 0 ? <p style={{color: '#aaa'}}>No classes found.</p> : null}
+              {Array.isArray(filteredClasses) && filteredClasses.map((cls) => (
                 <div key={cls.class_id} className="class-card" onClick={() => openClass(cls)}>
                   <h3 style={{color: '#fff'}}>{cls.class_name}</h3>
                   <p style={{fontSize: '0.8rem', color: '#aaa'}}>Manage Students</p>
@@ -509,7 +575,7 @@ const openEditSchedule = (game) => {
             <div className="section-header">
               <div>
                   <h2 style={{margin: 0}}>{selectedClass.class_name}</h2>
-                  <p style={{color: '#ffd700', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
+                  <p style={{color: '#fca311', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
                       Class Code: <b>{selectedClass.class_code || 'Old Class (No Code)'}</b>
                   </p>
               </div>
@@ -521,7 +587,6 @@ const openEditSchedule = (game) => {
               </div>
             </div>
 
-            {/* 🟢 Responsive Table Wrapper */}
             <div className="table-responsive" style={{marginTop: '20px'}}>
               <table className="students-table">
                 <thead><tr><th>Name</th><th>Username</th><th>Remove</th></tr></thead>
@@ -542,13 +607,14 @@ const openEditSchedule = (game) => {
             </div>
           </>
         )}
+
         {activeTab === 'library' && (
           <>
             <div className="section-header"><h2>GAME LIBRARY</h2></div>
             <p style={{marginBottom: '20px'}}>Select a template to create a new activity.</p>
             <div className="classes-grid">
-               <div className="class-card" style={{border: '2px solid #0ac8f0'}}>
-                 <h3 style={{color: '#0ac8f0', fontSize: '1rem'}}>MAZE ESCAPE</h3>
+               <div className="class-card" style={{border: '2px solid #fca311'}}>
+                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>MAZE ESCAPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Find clues and answer questions to unlock doors.</p>
                  <Link to="/teacher/create-maze"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem'}}>+ CREATE</button></Link>
                </div>
@@ -617,7 +683,6 @@ const openEditSchedule = (game) => {
                   <button className="btn btn-secondary" onClick={() => setGradebookClass(null)}>BACK</button>
                 </div>
             </div>
-            {/* 🟢 Responsive Table Wrapper */}
             <div className="table-responsive">
               <table className="students-table">
                   <thead><tr><th>ACTIVITY NAME</th><th>DATE CREATED</th><th>ACTION</th></tr></thead>
@@ -625,8 +690,7 @@ const openEditSchedule = (game) => {
                       {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                           <tr key={g.game_id}>
                               <td>
-                                  {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
-                                  <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
+                                  <div style={{color: '#fca311', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
                                   <div style={{fontSize: '0.7rem', marginTop: '5px', color: getActivityStatus(g).color}}>
                                       {getActivityStatus(g).text}
                                   </div>
@@ -636,13 +700,12 @@ const openEditSchedule = (game) => {
                                   <div style={{display: 'flex', gap: '5px'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
-                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0ac8f0', color: '#0ac8f0'}} onClick={() => openEditSchedule(g)}>
+                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#fca311', color: '#fca311'}} onClick={() => openEditSchedule(g)}>
                                           SCHEDULE
                                       </button>
                                       <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
                                           {g.is_active ? "CLOSE" : "REOPEN"}
                                       </button>
-                                      {/* 🟢 NEW: DELETE GAME BUTTON ADDED HERE */}
                                       <button className="btn btn-danger" style={{backgroundColor: '#dc3545', color: '#fff', border: 'none'}} onClick={() => promptDeleteGame(g)}>
                                           DELETE
                                       </button>
@@ -660,7 +723,6 @@ const openEditSchedule = (game) => {
           <>
             <div className="section-header">
                 <div>
-                  {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
                   <h2 style={{margin: 0}}>{getDisplayName(gradebookGame)} Grades</h2>
                   <p style={{color: '#aaa'}}>Class: {gradebookClass.class_name}</p>
                 </div>
@@ -670,7 +732,6 @@ const openEditSchedule = (game) => {
                 </div>
             </div>
             
-            {/* 🟢 Responsive Table Wrapper */}
             <div className="table-responsive">
               <table className="students-table">
                   <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th></tr></thead>
@@ -698,8 +759,7 @@ const openEditSchedule = (game) => {
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            {/* 🟢 TRANSLATED USING DICTIONARY & CUSTOM TITLE */}
-            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
+            <h2 style={{color: '#fca311'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
@@ -728,7 +788,23 @@ const openEditSchedule = (game) => {
         <div className="modal-overlay">
           <div className="modal-box">
             <h2>NEW CLASS</h2>
-            <form onSubmit={handleCreateClass}><div className="form-group"><input type="text" placeholder="Class Name" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} required /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">CREATE</button><button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">CANCEL</button></div></form>
+            {createClassError && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '10px'}}>{createClassError}</p>}
+            <form onSubmit={handleCreateClass}>
+              <div className="form-group">
+                <input 
+                  type="text" 
+                  placeholder="Class Name" 
+                  value={newClassName} 
+                  onChange={(e) => { setNewClassName(e.target.value); setCreateClassError(''); }} 
+                  required 
+                  className="game-input"
+                />
+              </div>
+              <div className="modal-actions-row">
+                <button type="submit" className="btn btn-primary">CREATE</button>
+                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">CANCEL</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -739,7 +815,7 @@ const openEditSchedule = (game) => {
             <h2>ADD STUDENT</h2>
             <p style={{fontSize:'0.8rem', color:'#aaa', marginBottom:'15px'}}>Enter the student's <b>Username</b>.</p>
             {statusMsg && <p className="error-text" style={{color: '#ff4c4c'}}>{statusMsg}</p>}
-            <form onSubmit={handleAddStudent}><div className="form-group"><input type="text" placeholder="Username" value={studentIdentifier} onChange={(e) => {setStudentIdentifier(e.target.value); setStatusMsg('');}} required /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">ADD</button><button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary">CLOSE</button></div></form>
+            <form onSubmit={handleAddStudent}><div className="form-group"><input type="text" placeholder="Username" value={studentIdentifier} onChange={(e) => {setStudentIdentifier(e.target.value); setStatusMsg('');}} required className="game-input" /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">ADD</button><button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary">CLOSE</button></div></form>
           </div>
         </div>
       )}
@@ -748,7 +824,7 @@ const openEditSchedule = (game) => {
         <div className="modal-overlay">
           <div className="modal-box">
             <h2>EDIT CLASS NAME</h2>
-            <form onSubmit={submitEditClass}><div className="form-group"><input type="text" value={editClassNameInput} onChange={(e) => setEditClassNameInput(e.target.value)} required /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">SAVE</button><button type="button" onClick={() => setShowEditClassModal(false)} className="btn btn-secondary">CANCEL</button></div></form>
+            <form onSubmit={submitEditClass}><div className="form-group"><input type="text" value={editClassNameInput} onChange={(e) => setEditClassNameInput(e.target.value)} required className="game-input" /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">SAVE</button><button type="button" onClick={() => setShowEditClassModal(false)} className="btn btn-secondary">CANCEL</button></div></form>
           </div>
         </div>
       )}
@@ -765,8 +841,8 @@ const openEditSchedule = (game) => {
 
       {showRemoveStudentModal && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ border: '2px solid #ff9900' }}>
-            <h2 style={{color: '#ff9900'}}>REMOVE STUDENT</h2>
+          <div className="modal-box" style={{ border: '2px solid #fca311' }}>
+            <h2 style={{color: '#fca311'}}>REMOVE STUDENT</h2>
             <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>Remove student from class?</p>
             <div className="modal-actions-row"><button type="button" onClick={confirmRemoveStudent} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>REMOVE</button><button type="button" onClick={() => setShowRemoveStudentModal(false)} className="btn btn-secondary">CANCEL</button></div>
           </div>
@@ -776,12 +852,12 @@ const openEditSchedule = (game) => {
       {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0ac8f0'}}>
-            <h2 style={{color: '#0ac8f0'}}>EDIT SCHEDULE</h2>
+          <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #fca311'}}>
+            <h2 style={{color: '#fca311'}}>EDIT SCHEDULE</h2>
             <form onSubmit={submitEditSchedule}>
-              <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+              <div style={{textAlign: 'left', backgroundColor: '#0a1128', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
                   <div style={{marginBottom: '15px'}}>
-                      <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
+                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
                       <div style={{display: 'flex', gap: '10px'}}>
                           <input type="date" className="game-input" value={editOpenDate} onChange={e => setEditOpenDate(e.target.value)} required />
                           <input type="time" className="game-input" value={editOpenTime} onChange={e => setEditOpenTime(e.target.value)} required />
@@ -801,13 +877,13 @@ const openEditSchedule = (game) => {
                       )}
                   </div>
                   <div>
-                      <label style={{display: 'block', color: '#ff9900', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
+                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
                           <input type="checkbox" checked={editUnlimitedTime} onChange={(e) => setEditUnlimitedTime(e.target.checked)} />
                           Unlimited Time
                       </label>
                       {!editUnlimitedTime && (
-                          <select className="game-select" value={editTimeLimit} onChange={e => setTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#222', color: '#fff', border: '1px solid #555'}}>
+                          <select className="game-select" value={editTimeLimit} onChange={e => setTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#0a1128', color: '#fff', border: '1px solid #444'}}>
                               <option value="5">5 Minutes</option>
                               <option value="10">10 Minutes</option>
                               <option value="15">15 Minutes</option>
@@ -846,7 +922,6 @@ const openEditSchedule = (game) => {
         </div>
       )}
 
-      {/* 🟢 NEW: DELETE GAME MODAL INTEGRATED HERE */}
       {showDeleteGameModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: '2px solid #dc3545' }}>
