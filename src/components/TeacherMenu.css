@@ -116,20 +116,41 @@
   --arcade-red: #ff4c4c;    /* Keep destructive actions red */
 }
 
-/* ⚠️ FORCED TEXT COLOR FIX: White text is invisible on a yellow background! 
-   This forces your text to be dark navy without you having to rewrite your JSX. */
-.teacher-dashboard.teacher-theme h2,
-.teacher-dashboard.teacher-theme h3,
-.teacher-dashboard.teacher-theme p,
-.teacher-dashboard.teacher-theme th,
-.teacher-dashboard.teacher-theme td,
-.teacher-dashboard.teacher-theme label,
-.teacher-dashboard.teacher-theme input,
-.teacher-dashboard.teacher-theme select {
-  color: #14213d !important;
+/* ==========================================================================
+   🟢 TEACHER DASHBOARD - "TAME YELLOW & DARK MENU"
+   ========================================================================== */
+.teacher-dashboard.teacher-theme {
+  /* Main Content Background: Tamer, softer cream-yellow */
+  --primary-blue: #fdf5d3; 
+
+  /* Sidebar & Cards Background: Much darker (Deep Navy/Onyx) */
+  --darker-blue: #0d1629;  
+  
+  /* Green for buttons, borders, and active tabs */
+  --arcade-yellow: #14a014; 
+  --arcade-orange: #0a730a; 
+  --arcade-red: #ff4c4c;    
 }
 
-/* Keep the text inside the green buttons white! */
+/* ⚠️ TEXT COLOR FIXES */
+/* 1. Make text dark so it's readable on the soft yellow background */
+.teacher-dashboard.teacher-theme .content-area h2,
+.teacher-dashboard.teacher-theme .content-area > p,
+.teacher-dashboard.teacher-theme .students-table td,
+.teacher-dashboard.teacher-theme .game-input,
+.teacher-dashboard.teacher-theme .game-select {
+  color: #0d1629 !important;
+}
+
+/* 2. Keep text light inside the dark sidebar, dark cards, and table headers */
+.teacher-dashboard.teacher-theme .sidebar-btn,
+.teacher-dashboard.teacher-theme .class-card h3,
+.teacher-dashboard.teacher-theme .class-card p,
+.teacher-dashboard.teacher-theme .students-table th {
+  color: #fdf5d3 !important; 
+}
+
+/* 3. Ensure button text remains stark white against the green */
 .teacher-dashboard.teacher-theme .btn,
 .teacher-dashboard.teacher-theme .remove-btn,
 .teacher-dashboard.teacher-theme .sidebar-btn.active {
