@@ -107,12 +107,12 @@
    This safely isolates these color changes so they NEVER touch the Student Menu!
    ========================================================================== */
 .teacher-dashboard.teacher-theme {
-  /* Darkens the background blue from the image to a deeper navy */
-  --primary-blue: #091b2e; 
-  --darker-blue: #05101c; 
+  /* Deep Arcade Synthwave Purple backgrounds */
+  --primary-blue: #240046; 
+  --darker-blue: #10002b; 
   
-  /* Replaces all the yellow with your official ARCADS Red-Orange */
-  --arcade-yellow: #e33a15; 
-  --arcade-orange: #e33a15;
-  --arcade-red: #e33a15;
+  /* Reverting back to the classic Arcade Yellow and Orange accents */
+  --arcade-yellow: #ffd700; 
+  --arcade-orange: #ffb703;
+  --arcade-red: #ff4c4c;
 }
