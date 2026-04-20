@@ -132,27 +132,18 @@
   --arcade-red: #ff4c4c;    
 }
 
-/* ⚠️ TEXT COLOR FIXES */
-/* 1. Make text dark so it's readable on the soft yellow background */
-.teacher-dashboard.teacher-theme .content-area h2,
-.teacher-dashboard.teacher-theme .content-area > p,
-.teacher-dashboard.teacher-theme .students-table td,
-.teacher-dashboard.teacher-theme .game-input,
-.teacher-dashboard.teacher-theme .game-select {
-  color: #0d1629 !important;
-}
+/* ==========================================================================
+   🟣 TEACHER DASHBOARD - "DEEP PLUM ARCADE"
+   ========================================================================== */
+.teacher-dashboard.teacher-theme {
+  /* Main Content Background: The new purple you selected */
+  --primary-blue: #2f143d; 
 
-/* 2. Keep text light inside the dark sidebar, dark cards, and table headers */
-.teacher-dashboard.teacher-theme .sidebar-btn,
-.teacher-dashboard.teacher-theme .class-card h3,
-.teacher-dashboard.teacher-theme .class-card p,
-.teacher-dashboard.teacher-theme .students-table th {
-  color: #fdf5d3 !important; 
-}
-
-/* 3. Ensure button text remains stark white against the green */
-.teacher-dashboard.teacher-theme .btn,
-.teacher-dashboard.teacher-theme .remove-btn,
-.teacher-dashboard.teacher-theme .sidebar-btn.active {
-  color: #ffffff !important;
+  /* Sidebar & Cards Background: A mathematically darker shade of the plum */
+  --darker-blue: #170a1e;  
+  
+  /* Retaining your original bright accents for the borders and buttons */
+  --arcade-yellow: #ffd700; 
+  --arcade-orange: #fca311; 
+  --arcade-red: #ff4c4c;    
 }
