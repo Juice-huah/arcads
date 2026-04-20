@@ -6,7 +6,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
-// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -92,8 +91,7 @@ function TeacherMenu() {
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
       if (openDate && now < openDate) {
-          // 🟢 Red-Orange for Scheduled
-          return { text: "● SCHEDULED", color: "#e33a15" }; 
+          return { text: "● SCHEDULED", color: "#fca311" }; // Changed to Orange
       }
       if (closeDate && now > closeDate) {
           return { text: "● CLOSED", color: "#ff4c4c" };
@@ -467,23 +465,9 @@ function TeacherMenu() {
       cls.class_name.toLowerCase().includes(classSearchQuery.toLowerCase())
   );
 
-  return (
-    <div className="teacher-dashboard">
+ return (
+    <div className="teacher-dashboard teacher-theme">
       <style>{`
-        /* 🟢 Red-Orange Button and Sidebar overrides */
-        .sidebar-btn.active {
-            background-color: #e33a15 !important;
-            color: #fff !important;
-            border-left: 4px solid #fff;
-        }
-        .btn-primary {
-            background-color: #e33a15 !important;
-            color: white !important;
-            border: none !important;
-        }
-        .btn-primary:hover {
-            background-color: #c22d0f !important;
-        }
         * { box-sizing: border-box; }
         @media (max-width: 850px) {
           .teacher-dashboard { flex-direction: column !important; }
@@ -506,8 +490,8 @@ function TeacherMenu() {
       `}</style>
 
       <div className="sidebar">
-        {/* 🟢 Replaced Yellow with Red-Orange */}
-        <h3 style={{color: '#e33a15', textAlign:'center'}}>MENU</h3>
+        {/* Changed Yellow to Orange */}
+        <h3 style={{color: '#fca311', textAlign:'center'}}>MENU</h3>
         <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>My Classes</button>
         <button className={`sidebar-btn ${activeTab === 'library' ? 'active' : ''}`} onClick={() => switchTab('library')}>Game Library</button>
         <button className={`sidebar-btn ${activeTab === 'active' ? 'active' : ''}`} onClick={() => switchTab('active')}>My Activities</button>
@@ -547,8 +531,8 @@ function TeacherMenu() {
             <div className="section-header">
               <div>
                   <h2 style={{margin: 0}}>{selectedClass.class_name}</h2>
-                  {/* 🟢 Replaced Yellow with Red-Orange */}
-                  <p style={{color: '#e33a15', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
+                  {/* Changed Yellow to Orange */}
+                  <p style={{color: '#fca311', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
                       Class Code: <b>{selectedClass.class_code || 'Old Class (No Code)'}</b>
                   </p>
               </div>
@@ -586,18 +570,18 @@ function TeacherMenu() {
             <div className="section-header"><h2>GAME LIBRARY</h2></div>
             <p style={{marginBottom: '20px'}}>Select a template to create a new activity.</p>
             <div className="classes-grid">
-               {/* 🟢 Replaced Light Blue with Darker Blue */}
+               {/* Changed Light Blue to Darker Blue */}
                <div className="class-card" style={{border: '2px solid #0066cc'}}>
                  <h3 style={{color: '#0066cc', fontSize: '1rem'}}>MAZE ESCAPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Find clues and answer questions to unlock doors.</p>
                  <Link to="/teacher/create-maze"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem'}}>+ CREATE</button></Link>
                </div>
                
-               {/* 🟢 Replaced Yellow with Red-Orange */}
-               <div className="class-card" style={{border: '2px solid #e33a15'}}>
-                 <h3 style={{color: '#e33a15', fontSize: '1rem'}}>ADVENTURE BATTLE</h3>
+               {/* Changed Yellow to Orange */}
+               <div className="class-card" style={{border: '2px solid #fca311'}}>
+                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>ADVENTURE BATTLE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Turn-based RPG combat. Defeat monsters by answering correctly.</p>
-                 <Link to="/teacher/create-adventure"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#e33a15', border: 'none'}}>+ CREATE</button></Link>
+                 <Link to="/teacher/create-adventure"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#fca311', border: 'none'}}>+ CREATE</button></Link>
                </div>
                
                <div className="class-card" style={{border: '2px solid #ce93d8'}}>
@@ -618,11 +602,11 @@ function TeacherMenu() {
                  <Link to="/teacher/create-whack-a-mole"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff4757', color:'#fff', border: 'none'}}>+ CREATE</button></Link>
                </div>
                
-               {/* 🟢 Replaced Yellow with Red-Orange */}
-               <div className="class-card" style={{border: '2px solid #e33a15'}}>
-                 <h3 style={{color: '#e33a15', fontSize: '1rem'}}>WORD TOWER DEFENSE</h3>
+               {/* Changed Yellow to Orange */}
+               <div className="class-card" style={{border: '2px solid #fca311'}}>
+                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>WORD TOWER DEFENSE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Defend the castle! Match the correct words to fire at approaching enemies.</p>
-                 <Link to="/teacher/create-tower-defense"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#e33a15', color: '#fff', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
+                 <Link to="/teacher/create-tower-defense"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#fca311', color: '#000', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
                
                <div className="class-card" style={{border: '2px solid #ff007f'}}>
@@ -631,7 +615,7 @@ function TeacherMenu() {
                  <Link to="/teacher/create-hamsterball"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff007f', color:'#fff', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
 
-               {/* 🟢 Replaced Light Blue with Darker Blue */}
+               {/* Changed Light Blue to Darker Blue */}
                <div className="class-card" style={{border: '2px solid #0066cc'}}>
                  <h3 style={{color: '#0066cc', fontSize: '1rem'}}>STARTYPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Galactic Typing Combat. Your keyboard is your weapon. Type words to destroy enemy ships!</p>
@@ -667,7 +651,7 @@ function TeacherMenu() {
                       {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                           <tr key={g.game_id}>
                               <td>
-                                  {/* 🟢 Replaced Light Blue with Darker Blue */}
+                                  {/* Changed Light Blue to Darker Blue */}
                                   <div style={{color: '#0066cc', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
                                   <div style={{fontSize: '0.7rem', marginTop: '5px', color: getActivityStatus(g).color}}>
                                       {getActivityStatus(g).text}
@@ -678,7 +662,7 @@ function TeacherMenu() {
                                   <div style={{display: 'flex', gap: '5px'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
-                                      {/* 🟢 Replaced Light Blue with Darker Blue */}
+                                      {/* Changed Light Blue to Darker Blue */}
                                       <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0066cc', color: '#0066cc'}} onClick={() => openEditSchedule(g)}>
                                           SCHEDULE
                                       </button>
@@ -738,7 +722,7 @@ function TeacherMenu() {
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            {/* 🟢 Replaced Light Blue with Darker Blue */}
+            {/* Changed Light Blue to Darker Blue */}
             <h2 style={{color: '#0066cc'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
@@ -820,9 +804,9 @@ function TeacherMenu() {
 
       {showRemoveStudentModal && (
         <div className="modal-overlay">
-          {/* 🟢 Replaced Yellow with Red-Orange */}
-          <div className="modal-box" style={{ border: '2px solid #e33a15' }}>
-            <h2 style={{color: '#e33a15'}}>REMOVE STUDENT</h2>
+          {/* Changed Yellow to Orange */}
+          <div className="modal-box" style={{ border: '2px solid #fca311' }}>
+            <h2 style={{color: '#fca311'}}>REMOVE STUDENT</h2>
             <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>Remove student from class?</p>
             <div className="modal-actions-row"><button type="button" onClick={confirmRemoveStudent} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>REMOVE</button><button type="button" onClick={() => setShowRemoveStudentModal(false)} className="btn btn-secondary">CANCEL</button></div>
           </div>
@@ -832,13 +816,13 @@ function TeacherMenu() {
       {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
-          {/* 🟢 Replaced Light Blue with Darker Blue */}
+          {/* Changed Light Blue to Darker Blue */}
           <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0066cc'}}>
             <h2 style={{color: '#0066cc'}}>EDIT SCHEDULE</h2>
             <form onSubmit={submitEditSchedule}>
               <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
                   <div style={{marginBottom: '15px'}}>
-                      {/* 🟢 Replaced Light Blue with Darker Blue */}
+                      {/* Changed Light Blue to Darker Blue */}
                       <label style={{display: 'block', color: '#0066cc', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
                       <div style={{display: 'flex', gap: '10px'}}>
                           <input type="date" className="game-input" value={editOpenDate} onChange={e => setEditOpenDate(e.target.value)} required />
@@ -859,8 +843,8 @@ function TeacherMenu() {
                       )}
                   </div>
                   <div>
-                      {/* 🟢 Replaced Yellow with Red-Orange */}
-                      <label style={{display: 'block', color: '#e33a15', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
+                      {/* Changed Yellow to Orange */}
+                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
                           <input type="checkbox" checked={editUnlimitedTime} onChange={(e) => setEditUnlimitedTime(e.target.checked)} />
                           Unlimited Time

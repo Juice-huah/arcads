@@ -3,7 +3,6 @@
 .teacher-dashboard {
   display: flex;
   min-height: calc(100vh - 80px);
-
   font-family: 'Press Start 2P', cursive;
   border-top: 4px solid var(--darker-blue); 
 }
@@ -101,4 +100,19 @@
   cursor: pointer;
   font-size: 0.8rem;
   border-radius: 4px;
+}
+
+/* ==========================================================================
+   🟢 TEACHER DASHBOARD SPECIFIC THEME OVERRIDES 
+   This safely isolates these color changes so they NEVER touch the Student Menu!
+   ========================================================================== */
+.teacher-dashboard.teacher-theme {
+  /* Darkens the background blue from the image to a deeper navy */
+  --primary-blue: #091b2e; 
+  --darker-blue: #05101c; 
+  
+  /* Replaces all the yellow with your official ARCADS Red-Orange */
+  --arcade-yellow: #e33a15; 
+  --arcade-orange: #e33a15;
+  --arcade-red: #e33a15;
 }
