@@ -106,13 +106,18 @@
    🟢 TEACHER DASHBOARD SPECIFIC THEME OVERRIDES 
    This safely isolates these color changes so they NEVER touch the Student Menu!
    ========================================================================== */
+/* ==========================================================================
+   🟢 TEACHER DASHBOARD - "THE GAME MASTER" (GREEN)
+   ========================================================================== */
 .teacher-dashboard.teacher-theme {
-  /* Dark Slate / Onyx - Blends perfectly with the navy header */
-  --primary-blue: #1e293b; /* Main content area background */
-  --darker-blue: #0f172a;  /* Sidebar and card backgrounds */
+  /* Almost black/graphite backgrounds to blend smoothly under the header */
+  --primary-blue: #121212; 
+  --darker-blue: #0a0a0a;  
   
-  /* Classic Arcade Yellow accents */
-  --arcade-yellow: #ffd700; 
-  --arcade-orange: #ffb703;
-  --arcade-red: #ff4c4c;
+  /* Bright Neon Terminal Green for all borders, active tabs, and accents */
+  --arcade-yellow: #00ff66; 
+  --arcade-orange: #00cc55; 
+  
+  /* Keep warnings/deletes red */
+  --arcade-red: #ff4c4c; 
 }
