@@ -50,6 +50,8 @@ function TeacherMenu() {
   const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
   
   const [newClassName, setNewClassName] = useState('');
+  
+  // 🟢 NEW STATES: For Class Search and Duplicate Error
   const [classSearchQuery, setClassSearchQuery] = useState('');
   const [createClassError, setCreateClassError] = useState('');
 
@@ -92,7 +94,7 @@ function TeacherMenu() {
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
       if (openDate && now < openDate) {
-          return { text: "● SCHEDULED", color: "#fca311" }; // 🟢 Updated Orange
+          return { text: "● SCHEDULED", color: "#ff9900" };
       }
       if (closeDate && now > closeDate) {
           return { text: "● CLOSED", color: "#ff4c4c" };
@@ -132,12 +134,14 @@ function TeacherMenu() {
       return () => clearInterval(pollingInterval);
   }, [user, selectedClass, gradebookGame]); 
 
+  // 🟢 UPDATED: Fetches classes and sorts them so the newest is always on top
   const fetchClasses = async (userId) => {
     try {
       if (!userId) return;
       const res = await fetch(`https://arcads-api.onrender.com/api/get-classes/${userId}`);
       const data = await res.json();
       if (Array.isArray(data)) {
+          // Sort descending by class_id (highest ID = newest class)
           const sortedData = data.sort((a, b) => b.class_id - a.class_id);
           setClasses(sortedData);
       }
@@ -234,19 +238,21 @@ function TeacherMenu() {
       document.body.removeChild(link);
   };
 
+  // 🟢 UPDATED: Checks for duplicates before creating the class
   const handleCreateClass = async (e) => {
     e.preventDefault();
     if (!user || !user.uid) return;
 
     const trimmedName = newClassName.trim();
 
+    // Check if class name already exists (case-insensitive)
     const isDuplicate = classes.some(cls => cls.class_name.toLowerCase() === trimmedName.toLowerCase());
     if (isDuplicate) {
         setCreateClassError("A class with this exact name already exists!");
         return;
     }
 
-    setCreateClassError(''); 
+    setCreateClassError(''); // Clear error if passing validation
 
     try {
       const res = await fetch('https://arcads-api.onrender.com/api/create-class', {
@@ -257,7 +263,7 @@ function TeacherMenu() {
       if(res.ok) {
         setShowCreateModal(false);
         setNewClassName('');
-        setClassSearchQuery(''); 
+        setClassSearchQuery(''); // Reset search so they can see the new class at the top
         fetchClasses(user.uid); 
       }
     } catch (err) {
@@ -313,6 +319,7 @@ function TeacherMenu() {
       const newName = editClassNameInput.trim();
       
       if (newName && newName !== selectedClass.class_name) {
+          // Check for duplicate during edit too
           const isDuplicate = classes.some(cls => cls.class_name.toLowerCase() === newName.toLowerCase() && cls.class_id !== selectedClass.class_id);
           if (isDuplicate) {
               alert("Another class with this name already exists.");
@@ -459,60 +466,17 @@ function TeacherMenu() {
       setSelectedClass(null);
       setGradebookClass(null);
       setGradebookGame(null);
-      setClassSearchQuery(''); 
+      setClassSearchQuery(''); // Clear search when switching tabs
   };
 
+  // 🟢 NEW: Filter the classes array based on the search query
   const filteredClasses = classes.filter(cls => 
       cls.class_name.toLowerCase().includes(classSearchQuery.toLowerCase())
   );
 
   return (
     <div className="teacher-dashboard">
-      {/* 🟢 CSS INJECTION: Custom Orange & Dark Blue Theme */}
       <style>{`
-        .teacher-dashboard {
-            background-color: #14213d !important;
-            min-height: 100vh;
-            color: white;
-        }
-        .sidebar {
-            background-color: #0a1128 !important; 
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .sidebar-btn {
-            color: #fca311 !important;
-        }
-        .sidebar-btn.active {
-            background-color: #fca311 !important;
-            color: #000 !important;
-            border-left: 4px solid #fff;
-        }
-        .btn-primary {
-            background-color: #fca311 !important;
-            color: black !important;
-            border: none !important;
-            font-weight: bold;
-        }
-        .btn-primary:hover {
-            background-color: #e08e0b !important;
-        }
-        .class-card {
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .class-card:hover {
-            border-color: #fca311 !important;
-        }
-        .modal-box {
-            background-color: #14213d !important;
-            color: white !important;
-            border: 1px solid #fca311 !important;
-        }
-        .game-input, .game-select {
-            background-color: #0a1128 !important;
-            color: white !important;
-            border: 1px solid #444 !important;
-        }
         * { box-sizing: border-box; }
         @media (max-width: 850px) {
           .teacher-dashboard { flex-direction: column !important; }
@@ -535,7 +499,7 @@ function TeacherMenu() {
       `}</style>
 
       <div className="sidebar">
-        <h3 style={{color: '#fca311', textAlign:'center'}}>MENU</h3>
+        <h3 style={{color: '#ff9900', textAlign:'center'}}>MENU</h3>
         <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>My Classes</button>
         <button className={`sidebar-btn ${activeTab === 'library' ? 'active' : ''}`} onClick={() => switchTab('library')}>Game Library</button>
         <button className={`sidebar-btn ${activeTab === 'active' ? 'active' : ''}`} onClick={() => switchTab('active')}>My Activities</button>
@@ -546,6 +510,7 @@ function TeacherMenu() {
           <>
             <div className="section-header">
               <h2>MY CLASSES</h2>
+              {/* 🟢 UPDATED: Search Bar added next to Create Class button */}
               <div className="header-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input 
                     type="text" 
@@ -559,6 +524,7 @@ function TeacherMenu() {
             </div>
 
             <div className="classes-grid">
+              {/* 🟢 UPDATED: Mapping through filteredClasses instead of classes */}
               {Array.isArray(filteredClasses) && filteredClasses.length === 0 ? <p style={{color: '#aaa'}}>No classes found.</p> : null}
               {Array.isArray(filteredClasses) && filteredClasses.map((cls) => (
                 <div key={cls.class_id} className="class-card" onClick={() => openClass(cls)}>
@@ -575,7 +541,7 @@ function TeacherMenu() {
             <div className="section-header">
               <div>
                   <h2 style={{margin: 0}}>{selectedClass.class_name}</h2>
-                  <p style={{color: '#fca311', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
+                  <p style={{color: '#ffd700', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
                       Class Code: <b>{selectedClass.class_code || 'Old Class (No Code)'}</b>
                   </p>
               </div>
@@ -613,8 +579,8 @@ function TeacherMenu() {
             <div className="section-header"><h2>GAME LIBRARY</h2></div>
             <p style={{marginBottom: '20px'}}>Select a template to create a new activity.</p>
             <div className="classes-grid">
-               <div className="class-card" style={{border: '2px solid #fca311'}}>
-                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>MAZE ESCAPE</h3>
+               <div className="class-card" style={{border: '2px solid #0ac8f0'}}>
+                 <h3 style={{color: '#0ac8f0', fontSize: '1rem'}}>MAZE ESCAPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Find clues and answer questions to unlock doors.</p>
                  <Link to="/teacher/create-maze"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem'}}>+ CREATE</button></Link>
                </div>
@@ -690,7 +656,7 @@ function TeacherMenu() {
                       {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                           <tr key={g.game_id}>
                               <td>
-                                  <div style={{color: '#fca311', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
+                                  <div style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
                                   <div style={{fontSize: '0.7rem', marginTop: '5px', color: getActivityStatus(g).color}}>
                                       {getActivityStatus(g).text}
                                   </div>
@@ -700,7 +666,7 @@ function TeacherMenu() {
                                   <div style={{display: 'flex', gap: '5px'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
-                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#fca311', color: '#fca311'}} onClick={() => openEditSchedule(g)}>
+                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0ac8f0', color: '#0ac8f0'}} onClick={() => openEditSchedule(g)}>
                                           SCHEDULE
                                       </button>
                                       <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
@@ -759,7 +725,7 @@ function TeacherMenu() {
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            <h2 style={{color: '#fca311'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
+            <h2 style={{color: '#0ac8f0'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
@@ -784,6 +750,7 @@ function TeacherMenu() {
         </div>
       )}
 
+      {/* 🟢 UPDATED CREATE CLASS MODAL with Error Display */}
       {showCreateModal && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -797,7 +764,6 @@ function TeacherMenu() {
                   value={newClassName} 
                   onChange={(e) => { setNewClassName(e.target.value); setCreateClassError(''); }} 
                   required 
-                  className="game-input"
                 />
               </div>
               <div className="modal-actions-row">
@@ -815,7 +781,7 @@ function TeacherMenu() {
             <h2>ADD STUDENT</h2>
             <p style={{fontSize:'0.8rem', color:'#aaa', marginBottom:'15px'}}>Enter the student's <b>Username</b>.</p>
             {statusMsg && <p className="error-text" style={{color: '#ff4c4c'}}>{statusMsg}</p>}
-            <form onSubmit={handleAddStudent}><div className="form-group"><input type="text" placeholder="Username" value={studentIdentifier} onChange={(e) => {setStudentIdentifier(e.target.value); setStatusMsg('');}} required className="game-input" /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">ADD</button><button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary">CLOSE</button></div></form>
+            <form onSubmit={handleAddStudent}><div className="form-group"><input type="text" placeholder="Username" value={studentIdentifier} onChange={(e) => {setStudentIdentifier(e.target.value); setStatusMsg('');}} required /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">ADD</button><button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary">CLOSE</button></div></form>
           </div>
         </div>
       )}
@@ -824,7 +790,7 @@ function TeacherMenu() {
         <div className="modal-overlay">
           <div className="modal-box">
             <h2>EDIT CLASS NAME</h2>
-            <form onSubmit={submitEditClass}><div className="form-group"><input type="text" value={editClassNameInput} onChange={(e) => setEditClassNameInput(e.target.value)} required className="game-input" /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">SAVE</button><button type="button" onClick={() => setShowEditClassModal(false)} className="btn btn-secondary">CANCEL</button></div></form>
+            <form onSubmit={submitEditClass}><div className="form-group"><input type="text" value={editClassNameInput} onChange={(e) => setEditClassNameInput(e.target.value)} required /></div><div className="modal-actions-row"><button type="submit" className="btn btn-primary">SAVE</button><button type="button" onClick={() => setShowEditClassModal(false)} className="btn btn-secondary">CANCEL</button></div></form>
           </div>
         </div>
       )}
@@ -841,8 +807,8 @@ function TeacherMenu() {
 
       {showRemoveStudentModal && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ border: '2px solid #fca311' }}>
-            <h2 style={{color: '#fca311'}}>REMOVE STUDENT</h2>
+          <div className="modal-box" style={{ border: '2px solid #ff9900' }}>
+            <h2 style={{color: '#ff9900'}}>REMOVE STUDENT</h2>
             <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>Remove student from class?</p>
             <div className="modal-actions-row"><button type="button" onClick={confirmRemoveStudent} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>REMOVE</button><button type="button" onClick={() => setShowRemoveStudentModal(false)} className="btn btn-secondary">CANCEL</button></div>
           </div>
@@ -852,12 +818,12 @@ function TeacherMenu() {
       {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #fca311'}}>
-            <h2 style={{color: '#fca311'}}>EDIT SCHEDULE</h2>
+          <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0ac8f0'}}>
+            <h2 style={{color: '#0ac8f0'}}>EDIT SCHEDULE</h2>
             <form onSubmit={submitEditSchedule}>
-              <div style={{textAlign: 'left', backgroundColor: '#0a1128', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+              <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
                   <div style={{marginBottom: '15px'}}>
-                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
+                      <label style={{display: 'block', color: '#0ac8f0', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
                       <div style={{display: 'flex', gap: '10px'}}>
                           <input type="date" className="game-input" value={editOpenDate} onChange={e => setEditOpenDate(e.target.value)} required />
                           <input type="time" className="game-input" value={editOpenTime} onChange={e => setEditOpenTime(e.target.value)} required />
@@ -877,13 +843,13 @@ function TeacherMenu() {
                       )}
                   </div>
                   <div>
-                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
+                      <label style={{display: 'block', color: '#ff9900', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
                           <input type="checkbox" checked={editUnlimitedTime} onChange={(e) => setEditUnlimitedTime(e.target.checked)} />
                           Unlimited Time
                       </label>
                       {!editUnlimitedTime && (
-                          <select className="game-select" value={editTimeLimit} onChange={e => setTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#0a1128', color: '#fff', border: '1px solid #444'}}>
+                          <select className="game-select" value={editTimeLimit} onChange={e => setTimeLimit(e.target.value)} style={{width: '100%', padding: '10px', background: '#222', color: '#fff', border: '1px solid #555'}}>
                               <option value="5">5 Minutes</option>
                               <option value="10">10 Minutes</option>
                               <option value="15">15 Minutes</option>
