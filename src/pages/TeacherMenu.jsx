@@ -165,12 +165,22 @@ function TeacherMenu() {
     }
   };
 
-  const fetchStudents = async (classId) => {
+const fetchStudents = async (classId) => {
     try {
       const res = await fetch(`https://arcads-api.onrender.com/api/class-members/${classId}`);
       const data = await res.json();
-      if(Array.isArray(data)) setClassStudents(data);
-      else setClassStudents([]);
+      
+      if(Array.isArray(data)) {
+          const sortedStudents = data.sort((a, b) => {
+              const nameA = (a.student_surname || "").toLowerCase();
+              const nameB = (b.student_surname || "").toLowerCase();
+              return nameA.localeCompare(nameB);
+          });
+          
+          setClassStudents(sortedStudents);
+      } else {
+          setClassStudents([]);
+      }
     } catch (err) {
       console.error(err);
       setClassStudents([]);
