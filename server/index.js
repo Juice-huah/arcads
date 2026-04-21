@@ -391,7 +391,54 @@ app.post('/api/create-startype', (req, res) => {
         });
     });
 });
+// --- DUPLICATE/REUSE GAME ROUTE ---
+app.post('/api/duplicate-game', (req, res) => {
+    const { original_game_id, new_class_id, teacher_fid } = req.body;
 
+    if (!original_game_id || !new_class_id || !teacher_fid) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Step 1: Fetch the original game settings
+    const fetchGameSql = "SELECT game_type, custom_title, open_datetime, close_datetime, time_limit FROM game_instances WHERE game_id = ?";
+    db.query(fetchGameSql, [original_game_id], (err, gameResults) => {
+        if (err) return res.status(500).json({ error: "Database error fetching original game" });
+        if (gameResults.length === 0) return res.status(404).json({ error: "Original activity not found" });
+
+        const game = gameResults[0];
+
+        // Step 2: Insert the new cloned game attached to the new class
+        const insertGameSql = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        db.query(insertGameSql, [teacher_fid, new_class_id, game.game_type, game.custom_title, game.open_datetime, game.close_datetime, game.time_limit], (err2, insertResult) => {
+            if (err2) return res.status(500).json({ error: "Database error creating new game instance" });
+
+            const newGameId = insertResult.insertId;
+
+            // Step 3: Fetch all the questions attached to the original game
+            const fetchQuestionsSql = "SELECT question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer FROM game_questions WHERE game_id = ?";
+            db.query(fetchQuestionsSql, [original_game_id], (err3, questionsResult) => {
+                if (err3) return res.status(500).json({ error: "Database error fetching original questions" });
+
+                // If the game didn't have any questions, just return success early
+                if (questionsResult.length === 0) {
+                    return res.json({ message: "Activity duplicated (no questions to copy)!", gameId: newGameId });
+                }
+
+                // Step 4: Format and insert the copied questions into the new game
+                const insertQuestionsSql = "INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?";
+                const questionValues = questionsResult.map(q => [
+                    newGameId, q.question_text, q.question_type, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer
+                ]);
+
+                db.query(insertQuestionsSql, [questionValues], (err4) => {
+                    if (err4) return res.status(500).json({ error: "Database error copying questions" });
+                    
+                    return res.json({ message: "Activity successfully duplicated and assigned!", gameId: newGameId });
+                });
+            });
+        });
+    });
+});
 // ==========================================
 // 5. STATS & ANSWER TRACKING ROUTES
 // ==========================================
