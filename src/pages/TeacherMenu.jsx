@@ -6,6 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
+// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -51,6 +52,11 @@ function TeacherMenu() {
   const [newClassName, setNewClassName] = useState('');
   const [classSearchQuery, setClassSearchQuery] = useState('');
   const [createClassError, setCreateClassError] = useState('');
+  
+  // 🟢 NEW STATES: For cloning rosters
+  const [cloneFromClassId, setCloneFromClassId] = useState('');
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [createStatusMsg, setCreateStatusMsg] = useState('');
 
   const [editClassNameInput, setEditClassNameInput] = useState('');
   const [studentIdentifier, setStudentIdentifier] = useState(''); 
@@ -91,7 +97,7 @@ function TeacherMenu() {
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
       if (openDate && now < openDate) {
-          return { text: "● SCHEDULED", color: "#fca311" }; // Changed to Orange
+          return { text: "● SCHEDULED", color: "#fca311" }; 
       }
       if (closeDate && now > closeDate) {
           return { text: "● CLOSED", color: "#ff4c4c" };
@@ -118,7 +124,7 @@ function TeacherMenu() {
   useEffect(() => {
       if (!user) return;
       const pollingInterval = setInterval(() => {
-          fetchClasses(user.uid);
+          if (!isCreatingClass) fetchClasses(user.uid); // Pause polling during class creation to prevent UI jumps
           fetchGames(user.uid);
           if (selectedClass && selectedClass.class_id) {
               fetchStudents(selectedClass.class_id);
@@ -129,7 +135,7 @@ function TeacherMenu() {
       }, 30000); 
 
       return () => clearInterval(pollingInterval);
-  }, [user, selectedClass, gradebookGame]); 
+  }, [user, selectedClass, gradebookGame, isCreatingClass]); 
 
   const fetchClasses = async (userId) => {
     try {
@@ -233,6 +239,7 @@ function TeacherMenu() {
       document.body.removeChild(link);
   };
 
+  // 🟢 UPDATED: Core logic for Creating a Class and auto-cloning the roster
   const handleCreateClass = async (e) => {
     e.preventDefault();
     if (!user || !user.uid) return;
@@ -246,21 +253,72 @@ function TeacherMenu() {
     }
 
     setCreateClassError(''); 
+    setIsCreatingClass(true);
+    setCreateStatusMsg('Initializing new class space...');
 
     try {
+      // 1. Fire off the creation of the empty class
       const res = await fetch('https://arcads-api.onrender.com/api/create-class', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ teacher_fid: user.uid, class_name: trimmedName })
       });
+
       if(res.ok) {
+        // 2. If the teacher chose to clone a roster, we do the heavy lifting here
+        if (cloneFromClassId) {
+            setCreateStatusMsg('Fetching previous roster...');
+            
+            // To get the ID of the class we JUST created, we fetch the updated list
+            const classesRes = await fetch(`https://arcads-api.onrender.com/api/get-classes/${user.uid}`);
+            const updatedClasses = await classesRes.json();
+            
+            // Find the class we just made (highest ID with the matching name)
+            const newlyCreatedClass = updatedClasses.sort((a,b) => b.class_id - a.class_id).find(c => c.class_name === trimmedName);
+
+            if (newlyCreatedClass) {
+                // Grab the roster of the class they want to copy
+                const rosterRes = await fetch(`https://arcads-api.onrender.com/api/class-members/${cloneFromClassId}`);
+                const oldRoster = await rosterRes.json();
+
+                if (Array.isArray(oldRoster) && oldRoster.length > 0) {
+                    setCreateStatusMsg(`Copying ${oldRoster.length} students...`);
+                    
+                    // We map over every student and fire off an add command concurrently
+                    const addPromises = oldRoster.map(student => {
+                        const identifier = student.student_username || student.student_email;
+                        if (!identifier) return Promise.resolve();
+
+                        return fetch('https://arcads-api.onrender.com/api/add-student-to-class', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                class_id: newlyCreatedClass.class_id,
+                                student_email: identifier // The API uses this key to check usernames
+                            })
+                        });
+                    });
+
+                    // Wait for all students to be successfully copied
+                    await Promise.allSettled(addPromises);
+                }
+            }
+        }
+
+        // Clean up and close modal
         setShowCreateModal(false);
         setNewClassName('');
+        setCloneFromClassId('');
         setClassSearchQuery(''); 
+        setCreateStatusMsg('');
+        setIsCreatingClass(false);
         fetchClasses(user.uid); 
       }
     } catch (err) {
       console.error(err);
+      setCreateClassError("A server error occurred. Please try again.");
+      setIsCreatingClass(false);
+      setCreateStatusMsg('');
     }
   };
 
@@ -283,7 +341,7 @@ function TeacherMenu() {
         setStatusMsg(data.error || "Failed to add student");
       }
     } catch (err) {
-      setStatusMsg("Server Error");
+        setStatusMsg("Server Error");
     }
   };
 
@@ -465,9 +523,20 @@ function TeacherMenu() {
       cls.class_name.toLowerCase().includes(classSearchQuery.toLowerCase())
   );
 
- return (
+  return (
     <div className="teacher-dashboard teacher-theme">
       <style>{`
+        /* ==========================================================================
+           🟣 TEACHER DASHBOARD - "DEEP PLUM ARCADE"
+           ========================================================================== */
+        .teacher-theme {
+          --primary-blue: #2f143d !important; 
+          --darker-blue: #170a1e !important;  
+          --arcade-yellow: #ffd700 !important; 
+          --arcade-orange: #fca311 !important; 
+          --arcade-red: #ff4c4c !important;    
+        }
+
         * { box-sizing: border-box; }
         @media (max-width: 850px) {
           .teacher-dashboard { flex-direction: column !important; }
@@ -478,7 +547,7 @@ function TeacherMenu() {
           .content-area { padding: 20px 10px !important; }
           .section-header { flex-direction: column; align-items: flex-start !important; gap: 15px; }
           .header-actions { display: flex; flex-direction: column; width: 100%; gap: 10px; }
-          .header-actions button, .header-actions input { width: 100%; }
+          .header-actions button, .header-actions input, .header-actions select { width: 100%; }
           
           .table-responsive { width: 100%; overflow-x: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
           .students-table { min-width: 600px; } 
@@ -490,8 +559,7 @@ function TeacherMenu() {
       `}</style>
 
       <div className="sidebar">
-        {/* Changed Yellow to Orange */}
-        <h3 style={{color: '#fca311', textAlign:'center'}}>MENU</h3>
+        <h3 style={{color: 'var(--arcade-yellow)', textAlign:'center'}}>MENU</h3>
         <button className={`sidebar-btn ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => switchTab('classes')}>My Classes</button>
         <button className={`sidebar-btn ${activeTab === 'library' ? 'active' : ''}`} onClick={() => switchTab('library')}>Game Library</button>
         <button className={`sidebar-btn ${activeTab === 'active' ? 'active' : ''}`} onClick={() => switchTab('active')}>My Activities</button>
@@ -508,9 +576,9 @@ function TeacherMenu() {
                     placeholder="Search classes..." 
                     value={classSearchQuery}
                     onChange={(e) => setClassSearchQuery(e.target.value)}
-                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: 'var(--darker-blue)', color: '#fff' }}
                 />
-                <button className="btn btn-primary" onClick={() => { setShowCreateModal(true); setCreateClassError(''); setNewClassName(''); }}>+ CREATE CLASS</button>
+                <button className="btn btn-primary" onClick={() => { setShowCreateModal(true); setCreateClassError(''); setNewClassName(''); setCloneFromClassId(''); setCreateStatusMsg(''); }}>+ CREATE CLASS</button>
               </div>
             </div>
 
@@ -531,15 +599,14 @@ function TeacherMenu() {
             <div className="section-header">
               <div>
                   <h2 style={{margin: 0}}>{selectedClass.class_name}</h2>
-                  {/* Changed Yellow to Orange */}
-                  <p style={{color: '#fca311', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
+                  <p style={{color: 'var(--arcade-yellow)', margin: '5px 0 0 0', fontSize: '1.2rem', fontFamily: 'monospace'}}>
                       Class Code: <b>{selectedClass.class_code || 'Old Class (No Code)'}</b>
                   </p>
               </div>
               <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
                 <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
                 <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>+ ADD STUDENT</button>
-                <button className="btn btn-secondary" onClick={() => { setEditClassNameInput(selectedClass.class_name); setShowEditClassModal(true); }} style={{ backgroundColor: '#2b2b2b', borderColor: '#444', color: '#fff' }}>EDIT CLASS</button>
+                <button className="btn btn-secondary" onClick={() => { setEditClassNameInput(selectedClass.class_name); setShowEditClassModal(true); }} style={{ backgroundColor: 'var(--darker-blue)', borderColor: '#444', color: '#fff' }}>EDIT CLASS</button>
                 <button className="btn btn-danger" onClick={() => setShowDeleteClassModal(true)} style={{ backgroundColor: '#dc3545', borderColor: '#dc3545', color: '#fff' }}>DELETE CLASS</button>
               </div>
             </div>
@@ -570,18 +637,16 @@ function TeacherMenu() {
             <div className="section-header"><h2>GAME LIBRARY</h2></div>
             <p style={{marginBottom: '20px'}}>Select a template to create a new activity.</p>
             <div className="classes-grid">
-               {/* Changed Light Blue to Darker Blue */}
                <div className="class-card" style={{border: '2px solid #0066cc'}}>
                  <h3 style={{color: '#0066cc', fontSize: '1rem'}}>MAZE ESCAPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>RPG Dungeon Crawler. Find clues and answer questions to unlock doors.</p>
                  <Link to="/teacher/create-maze"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem'}}>+ CREATE</button></Link>
                </div>
                
-               {/* Changed Yellow to Orange */}
-               <div className="class-card" style={{border: '2px solid #fca311'}}>
-                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>ADVENTURE BATTLE</h3>
+               <div className="class-card" style={{border: '2px solid var(--arcade-yellow)'}}>
+                 <h3 style={{color: 'var(--arcade-yellow)', fontSize: '1rem'}}>ADVENTURE BATTLE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Turn-based RPG combat. Defeat monsters by answering correctly.</p>
-                 <Link to="/teacher/create-adventure"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#fca311', border: 'none'}}>+ CREATE</button></Link>
+                 <Link to="/teacher/create-adventure"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: 'var(--arcade-yellow)', border: 'none'}}>+ CREATE</button></Link>
                </div>
                
                <div className="class-card" style={{border: '2px solid #ce93d8'}}>
@@ -602,11 +667,10 @@ function TeacherMenu() {
                  <Link to="/teacher/create-whack-a-mole"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff4757', color:'#fff', border: 'none'}}>+ CREATE</button></Link>
                </div>
                
-               {/* Changed Yellow to Orange */}
-               <div className="class-card" style={{border: '2px solid #fca311'}}>
-                 <h3 style={{color: '#fca311', fontSize: '1rem'}}>WORD TOWER DEFENSE</h3>
+               <div className="class-card" style={{border: '2px solid var(--arcade-yellow)'}}>
+                 <h3 style={{color: 'var(--arcade-yellow)', fontSize: '1rem'}}>WORD TOWER DEFENSE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Defend the castle! Match the correct words to fire at approaching enemies.</p>
-                 <Link to="/teacher/create-tower-defense"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#fca311', color: '#000', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
+                 <Link to="/teacher/create-tower-defense"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: 'var(--arcade-yellow)', color: '#000', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
                
                <div className="class-card" style={{border: '2px solid #ff007f'}}>
@@ -615,7 +679,6 @@ function TeacherMenu() {
                  <Link to="/teacher/create-hamsterball"><button className="btn btn-primary" style={{width: '100%', fontSize: '0.7rem', backgroundColor: '#ff007f', color:'#fff', border: 'none', fontWeight: 'bold'}}>+ CREATE</button></Link>
                </div>
 
-               {/* Changed Light Blue to Darker Blue */}
                <div className="class-card" style={{border: '2px solid #0066cc'}}>
                  <h3 style={{color: '#0066cc', fontSize: '1rem'}}>STARTYPE</h3>
                  <p style={{fontSize: '0.7rem', color: '#aaa', margin: '10px 0'}}>Galactic Typing Combat. Your keyboard is your weapon. Type words to destroy enemy ships!</p>
@@ -651,7 +714,6 @@ function TeacherMenu() {
                       {games.filter(g => g.class_id === gradebookClass.class_id).map((g) => (
                           <tr key={g.game_id}>
                               <td>
-                                  {/* Changed Light Blue to Darker Blue */}
                                   <div style={{color: '#0066cc', fontWeight: 'bold'}}>{getDisplayName(g)}</div>
                                   <div style={{fontSize: '0.7rem', marginTop: '5px', color: getActivityStatus(g).color}}>
                                       {getActivityStatus(g).text}
@@ -662,8 +724,7 @@ function TeacherMenu() {
                                   <div style={{display: 'flex', gap: '5px'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
-                                      {/* Changed Light Blue to Darker Blue */}
-                                      <button className="btn btn-secondary" style={{backgroundColor: '#1a202c', borderColor: '#0066cc', color: '#0066cc'}} onClick={() => openEditSchedule(g)}>
+                                      <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#0066cc', color: '#0066cc'}} onClick={() => openEditSchedule(g)}>
                                           SCHEDULE
                                       </button>
                                       <button className="btn" style={{backgroundColor: g.is_active ? '#ff4c4c' : '#14a014', color: '#fff', border: 'none'}} onClick={() => promptToggleActivity(g)}>
@@ -722,7 +783,6 @@ function TeacherMenu() {
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            {/* Changed Light Blue to Darker Blue */}
             <h2 style={{color: '#0066cc'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
@@ -748,24 +808,58 @@ function TeacherMenu() {
         </div>
       )}
 
+      {/* 🟢 ROSTER CLONING IMPLEMENTED IN CREATION MODAL */}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box" style={{ minWidth: '350px' }}>
             <h2>NEW CLASS</h2>
             {createClassError && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '10px'}}>{createClassError}</p>}
+            {createStatusMsg && <p style={{color: 'var(--arcade-yellow)', fontSize: '0.8rem', marginBottom: '15px'}}>{createStatusMsg}</p>}
+            
             <form onSubmit={handleCreateClass}>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '15px' }}>
                 <input 
                   type="text" 
                   placeholder="Class Name" 
                   value={newClassName} 
                   onChange={(e) => { setNewClassName(e.target.value); setCreateClassError(''); }} 
                   required 
+                  className="game-input"
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                  disabled={isCreatingClass}
                 />
               </div>
+
+              {/* CLONE ROSTER DROPDOWN */}
+              {classes.length > 0 && (
+                  <div className="form-group" style={{ marginBottom: '25px', textAlign: 'left' }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '8px' }}>
+                          (Optional) Copy Roster From:
+                      </label>
+                      <select
+                          className="game-select"
+                          value={cloneFromClassId}
+                          onChange={(e) => setCloneFromClassId(e.target.value)}
+                          style={{ width: '100%', padding: '10px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', boxSizing: 'border-box' }}
+                          disabled={isCreatingClass}
+                      >
+                          <option value="">-- Empty Roster --</option>
+                          {classes.map(cls => (
+                              <option key={cls.class_id} value={cls.class_id}>
+                                  {cls.class_name}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
+              )}
+
               <div className="modal-actions-row">
-                <button type="submit" className="btn btn-primary">CREATE</button>
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">CANCEL</button>
+                <button type="submit" className="btn btn-primary" disabled={isCreatingClass}>
+                    {isCreatingClass ? 'WORKING...' : 'CREATE'}
+                </button>
+                <button type="button" onClick={() => { setShowCreateModal(false); setCloneFromClassId(''); setCreateStatusMsg(''); }} className="btn btn-secondary" disabled={isCreatingClass}>
+                    CANCEL
+                </button>
               </div>
             </form>
           </div>
@@ -804,9 +898,8 @@ function TeacherMenu() {
 
       {showRemoveStudentModal && (
         <div className="modal-overlay">
-          {/* Changed Yellow to Orange */}
-          <div className="modal-box" style={{ border: '2px solid #fca311' }}>
-            <h2 style={{color: '#fca311'}}>REMOVE STUDENT</h2>
+          <div className="modal-box" style={{ border: '2px solid var(--arcade-yellow)' }}>
+            <h2 style={{color: 'var(--arcade-yellow)'}}>REMOVE STUDENT</h2>
             <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>Remove student from class?</p>
             <div className="modal-actions-row"><button type="button" onClick={confirmRemoveStudent} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>REMOVE</button><button type="button" onClick={() => setShowRemoveStudentModal(false)} className="btn btn-secondary">CANCEL</button></div>
           </div>
@@ -816,13 +909,11 @@ function TeacherMenu() {
       {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
-          {/* Changed Light Blue to Darker Blue */}
           <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0066cc'}}>
             <h2 style={{color: '#0066cc'}}>EDIT SCHEDULE</h2>
             <form onSubmit={submitEditSchedule}>
-              <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
+              <div style={{textAlign: 'left', backgroundColor: 'var(--darker-blue)', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom: '20px'}}>
                   <div style={{marginBottom: '15px'}}>
-                      {/* Changed Light Blue to Darker Blue */}
                       <label style={{display: 'block', color: '#0066cc', marginBottom: '5px'}}>OPENING DATE & TIME:</label>
                       <div style={{display: 'flex', gap: '10px'}}>
                           <input type="date" className="game-input" value={editOpenDate} onChange={e => setEditOpenDate(e.target.value)} required />
@@ -843,8 +934,7 @@ function TeacherMenu() {
                       )}
                   </div>
                   <div>
-                      {/* Changed Yellow to Orange */}
-                      <label style={{display: 'block', color: '#fca311', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
+                      <label style={{display: 'block', color: 'var(--arcade-yellow)', marginBottom: '5px'}}>TIME LIMIT (DURATION):</label>
                       <label style={{fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', color: '#fff'}}>
                           <input type="checkbox" checked={editUnlimitedTime} onChange={(e) => setEditUnlimitedTime(e.target.checked)} />
                           Unlimited Time
