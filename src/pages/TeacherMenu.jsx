@@ -53,7 +53,6 @@ function TeacherMenu() {
   const [classSearchQuery, setClassSearchQuery] = useState('');
   const [createClassError, setCreateClassError] = useState('');
   
-  // 🟢 NEW STATES: For cloning rosters
   const [cloneFromClassId, setCloneFromClassId] = useState('');
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [createStatusMsg, setCreateStatusMsg] = useState('');
@@ -80,6 +79,13 @@ function TeacherMenu() {
   const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
 
+  // 🟢 NEW STATES: For Reusing Activities
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [selectedGameToReuse, setSelectedGameToReuse] = useState(null);
+  const [reuseTargetClassId, setReuseTargetClassId] = useState('');
+  const [isReusing, setIsReusing] = useState(false);
+  const [reuseErrorMsg, setReuseErrorMsg] = useState('');
+
   const [clockTick, setClockTick] = useState(0);
 
   useEffect(() => {
@@ -97,7 +103,7 @@ function TeacherMenu() {
       const closeDate = game.close_datetime ? new Date(game.close_datetime.replace(' ', 'T')) : null;
 
       if (openDate && now < openDate) {
-          return { text: "● SCHEDULED", color: "#fca311" }; 
+          return { text: "● SCHEDULED", color: "var(--arcade-orange)" }; 
       }
       if (closeDate && now > closeDate) {
           return { text: "● CLOSED", color: "#ff4c4c" };
@@ -124,7 +130,7 @@ function TeacherMenu() {
   useEffect(() => {
       if (!user) return;
       const pollingInterval = setInterval(() => {
-          if (!isCreatingClass) fetchClasses(user.uid); // Pause polling during class creation to prevent UI jumps
+          if (!isCreatingClass && !isReusing) fetchClasses(user.uid); 
           fetchGames(user.uid);
           if (selectedClass && selectedClass.class_id) {
               fetchStudents(selectedClass.class_id);
@@ -135,7 +141,7 @@ function TeacherMenu() {
       }, 30000); 
 
       return () => clearInterval(pollingInterval);
-  }, [user, selectedClass, gradebookGame, isCreatingClass]); 
+  }, [user, selectedClass, gradebookGame, isCreatingClass, isReusing]); 
 
   const fetchClasses = async (userId) => {
     try {
@@ -239,7 +245,6 @@ function TeacherMenu() {
       document.body.removeChild(link);
   };
 
-  // 🟢 UPDATED: Core logic for Creating a Class and auto-cloning the roster
   const handleCreateClass = async (e) => {
     e.preventDefault();
     if (!user || !user.uid) return;
@@ -257,7 +262,6 @@ function TeacherMenu() {
     setCreateStatusMsg('Initializing new class space...');
 
     try {
-      // 1. Fire off the creation of the empty class
       const res = await fetch('https://arcads-api.onrender.com/api/create-class', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -265,26 +269,21 @@ function TeacherMenu() {
       });
 
       if(res.ok) {
-        // 2. If the teacher chose to clone a roster, we do the heavy lifting here
         if (cloneFromClassId) {
             setCreateStatusMsg('Fetching previous roster...');
             
-            // To get the ID of the class we JUST created, we fetch the updated list
             const classesRes = await fetch(`https://arcads-api.onrender.com/api/get-classes/${user.uid}`);
             const updatedClasses = await classesRes.json();
             
-            // Find the class we just made (highest ID with the matching name)
             const newlyCreatedClass = updatedClasses.sort((a,b) => b.class_id - a.class_id).find(c => c.class_name === trimmedName);
 
             if (newlyCreatedClass) {
-                // Grab the roster of the class they want to copy
                 const rosterRes = await fetch(`https://arcads-api.onrender.com/api/class-members/${cloneFromClassId}`);
                 const oldRoster = await rosterRes.json();
 
                 if (Array.isArray(oldRoster) && oldRoster.length > 0) {
                     setCreateStatusMsg(`Copying ${oldRoster.length} students...`);
                     
-                    // We map over every student and fire off an add command concurrently
                     const addPromises = oldRoster.map(student => {
                         const identifier = student.student_username || student.student_email;
                         if (!identifier) return Promise.resolve();
@@ -294,18 +293,16 @@ function TeacherMenu() {
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
                                 class_id: newlyCreatedClass.class_id,
-                                student_email: identifier // The API uses this key to check usernames
+                                student_email: identifier
                             })
                         });
                     });
 
-                    // Wait for all students to be successfully copied
                     await Promise.allSettled(addPromises);
                 }
             }
         }
 
-        // Clean up and close modal
         setShowCreateModal(false);
         setNewClassName('');
         setCloneFromClassId('');
@@ -408,6 +405,52 @@ function TeacherMenu() {
           }
       } catch (err) {
           console.error("Error deleting class:", err);
+      }
+  };
+
+  // 🟢 NEW: Handle Reusing an Activity
+  const promptReuseActivity = (game) => {
+      setSelectedGameToReuse(game);
+      setReuseTargetClassId('');
+      setReuseErrorMsg('');
+      setShowReuseModal(true);
+  };
+
+  const confirmReuseActivity = async (e) => {
+      e.preventDefault();
+      if (!reuseTargetClassId) {
+          setReuseErrorMsg('Please select a class to assign this activity to.');
+          return;
+      }
+      
+      setIsReusing(true);
+      setReuseErrorMsg('');
+
+      try {
+          // NOTE: You will need to create this endpoint on your backend!
+          const res = await fetch('https://arcads-api.onrender.com/api/duplicate-game', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ 
+                  original_game_id: selectedGameToReuse.game_id, 
+                  new_class_id: reuseTargetClassId,
+                  teacher_fid: user.uid
+              })
+          });
+          
+          if (res.ok) {
+              setShowReuseModal(false);
+              setSelectedGameToReuse(null);
+              fetchGames(user.uid);
+          } else {
+              const data = await res.json();
+              setReuseErrorMsg(data.error || 'Failed to duplicate activity.');
+          }
+      } catch (err) {
+          console.error("Error duplicating activity:", err);
+          setReuseErrorMsg('Server error. Could not connect to API.');
+      } finally {
+          setIsReusing(false);
       }
   };
 
@@ -721,9 +764,15 @@ function TeacherMenu() {
                               </td>
                               <td>{new Date(g.created_at).toLocaleDateString()}</td>
                               <td>
-                                  <div style={{display: 'flex', gap: '5px'}}>
+                                  <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
+                                      
+                                      {/* 🟢 NEW: REUSE BUTTON */}
+                                      <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#00f5ff', color: '#00f5ff'}} onClick={() => promptReuseActivity(g)}>
+                                          REUSE
+                                      </button>
+
                                       <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#0066cc', color: '#0066cc'}} onClick={() => openEditSchedule(g)}>
                                           SCHEDULE
                                       </button>
@@ -780,6 +829,52 @@ function TeacherMenu() {
       </div>
 
       {/* --- MODALS --- */}
+
+      {/* 🟢 NEW: REUSE ACTIVITY MODAL */}
+      {showReuseModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: '2px solid #00f5ff' }}>
+            <h2 style={{color: '#00f5ff'}}>REUSE ACTIVITY</h2>
+            <p style={{fontSize:'0.8rem', color:'#aaa', marginBottom:'15px'}}>
+              Duplicate <b>{getDisplayName(selectedGameToReuse)}</b> and assign it to a class.
+            </p>
+            {reuseErrorMsg && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '10px'}}>{reuseErrorMsg}</p>}
+            
+            <form onSubmit={confirmReuseActivity}>
+                <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: '#fff', marginBottom: '8px' }}>
+                        Assign to Class:
+                    </label>
+                    <select
+                        className="game-select"
+                        value={reuseTargetClassId}
+                        onChange={(e) => {setReuseTargetClassId(e.target.value); setReuseErrorMsg('');}}
+                        style={{ width: '100%', padding: '10px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', boxSizing: 'border-box' }}
+                        disabled={isReusing}
+                        required
+                    >
+                        <option value="">-- Select a Class --</option>
+                        {classes.map(cls => (
+                            <option key={cls.class_id} value={cls.class_id}>
+                                {cls.class_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="modal-actions-row">
+                    <button type="submit" className="btn btn-primary" style={{backgroundColor: '#00f5ff', color: '#000'}} disabled={isReusing}>
+                        {isReusing ? 'DUPLICATING...' : 'REUSE'}
+                    </button>
+                    <button type="button" onClick={() => { setShowReuseModal(false); setReuseTargetClassId(''); }} className="btn btn-secondary" disabled={isReusing}>
+                        CANCEL
+                    </button>
+                </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
@@ -808,7 +903,6 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* 🟢 ROSTER CLONING IMPLEMENTED IN CREATION MODAL */}
       {showCreateModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ minWidth: '350px' }}>
@@ -830,7 +924,6 @@ function TeacherMenu() {
                 />
               </div>
 
-              {/* CLONE ROSTER DROPDOWN */}
               {classes.length > 0 && (
                   <div className="form-group" style={{ marginBottom: '25px', textAlign: 'left' }}>
                       <label style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '8px' }}>
