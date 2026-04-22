@@ -79,12 +79,15 @@ function TeacherMenu() {
   const [showDeleteGameModal, setShowDeleteGameModal] = useState(false);
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null);
 
-  // 🟢 NEW STATES: For Reusing Activities
   const [showReuseModal, setShowReuseModal] = useState(false);
   const [selectedGameToReuse, setSelectedGameToReuse] = useState(null);
   const [reuseTargetClassId, setReuseTargetClassId] = useState('');
   const [isReusing, setIsReusing] = useState(false);
   const [reuseErrorMsg, setReuseErrorMsg] = useState('');
+
+  // 🟢 NEW STATES: For Resetting a Student's Attempt
+  const [showResetAttemptModal, setShowResetAttemptModal] = useState(false);
+  const [studentToReset, setStudentToReset] = useState(null);
 
   const [clockTick, setClockTick] = useState(0);
 
@@ -408,7 +411,6 @@ function TeacherMenu() {
       }
   };
 
-  // 🟢 NEW: Handle Reusing an Activity
   const promptReuseActivity = (game) => {
       setSelectedGameToReuse(game);
       setReuseTargetClassId('');
@@ -427,7 +429,6 @@ function TeacherMenu() {
       setReuseErrorMsg('');
 
       try {
-          // NOTE: You will need to create this endpoint on your backend!
           const res = await fetch('https://arcads-api.onrender.com/api/duplicate-game', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
@@ -453,6 +454,35 @@ function TeacherMenu() {
           setIsReusing(false);
       }
   };
+
+  // 🟢 NEW: Functions for Resetting Attempts
+  const promptResetAttempt = (studentRow) => {
+      setStudentToReset(studentRow);
+      setShowResetAttemptModal(true);
+  };
+
+  const confirmResetAttempt = async () => {
+      try {
+          const res = await fetch('https://arcads-api.onrender.com/api/reset-student-attempt', {
+              method: 'DELETE',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ 
+                  game_id: gradebookGame.game_id, 
+                  student_fid: studentToReset.student_fid 
+              })
+          });
+          
+          if (res.ok) {
+              setShowResetAttemptModal(false);
+              setStudentToReset(null);
+              // Refetch the gradebook so the teacher sees the score disappear immediately
+              fetchGradebook(gradebookGame);
+          }
+      } catch (err) {
+          console.error("Error resetting student attempt:", err);
+      }
+  };
+
 
   const openEditSchedule = (game) => {
       setSelectedGameForSchedule(game);
@@ -768,7 +798,6 @@ function TeacherMenu() {
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
                                       
-                                      {/* 🟢 NEW: REUSE BUTTON */}
                                       <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#00f5ff', color: '#00f5ff'}} onClick={() => promptReuseActivity(g)}>
                                           REUSE
                                       </button>
@@ -807,7 +836,8 @@ function TeacherMenu() {
             
             <div className="table-responsive">
               <table className="students-table">
-                  <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th></tr></thead>
+                  {/* 🟢 ADDED: Action column for Retakes */}
+                  <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th><th>Action</th></tr></thead>
                   <tbody>
                       {gradebookData.map((row) => {
                           const hasPlayed = row.raw_score !== null;
@@ -818,6 +848,18 @@ function TeacherMenu() {
                                   <td>{hasPlayed ? `${row.raw_score} / ${row.total_items}` : '-'}</td>
                                   <td style={{color: hasPlayed && grade >= 75 ? '#14a014' : '#ff4c4c'}}>{hasPlayed ? `${grade}%` : '-'}</td>
                                   <td><span style={{ backgroundColor: hasPlayed && grade >= 75 ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)', padding: '3px 8px', borderRadius: '4px' }}>{hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING'}</span></td>
+                                  <td>
+                                      {/* 🟢 NEW: RETAKE BUTTON */}
+                                      {hasPlayed && (
+                                          <button 
+                                              className="btn btn-secondary" 
+                                              style={{ fontSize: '0.7rem', padding: '5px 10px', borderColor: '#fca311', color: '#fca311' }}
+                                              onClick={() => promptResetAttempt(row)}
+                                          >
+                                              ALLOW RETAKE
+                                          </button>
+                                      )}
+                                  </td>
                               </tr>
                           );
                       })}
@@ -830,7 +872,26 @@ function TeacherMenu() {
 
       {/* --- MODALS --- */}
 
-      {/* 🟢 NEW: REUSE ACTIVITY MODAL */}
+      {/* 🟢 NEW: RESET ATTEMPT CONFIRMATION MODAL */}
+      {showResetAttemptModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ border: '2px solid #fca311' }}>
+            <h2 style={{color: '#fca311'}}>ALLOW RETAKE</h2>
+            <p style={{fontSize:'0.9rem', color:'#fff', marginBottom:'20px', textAlign: 'center'}}>
+                Are you sure you want to let <b>{studentToReset?.student_name} {studentToReset?.student_surname}</b> retake this activity? 
+                <br/><br/>
+                <span style={{color: '#ff4c4c'}}>Their current score of {studentToReset?.raw_score} will be permanently deleted.</span>
+            </p>
+            <div className="modal-actions-row">
+                <button type="button" onClick={confirmResetAttempt} className="btn" style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none' }}>
+                    YES, DELETE SCORE
+                </button>
+                <button type="button" onClick={() => setShowResetAttemptModal(false)} className="btn btn-secondary">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showReuseModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: '2px solid #00f5ff' }}>

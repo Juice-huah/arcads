@@ -442,7 +442,28 @@ app.post('/api/duplicate-game', (req, res) => {
 // ==========================================
 // 5. STATS & ANSWER TRACKING ROUTES
 // ==========================================
+// --- RESET A SPECIFIC STUDENT'S ATTEMPT ---
+app.delete('/api/reset-student-attempt', (req, res) => {
+    const { game_id, student_fid } = req.body;
 
+    if (!game_id || !student_fid) {
+        return res.status(400).json({ error: "Missing game_id or student_fid" });
+    }
+
+    // First, delete their answers for this specific game
+    const deleteAnswersSql = "DELETE FROM student_answers WHERE game_id = ? AND student_fid = ?";
+    db.query(deleteAnswersSql, [game_id, student_fid], (err1) => {
+        if (err1) return res.status(500).json({ error: "Failed to clear student answers" });
+
+        // Second, delete their final score for this specific game
+        const deleteScoreSql = "DELETE FROM scores WHERE game_id = ? AND student_fid = ?";
+        db.query(deleteScoreSql, [game_id, student_fid], (err2) => {
+            if (err2) return res.status(500).json({ error: "Failed to clear student score" });
+
+            res.json({ message: "Student attempt successfully reset!" });
+        });
+    });
+});
 app.post('/api/save-answers', (req, res) => {
     const { answers } = req.body; 
     if (!answers || answers.length === 0) return res.json({ message: "No answers to save." });
