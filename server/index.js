@@ -32,10 +32,24 @@ db.getConnection((err, connection) => {
     console.error("❌ Database Pool Connection Failed:", err.message);
   } else {
     console.log("✅ Connected securely to AIVEN via Pool!");
+    
+    // 🟢 NEW: Auto-create the tracking table for student-specific locks
+    const createLocksTable = `
+      CREATE TABLE IF NOT EXISTS student_game_locks (
+          game_id INT,
+          student_fid VARCHAR(255),
+          PRIMARY KEY (game_id, student_fid)
+      )`;
+    connection.query(createLocksTable, (err) => {
+        if (err) console.error("Failed to ensure student_game_locks table:", err.message);
+        else console.log("✅ student_game_locks table ready.");
+    });
+
     connection.release(); 
   }
 });
 
+// ... [TEACHER & STUDENT SIGNUP ROUTES REMAIN UNCHANGED] ...
 
 app.post("/api/teacher-signup", (req, res) => {
   const { uid, name, surname, username } = req.body;
@@ -238,7 +252,6 @@ app.put('/api/toggle-activity/:game_id', (req, res) => {
 
 // --- CORE GAME CREATION ROUTE ---
 app.post('/api/create-game', (req, res) => {
-    // 🟢 ADDED: custom_title
     const { teacher_fid, class_id, game_type, custom_title, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, game_type, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
@@ -273,10 +286,10 @@ app.post('/api/add-question', (req, res) => {
         res.json({ message: "Question added successfully!" });
     });
 });
-// --- SPECIALIZED GAME ROUTES (🟢 UPDATED FOR CUSTOM TITLES) ---
+
+// ... [ADVENTURE, WORD QUEST, FOREST, MOLE, STARTYPE ROUTES REMAIN UNCHANGED] ...
 
 app.post('/api/create-adventure', (req, res) => {
-    // 🟢 ADDED custom_title
     const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
@@ -309,7 +322,6 @@ app.post('/api/create-adventure', (req, res) => {
 });
 
 app.post('/api/create-word-quest', (req, res) => {
-    // 🟢 ADDED custom_title
     const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'word_quest', ?, ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
@@ -328,7 +340,6 @@ app.post('/api/create-word-quest', (req, res) => {
 });
 
 app.post('/api/create-enchanted-forest', (req, res) => {
-    // 🟢 ADDED custom_title
     const { teacher_fid, class_id, custom_title, game_data, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'enchanted_forest', ?, ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
@@ -353,7 +364,6 @@ app.post('/api/create-enchanted-forest', (req, res) => {
 });
 
 app.post('/api/create-whack-a-mole', (req, res) => {
-    // 🟢 ADDED custom_title
     const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'whack_a_mole', ?, ?, ?, ?)";
     db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
@@ -372,18 +382,14 @@ app.post('/api/create-whack-a-mole', (req, res) => {
 });
 
 app.post('/api/create-startype', (req, res) => {
-    // 🟢 ADDED custom_title
     const { teacher_fid, class_id, custom_title, words, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'startype', ?, ?, ?, ?)";
-    
     db.query(sqlGame, [teacher_fid, class_id, custom_title || null, open_datetime || null, close_datetime || null, time_limit || 0], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create instance" });
         const newGameId = result.insertId; 
-        
         const questionValues = words.map(w => {
             return [newGameId, w.word, 'startype', w.difficulty || "Easy", '', '', '', 0];
         });
-
         const sqlQuestions = `INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?`;
         db.query(sqlQuestions, [questionValues], (err, result) => {
             if (err) return res.status(500).json({ error: "Failed to save words" });
@@ -391,79 +397,70 @@ app.post('/api/create-startype', (req, res) => {
         });
     });
 });
-// --- DUPLICATE/REUSE GAME ROUTE ---
+
 app.post('/api/duplicate-game', (req, res) => {
     const { original_game_id, new_class_id, teacher_fid } = req.body;
-
-    if (!original_game_id || !new_class_id || !teacher_fid) {
-        return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    // Step 1: Fetch the original game settings
+    if (!original_game_id || !new_class_id || !teacher_fid) return res.status(400).json({ error: "Missing required fields" });
     const fetchGameSql = "SELECT game_type, custom_title, open_datetime, close_datetime, time_limit FROM game_instances WHERE game_id = ?";
     db.query(fetchGameSql, [original_game_id], (err, gameResults) => {
         if (err) return res.status(500).json({ error: "Database error fetching original game" });
         if (gameResults.length === 0) return res.status(404).json({ error: "Original activity not found" });
-
         const game = gameResults[0];
-
-        // Step 2: Insert the new cloned game attached to the new class
         const insertGameSql = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?, ?)";
         db.query(insertGameSql, [teacher_fid, new_class_id, game.game_type, game.custom_title, game.open_datetime, game.close_datetime, game.time_limit], (err2, insertResult) => {
             if (err2) return res.status(500).json({ error: "Database error creating new game instance" });
-
             const newGameId = insertResult.insertId;
-
-            // Step 3: Fetch all the questions attached to the original game
             const fetchQuestionsSql = "SELECT question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer FROM game_questions WHERE game_id = ?";
             db.query(fetchQuestionsSql, [original_game_id], (err3, questionsResult) => {
                 if (err3) return res.status(500).json({ error: "Database error fetching original questions" });
-
-                // If the game didn't have any questions, just return success early
-                if (questionsResult.length === 0) {
-                    return res.json({ message: "Activity duplicated (no questions to copy)!", gameId: newGameId });
-                }
-
-                // Step 4: Format and insert the copied questions into the new game
+                if (questionsResult.length === 0) return res.json({ message: "Activity duplicated (no questions to copy)!", gameId: newGameId });
                 const insertQuestionsSql = "INSERT INTO game_questions (game_id, question_text, question_type, choice_a, choice_b, choice_c, choice_d, correct_answer) VALUES ?";
-                const questionValues = questionsResult.map(q => [
-                    newGameId, q.question_text, q.question_type, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer
-                ]);
-
+                const questionValues = questionsResult.map(q => [newGameId, q.question_text, q.question_type, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer]);
                 db.query(insertQuestionsSql, [questionValues], (err4) => {
                     if (err4) return res.status(500).json({ error: "Database error copying questions" });
-                    
                     return res.json({ message: "Activity successfully duplicated and assigned!", gameId: newGameId });
                 });
             });
         });
     });
 });
+
 // ==========================================
 // 5. STATS & ANSWER TRACKING ROUTES
 // ==========================================
-// --- RESET A SPECIFIC STUDENT'S ATTEMPT ---
+
 app.delete('/api/reset-student-attempt', (req, res) => {
     const { game_id, student_fid } = req.body;
-
-    if (!game_id || !student_fid) {
-        return res.status(400).json({ error: "Missing game_id or student_fid" });
-    }
-
-    // First, delete their answers for this specific game
+    if (!game_id || !student_fid) return res.status(400).json({ error: "Missing game_id or student_fid" });
     const deleteAnswersSql = "DELETE FROM student_answers WHERE game_id = ? AND student_fid = ?";
     db.query(deleteAnswersSql, [game_id, student_fid], (err1) => {
         if (err1) return res.status(500).json({ error: "Failed to clear student answers" });
-
-        // Second, delete their final score for this specific game
         const deleteScoreSql = "DELETE FROM scores WHERE game_id = ? AND student_fid = ?";
         db.query(deleteScoreSql, [game_id, student_fid], (err2) => {
             if (err2) return res.status(500).json({ error: "Failed to clear student score" });
-
             res.json({ message: "Student attempt successfully reset!" });
         });
     });
 });
+
+// 🟢 NEW: LOCK OR UNLOCK A SPECIFIC STUDENT
+app.post('/api/toggle-student-lock', (req, res) => {
+    const { game_id, student_fid, lock_status } = req.body;
+    if (lock_status) {
+        const sql = "INSERT IGNORE INTO student_game_locks (game_id, student_fid) VALUES (?, ?)";
+        db.query(sql, [game_id, student_fid], (err) => {
+            if (err) return res.status(500).json({ error: "Failed to lock student" });
+            res.json({ message: "Student locked out." });
+        });
+    } else {
+        const sql = "DELETE FROM student_game_locks WHERE game_id = ? AND student_fid = ?";
+        db.query(sql, [game_id, student_fid], (err) => {
+            if (err) return res.status(500).json({ error: "Failed to unlock student" });
+            res.json({ message: "Student unlocked." });
+        });
+    }
+});
+
 app.post('/api/save-answers', (req, res) => {
     const { answers } = req.body; 
     if (!answers || answers.length === 0) return res.json({ message: "No answers to save." });
@@ -504,7 +501,6 @@ app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
 });
 
 app.get('/api/get-games/:teacher_fid', (req, res) => {
-    // 🟢 ADDED g.custom_title
     const sql = `SELECT g.game_id, g.game_type, g.custom_title, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, c.class_name, c.class_id FROM game_instances g JOIN classes c ON g.class_id = c.class_id WHERE g.teacher_fid = ? ORDER BY g.created_at DESC`;
     db.query(sql, [req.params.teacher_fid], (err, results) => {
         if (err) return res.status(500).json({ error: "Database error" });
@@ -512,32 +508,46 @@ app.get('/api/get-games/:teacher_fid', (req, res) => {
     });
 });
 
+// 🟢 UPDATED: Gradebook now detects student locks
 app.get('/api/gradebook/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     const sql = `
         SELECT s.student_fid, s.student_name, s.student_surname, sc.score as raw_score, sc.time_taken,
-               (SELECT COUNT(*) FROM game_questions WHERE game_id = ?) as total_items
+               (SELECT COUNT(*) FROM game_questions WHERE game_id = ?) as total_items,
+               CASE WHEN sgl.student_fid IS NOT NULL THEN 1 ELSE 0 END as is_locked
         FROM class_members cm
         JOIN student s ON cm.student_fid = s.student_fid
         LEFT JOIN scores sc ON s.student_fid = sc.student_fid AND sc.game_id = ?
+        LEFT JOIN student_game_locks sgl ON s.student_fid = sgl.student_fid AND sgl.game_id = ?
         WHERE cm.class_id = (SELECT class_id FROM game_instances WHERE game_id = ?)
         ORDER BY s.student_surname ASC`;
-    db.query(sql, [gameId, gameId, gameId], (err, results) => {
+    db.query(sql, [gameId, gameId, gameId, gameId], (err, results) => {
         if (err) return res.status(500).json({ error: "Database error" });
         res.json(results);
     });
 });
 
+// 🟢 NEW: Check if a specific student is locked from a game
+app.get('/api/check-lock/:game_id/:student_fid', (req, res) => {
+  const { game_id, student_fid } = req.params;
+  const sql = "SELECT * FROM student_game_locks WHERE game_id = ? AND student_fid = ?";
+  db.query(sql, [game_id, student_fid], (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json({ isLocked: results.length > 0 });
+  });
+});
+
 app.get('/api/student-games/:student_fid', (req, res) => {
-    // 🟢 ADDED g.custom_title
     const sql = `
         SELECT c.class_name, c.class_id, t.teacher_name, t.teacher_surname, g.game_id, g.game_type, g.custom_title, g.created_at, g.open_datetime, g.close_datetime, g.time_limit, g.is_active, sc.score as raw_score, sc.time_taken,
-               (SELECT COUNT(*) FROM game_questions WHERE game_id = g.game_id) as total_items
+               (SELECT COUNT(*) FROM game_questions WHERE game_id = g.game_id) as total_items,
+               CASE WHEN sgl.student_fid IS NOT NULL THEN 1 ELSE 0 END as is_locked
         FROM class_members cm
         LEFT JOIN classes c ON cm.class_id = c.class_id
         LEFT JOIN teacher t ON c.teacher_fid = t.teacher_fid
         LEFT JOIN game_instances g ON c.class_id = g.class_id
         LEFT JOIN scores sc ON sc.game_id = g.game_id AND sc.student_fid = cm.student_fid
+        LEFT JOIN student_game_locks sgl ON sgl.student_fid = cm.student_fid AND sgl.game_id = g.game_id
         WHERE cm.student_fid = ?
         ORDER BY c.class_name ASC, g.created_at DESC`;
     db.query(sql, [req.params.student_fid], (err, results) => {
@@ -570,10 +580,10 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
     });
 });
 
-// --- FULL CLASS DELETION ---
+// ... [CLASS DELETION, USER DELETION, AND ADMIN ROUTES REMAIN UNCHANGED] ...
+
 app.delete("/api/delete-class/:class_id", (req, res) => {
   const classId = req.params.class_id;
-
   const delAnswers = "DELETE FROM student_answers WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
   const delScores = "DELETE FROM scores WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
   const delQuestions = "DELETE FROM game_questions WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
@@ -601,23 +611,15 @@ app.delete("/api/delete-class/:class_id", (req, res) => {
   });
 });
 
-// --- DELETE USER ACCOUNT ---
 app.delete('/api/delete-user', (req, res) => {
     const { uid, role } = req.body;
-    const sql = role === 'teacher' 
-        ? "DELETE FROM teacher WHERE teacher_fid = ?" 
-        : "DELETE FROM student WHERE student_fid = ?";
-
+    const sql = role === 'teacher' ? "DELETE FROM teacher WHERE teacher_fid = ?" : "DELETE FROM student WHERE student_fid = ?";
     db.query(sql, [uid], (err, result) => {
-        if (err) {
-            console.error("Error deleting user from DB:", err);
-            return res.status(500).json({ error: "Database error during deletion." });
-        }
-        res.json({ message: "User data wiped from MySQL successfully." });
+        if (err) return res.status(500).json({ error: "Database error" });
+        res.json({ message: "User data wiped successfully." });
     });
 });
 
-// 🟢 CRON-JOB KEEP-ALIVE ROUTE
 app.get('/keep-alive', (req, res) => {
     res.status(200).json({ status: "Render is awake!" });
     db.query('SELECT 1', (err, result) => {
@@ -626,12 +628,7 @@ app.get('/keep-alive', (req, res) => {
 });
 
 app.get('/api/admin/backup', (req, res) => {
-    const sqlUsers = `
-        SELECT 'Student' as role, student_name as name, student_username as username FROM student
-        UNION
-        SELECT 'Teacher' as role, teacher_name as name, teacher_username as username FROM teacher
-    `;
-    
+    const sqlUsers = `SELECT 'Student' as role, student_name as name, student_username as username FROM student UNION SELECT 'Teacher' as role, teacher_name as name, teacher_username as username FROM teacher`;
     db.query(sqlUsers, (err, users) => {
         if (err) return res.status(500).json({ error: "Failed to backup users" });
         db.query("SELECT * FROM scores", (err, scores) => {
@@ -653,34 +650,21 @@ app.get('/api/admin/backup', (req, res) => {
 
 app.get('/api/admin/dashboard-data', (req, res) => {
     const sqlStats = "SELECT (SELECT COUNT(*) FROM student) as students, (SELECT COUNT(*) FROM teacher) as teachers, (SELECT COUNT(*) FROM game_instances) as games";
-
-    const sqlUsers = `
-        SELECT student_fid as uid, 'Student' as role, student_username as username, CONCAT(student_name, ' ', student_surname) as name FROM student
-        UNION
-        SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username, CONCAT(teacher_name, ' ', teacher_surname) as name FROM teacher
-    `;
-
-    const sqlClasses = `
-        SELECT c.class_id, c.class_name, c.class_code, CONCAT(t.teacher_name, ' ', t.teacher_surname) as teacher_name 
-        FROM classes c 
-        LEFT JOIN teacher t ON c.teacher_fid = t.teacher_fid 
-        ORDER BY c.created_at DESC
-    `;
-
+    const sqlUsers = `SELECT student_fid as uid, 'Student' as role, student_username as username, CONCAT(student_name, ' ', student_surname) as name FROM student UNION SELECT teacher_fid as uid, 'Teacher' as role, teacher_username as username, CONCAT(teacher_name, ' ', teacher_surname) as name FROM teacher`;
+    const sqlClasses = `SELECT c.class_id, c.class_name, c.class_code, CONCAT(t.teacher_name, ' ', t.teacher_surname) as teacher_name FROM classes c LEFT JOIN teacher t ON c.teacher_fid = t.teacher_fid ORDER BY c.created_at DESC`;
     const sqlLogs = "SELECT played_at as activity_timestamp, student_fid, CONCAT('Completed a game with score: ', score) as activity_type FROM scores ORDER BY played_at DESC LIMIT 15";
-
     const sqlGameStats = "SELECT game_type, COUNT(*) as count FROM game_instances GROUP BY game_type ORDER BY count DESC";
 
     db.query(sqlStats, (err1, statsResult) => {
-        if (err1) return res.status(500).json({ error: "Database error 1" });
+        if (err1) return res.status(500).json({ error: "Database error" });
         db.query(sqlUsers, (err2, usersResult) => {
-            if (err2) return res.status(500).json({ error: "Database error 2" });
+            if (err2) return res.status(500).json({ error: "Database error" });
             db.query(sqlClasses, (err3, classesResult) => {
-                if (err3) return res.status(500).json({ error: "Database error 3" });
+                if (err3) return res.status(500).json({ error: "Database error" });
                 db.query(sqlLogs, (err4, logsResult) => {
-                    if (err4) return res.status(500).json({ error: "Database error 4" });
+                    if (err4) return res.status(500).json({ error: "Database error" });
                     db.query(sqlGameStats, (err5, gameStatsResult) => {
-                        if (err5) return res.status(500).json({ error: "Database error 5" });
+                        if (err5) return res.status(500).json({ error: "Database error" });
                         res.json({
                             stats: statsResult[0],
                             users: usersResult,

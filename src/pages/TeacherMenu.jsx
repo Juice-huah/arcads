@@ -85,7 +85,6 @@ function TeacherMenu() {
   const [isReusing, setIsReusing] = useState(false);
   const [reuseErrorMsg, setReuseErrorMsg] = useState('');
 
-  // 🟢 NEW STATES: For Resetting a Student's Attempt
   const [showResetAttemptModal, setShowResetAttemptModal] = useState(false);
   const [studentToReset, setStudentToReset] = useState(null);
 
@@ -455,7 +454,6 @@ function TeacherMenu() {
       }
   };
 
-  // 🟢 NEW: Functions for Resetting Attempts
   const promptResetAttempt = (studentRow) => {
       setStudentToReset(studentRow);
       setShowResetAttemptModal(true);
@@ -475,11 +473,31 @@ function TeacherMenu() {
           if (res.ok) {
               setShowResetAttemptModal(false);
               setStudentToReset(null);
-              // Refetch the gradebook so the teacher sees the score disappear immediately
               fetchGradebook(gradebookGame);
           }
       } catch (err) {
           console.error("Error resetting student attempt:", err);
+      }
+  };
+
+  // 🟢 NEW: Function to lock or unlock a single student
+  const toggleStudentLock = async (row) => {
+      const newLockStatus = row.is_locked ? 0 : 1; 
+      try {
+          const res = await fetch('https://arcads-api.onrender.com/api/toggle-student-lock', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                  game_id: gradebookGame.game_id,
+                  student_fid: row.student_fid,
+                  lock_status: newLockStatus
+              })
+          });
+          if (res.ok) {
+              fetchGradebook(gradebookGame); 
+          }
+      } catch (err) {
+          console.error("Error toggling student lock:", err);
       }
   };
 
@@ -836,29 +854,50 @@ function TeacherMenu() {
             
             <div className="table-responsive">
               <table className="students-table">
-                  {/* 🟢 ADDED: Action column for Retakes */}
-                  <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th><th>Action</th></tr></thead>
+                  <thead><tr><th>Student Name</th><th>Raw Score</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
                       {gradebookData.map((row) => {
                           const hasPlayed = row.raw_score !== null;
                           const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
+                          
+                          // Handle lock display states
+                          const lockBtnColor = row.is_locked ? '#14a014' : '#ff4c4c';
+                          const lockBtnText = row.is_locked ? 'UNLOCK' : 'LOCK OUT';
+
                           return (
                               <tr key={row.student_fid}>
                                   <td>{row.student_surname}, {row.student_name}</td>
                                   <td>{hasPlayed ? `${row.raw_score} / ${row.total_items}` : '-'}</td>
                                   <td style={{color: hasPlayed && grade >= 75 ? '#14a014' : '#ff4c4c'}}>{hasPlayed ? `${grade}%` : '-'}</td>
-                                  <td><span style={{ backgroundColor: hasPlayed && grade >= 75 ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)', padding: '3px 8px', borderRadius: '4px' }}>{hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING'}</span></td>
                                   <td>
-                                      {/* 🟢 NEW: RETAKE BUTTON */}
-                                      {hasPlayed && (
+                                      {row.is_locked ? (
+                                           <span style={{ backgroundColor: 'rgba(220, 53, 69, 0.4)', padding: '3px 8px', borderRadius: '4px', color: '#fff' }}>LOCKED</span>
+                                      ) : (
+                                          <span style={{ backgroundColor: hasPlayed && grade >= 75 ? 'rgba(20, 160, 20, 0.2)' : 'rgba(220, 53, 69, 0.2)', padding: '3px 8px', borderRadius: '4px' }}>
+                                              {hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING'}
+                                          </span>
+                                      )}
+                                  </td>
+                                  <td>
+                                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                          {hasPlayed && (
+                                              <button 
+                                                  className="btn btn-secondary" 
+                                                  style={{ fontSize: '0.7rem', padding: '5px 10px', borderColor: 'var(--arcade-orange)', color: 'var(--arcade-orange)' }}
+                                                  onClick={() => promptResetAttempt(row)}
+                                              >
+                                                  RETAKE
+                                              </button>
+                                          )}
+                                          {/* 🟢 NEW: LOCK OUT BUTTON */}
                                           <button 
                                               className="btn btn-secondary" 
-                                              style={{ fontSize: '0.7rem', padding: '5px 10px', borderColor: '#fca311', color: '#fca311' }}
-                                              onClick={() => promptResetAttempt(row)}
+                                              style={{ fontSize: '0.7rem', padding: '5px 10px', borderColor: lockBtnColor, color: lockBtnColor }}
+                                              onClick={() => toggleStudentLock(row)}
                                           >
-                                              ALLOW RETAKE
+                                              {lockBtnText}
                                           </button>
-                                      )}
+                                      </div>
                                   </td>
                               </tr>
                           );
@@ -872,7 +911,6 @@ function TeacherMenu() {
 
       {/* --- MODALS --- */}
 
-      {/* 🟢 NEW: RESET ATTEMPT CONFIRMATION MODAL */}
       {showResetAttemptModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: '2px solid #fca311' }}>
