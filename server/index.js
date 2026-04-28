@@ -2,7 +2,7 @@ import express from "express";
 import mysql from "mysql2"; 
 import cors from "cors";
 import dotenv from "dotenv"; 
-import ExcelJS from "exceljs"; // 🟢 NEW: Added for Excel generation
+import ExcelJS from "exceljs";
 
 dotenv.config(); 
 
@@ -327,111 +327,6 @@ app.post('/api/create-word-quest', (req, res) => {
         });
     });
 });
-// 🟢 NEW: EXPORT CLASS PERFORMANCE TO EXCEL ROUTE
-app.get('/api/export-class-performance/:class_id', (req, res) => {
-    const classId = req.params.class_id;
-    const sortMode = req.query.sort || 'alphabetical';
-    const className = req.query.className || 'Unknown Class';
-
-    // 1. Get total items
-    const sqlTotalItems = `
-        SELECT COUNT(*) as total_items 
-        FROM game_questions 
-        WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)`;
-
-    // 2. Get student scores
-    const sqlStudentScores = `
-        SELECT s.student_fid, s.student_name, s.student_surname,
-               COUNT(DISTINCT sc.game_id) as games_played,
-               SUM(sc.score) as accumulated_score
-        FROM class_members cm
-        JOIN student s ON cm.student_fid = s.student_fid
-        LEFT JOIN scores sc ON cm.student_fid = sc.student_fid
-             AND sc.game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)
-        WHERE cm.class_id = ?
-        GROUP BY s.student_fid`;
-
-    db.query(sqlTotalItems, [classId], (err, itemsResult) => {
-        if (err) return res.status(500).json({ error: "Database error fetching total items" });
-        const classTotalItems = itemsResult[0].total_items || 0;
-
-        db.query(sqlStudentScores, [classId, classId], async (err2, studentsResult) => {
-            if (err2) return res.status(500).json({ error: "Database error fetching scores" });
-
-            let formatted = studentsResult.map(student => {
-                const score = student.accumulated_score || 0;
-                let accuracy = 0;
-                let grade = 0;
-                let descriptor = "No Data";
-
-                if (classTotalItems > 0 && student.games_played > 0) {
-                    accuracy = (score / classTotalItems) * 100;
-                    grade = Math.round((score / classTotalItems) * 50 + 50); 
-                    
-                    if (grade >= 90) descriptor = "Outstanding (O)";
-                    else if (grade >= 85) descriptor = "Very Satisfactory (VS)";
-                    else if (grade >= 80) descriptor = "Satisfactory (S)";
-                    else if (grade >= 75) descriptor = "Fairly Satisfactory (FS)";
-                    else descriptor = "Did Not Meet Expectations (DNME)";
-                }
-                return { ...student, accuracy, grade, descriptor };
-            });
-
-            // Apply Sorting
-            if (sortMode === 'alphabetical') {
-                formatted.sort((a, b) => (a.student_surname || "").localeCompare(b.student_surname || ""));
-            } else if (sortMode === 'best') {
-                formatted.sort((a, b) => b.grade - a.grade);
-            } else if (sortMode === 'worst') {
-                formatted.sort((a, b) => a.grade - b.grade);
-            }
-
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('Class Performance');
-
-            // Header block
-            worksheet.addRow(['CLASS OVERALL PERFORMANCE']);
-            worksheet.addRow(['CLASS NAME:', className]);
-            worksheet.addRow([]);
-
-            worksheet.getCell('A1').font = { bold: true, size: 14 };
-            worksheet.getCell('A2').font = { bold: true };
-
-            const headerRow = worksheet.addRow(['No.', 'Last Name', 'First Name', 'Games Played', 'Total Score', 'Accuracy', 'Final Grade', 'DepEd Descriptor']);
-            headerRow.font = { bold: true };
-            headerRow.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9E1F2'} };
-
-            worksheet.columns = [
-                { key: 'no', width: 5 },
-                { key: 'last_name', width: 20 },
-                { key: 'first_name', width: 20 },
-                { key: 'games', width: 15 },
-                { key: 'score', width: 15 },
-                { key: 'accuracy', width: 12 },
-                { key: 'grade', width: 15 },
-                { key: 'descriptor', width: 35 }
-            ];
-
-            formatted.forEach((s, i) => {
-                worksheet.addRow({
-                    no: i + 1,
-                    last_name: s.student_surname,
-                    first_name: s.student_name,
-                    games: s.games_played,
-                    score: s.games_played > 0 ? `${s.accumulated_score || 0} / ${classTotalItems}` : '-',
-                    accuracy: s.accuracy > 0 ? `${s.accuracy.toFixed(1)}%` : '-',
-                    grade: s.grade > 0 ? `${s.grade}%` : '-',
-                    descriptor: s.descriptor
-                });
-            });
-
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', `attachment; filename=Class_Performance_${classId}.xlsx`);
-            await workbook.xlsx.write(res);
-            res.end();
-        });
-    });
-});
 
 app.post('/api/create-enchanted-forest', (req, res) => {
     const { teacher_fid, class_id, custom_title, game_data, open_datetime, close_datetime, time_limit } = req.body;
@@ -561,8 +456,7 @@ app.post('/api/save-answers', (req, res) => {
     });
 });
 
-// 🟢 UPDATED: Item Analysis Data Logic (with dynamic sorting built in)
-// 🟢 UPDATED: Item Analysis Data Logic (Now includes Mean, Max, Min, and Participants)
+// 🟢 RESTORED & UPDATED: Item Analysis (with DepEd Summary Math)
 app.get('/api/item-analysis/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     const sortMode = req.query.sort || 'numerical'; 
@@ -576,7 +470,7 @@ app.get('/api/item-analysis/:game_id', (req, res) => {
         WHERE q.game_id = ?
         GROUP BY q.id`;
 
-    // 🟢 NEW: Query to grab the DepEd Header metrics
+    // The query to grab the DepEd Header metrics (Mean, Max, Min)
     const sqlSummary = `
         SELECT 
             COUNT(student_fid) as total_participants,
@@ -613,7 +507,7 @@ app.get('/api/item-analysis/:game_id', (req, res) => {
     });
 });
 
-// 🟢 UPDATED: EXPORT ITEM ANALYSIS TO EXCEL (With DepEd Header Layout)
+// 🟢 RESTORED & UPDATED: EXPORT ITEM ANALYSIS TO EXCEL (With DepEd Header Layout)
 app.get('/api/export-item-analysis/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     const sortMode = req.query.sort || 'numerical';
@@ -660,7 +554,7 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Item Analysis');
 
-            // 🟢 NEW: Add the Top Header Block exactly like the image
+            // Add the Top Header Block exactly like the DepEd image
             worksheet.addRow(['CLASS NAME:', className]);
             worksheet.addRow(['ACTIVITY NAME:', activityName]);
             worksheet.addRow(['STUDENTS PARTICIPATED:', summary.total_participants || 0]);
@@ -669,7 +563,6 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
             worksheet.addRow(['HIGHEST SCORE:', summary.highest_score || 0]);
             worksheet.addRow(['LOWEST SCORE:', summary.lowest_score || 0]);
 
-            // Styling the header rows
             for (let i = 1; i <= 7; i++) {
                 worksheet.getCell(`A${i}`).font = { bold: true };
             }
@@ -679,10 +572,10 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
             // Add Table Headers
             const headerRow = worksheet.addRow(['Item No.', 'Question', 'Correct', 'Wrong', 'Accuracy']);
             headerRow.font = { bold: true };
-            headerRow.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9E1F2'} }; // Light blue header like the image
+            headerRow.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9E1F2'} };
 
             worksheet.columns = [
-                { key: 'item_no', width: 25 }, // Wider for the header labels
+                { key: 'item_no', width: 10 }, 
                 { key: 'question', width: 60 },
                 { key: 'correct', width: 12 },
                 { key: 'wrong', width: 12 },
@@ -705,6 +598,160 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
             await workbook.xlsx.write(res);
             res.end();
         });
+    });
+});
+
+// 🟢 NEW: Class Overall Performance (Only counts played games)
+app.get('/api/class-performance/:class_id', (req, res) => {
+    const classId = req.params.class_id;
+
+    const sqlStudentScores = `
+        SELECT 
+            s.student_fid, 
+            s.student_name, 
+            s.student_surname,
+            COUNT(DISTINCT sc.game_id) as games_played,
+            SUM(sc.score) as accumulated_score,
+            SUM((SELECT COUNT(*) FROM game_questions WHERE game_id = sc.game_id)) as attempted_items
+        FROM class_members cm
+        JOIN student s ON cm.student_fid = s.student_fid
+        LEFT JOIN scores sc ON cm.student_fid = sc.student_fid
+             AND sc.game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)
+        WHERE cm.class_id = ?
+        GROUP BY s.student_fid, s.student_name, s.student_surname
+        ORDER BY s.student_surname ASC`;
+
+    db.query(sqlStudentScores, [classId, classId], (err, studentsResult) => {
+        if (err) return res.status(500).json({ error: "Database error fetching student scores" });
+
+        const performanceData = studentsResult.map(student => {
+            const score = parseInt(student.accumulated_score || 0);
+            const attemptedItems = parseInt(student.attempted_items || 0);
+            let accuracy = 0;
+            let grade = 0;
+            let descriptor = "No Data";
+
+            if (student.games_played > 0 && attemptedItems > 0) {
+                accuracy = (score / attemptedItems) * 100;
+                grade = Math.round((score / attemptedItems) * 50 + 50); // Base-50
+
+                // DepEd Qualitative Scale
+                if (grade >= 90) descriptor = "Outstanding (O)";
+                else if (grade >= 85) descriptor = "Very Satisfactory (VS)";
+                else if (grade >= 80) descriptor = "Satisfactory (S)";
+                else if (grade >= 75) descriptor = "Fairly Satisfactory (FS)";
+                else descriptor = "Did Not Meet Expectations (DNME)";
+            }
+
+            return {
+                ...student,
+                attempted_items: attemptedItems,
+                accuracy: accuracy,
+                grade: grade,
+                descriptor: descriptor
+            };
+        });
+
+        res.json(performanceData);
+    });
+});
+
+// 🟢 NEW: EXPORT CLASS PERFORMANCE TO EXCEL ROUTE
+app.get('/api/export-class-performance/:class_id', (req, res) => {
+    const classId = req.params.class_id;
+    const sortMode = req.query.sort || 'alphabetical';
+    const className = req.query.className || 'Unknown Class';
+
+    const sqlStudentScores = `
+        SELECT 
+            s.student_fid, 
+            s.student_name, 
+            s.student_surname,
+            COUNT(DISTINCT sc.game_id) as games_played,
+            SUM(sc.score) as accumulated_score,
+            SUM((SELECT COUNT(*) FROM game_questions WHERE game_id = sc.game_id)) as attempted_items
+        FROM class_members cm
+        JOIN student s ON cm.student_fid = s.student_fid
+        LEFT JOIN scores sc ON cm.student_fid = sc.student_fid
+             AND sc.game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)
+        WHERE cm.class_id = ?
+        GROUP BY s.student_fid, s.student_name, s.student_surname`;
+
+    db.query(sqlStudentScores, [classId, classId], async (err, studentsResult) => {
+        if (err) return res.status(500).json({ error: "Database error fetching scores" });
+
+        let formatted = studentsResult.map(student => {
+            const score = parseInt(student.accumulated_score || 0);
+            const attemptedItems = parseInt(student.attempted_items || 0);
+            let accuracy = 0;
+            let grade = 0;
+            let descriptor = "No Data";
+
+            if (student.games_played > 0 && attemptedItems > 0) {
+                accuracy = (score / attemptedItems) * 100;
+                grade = Math.round((score / attemptedItems) * 50 + 50); 
+                
+                if (grade >= 90) descriptor = "Outstanding (O)";
+                else if (grade >= 85) descriptor = "Very Satisfactory (VS)";
+                else if (grade >= 80) descriptor = "Satisfactory (S)";
+                else if (grade >= 75) descriptor = "Fairly Satisfactory (FS)";
+                else descriptor = "Did Not Meet Expectations (DNME)";
+            }
+            return { ...student, attempted_items: attemptedItems, accuracy, grade, descriptor };
+        });
+
+        // Apply Sorting
+        if (sortMode === 'alphabetical') {
+            formatted.sort((a, b) => (a.student_surname || "").localeCompare(b.student_surname || ""));
+        } else if (sortMode === 'best') {
+            formatted.sort((a, b) => b.grade - a.grade);
+        } else if (sortMode === 'worst') {
+            formatted.sort((a, b) => a.grade - b.grade);
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Class Performance');
+
+        // Header block
+        worksheet.addRow(['CLASS OVERALL PERFORMANCE']);
+        worksheet.addRow(['CLASS NAME:', className]);
+        worksheet.addRow([]);
+
+        worksheet.getCell('A1').font = { bold: true, size: 14 };
+        worksheet.getCell('A2').font = { bold: true };
+
+        const headerRow = worksheet.addRow(['No.', 'Last Name', 'First Name', 'Games Played', 'Total Score', 'Accuracy', 'Final Grade', 'DepEd Descriptor']);
+        headerRow.font = { bold: true };
+        headerRow.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9E1F2'} };
+
+        worksheet.columns = [
+            { key: 'no', width: 5 },
+            { key: 'last_name', width: 20 },
+            { key: 'first_name', width: 20 },
+            { key: 'games', width: 15 },
+            { key: 'score', width: 15 },
+            { key: 'accuracy', width: 12 },
+            { key: 'grade', width: 15 },
+            { key: 'descriptor', width: 35 }
+        ];
+
+        formatted.forEach((s, i) => {
+            worksheet.addRow({
+                no: i + 1,
+                last_name: s.student_surname,
+                first_name: s.student_name,
+                games: s.games_played,
+                score: s.games_played > 0 ? `${s.accumulated_score || 0} / ${s.attempted_items}` : '-',
+                accuracy: s.accuracy > 0 ? `${s.accuracy.toFixed(1)}%` : '-',
+                grade: s.grade > 0 ? `${s.grade}%` : '-',
+                descriptor: s.descriptor
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Class_Performance_${classId}.xlsx`);
+        await workbook.xlsx.write(res);
+        res.end();
     });
 });
 
@@ -741,68 +788,7 @@ app.get('/api/gradebook/:game_id', (req, res) => {
         res.json(results);
     });
 });
-// 🟢 NEW: Class Overall Performance (DepEd Grading)
-app.get('/api/class-performance/:class_id', (req, res) => {
-    const classId = req.params.class_id;
 
-    // 1. Get total possible items for ALL games assigned to this class combined
-    const sqlTotalItems = `
-        SELECT COUNT(*) as total_items 
-        FROM game_questions 
-        WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)`;
-
-    // 2. Get accumulated scores for each student across all those games
-    const sqlStudentScores = `
-        SELECT s.student_fid, s.student_name, s.student_surname,
-               COUNT(DISTINCT sc.game_id) as games_played,
-               SUM(sc.score) as accumulated_score
-        FROM class_members cm
-        JOIN student s ON cm.student_fid = s.student_fid
-        LEFT JOIN scores sc ON cm.student_fid = sc.student_fid
-             AND sc.game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)
-        WHERE cm.class_id = ?
-        GROUP BY s.student_fid
-        ORDER BY s.student_surname ASC`;
-
-    db.query(sqlTotalItems, [classId], (err, itemsResult) => {
-        if (err) return res.status(500).json({ error: "Database error fetching total items" });
-        const classTotalItems = itemsResult[0].total_items || 0;
-
-        db.query(sqlStudentScores, [classId, classId], (err2, studentsResult) => {
-            if (err2) return res.status(500).json({ error: "Database error fetching student scores" });
-
-            // 3. Calculate Transmuted Grade and DepEd Descriptor
-            const performanceData = studentsResult.map(student => {
-                const score = student.accumulated_score || 0;
-                let accuracy = 0;
-                let grade = 0;
-                let descriptor = "No Data";
-
-                if (classTotalItems > 0 && student.games_played > 0) {
-                    accuracy = (score / classTotalItems) * 100;
-                    grade = Math.round((score / classTotalItems) * 50 + 50); // Base-50
-
-                    // DepEd Qualitative Scale
-                    if (grade >= 90) descriptor = "Outstanding (O)";
-                    else if (grade >= 85) descriptor = "Very Satisfactory (VS)";
-                    else if (grade >= 80) descriptor = "Satisfactory (S)";
-                    else if (grade >= 75) descriptor = "Fairly Satisfactory (FS)";
-                    else descriptor = "Did Not Meet Expectations (DNME)";
-                }
-
-                return {
-                    ...student,
-                    class_total_items: classTotalItems,
-                    accuracy: accuracy,
-                    grade: grade,
-                    descriptor: descriptor
-                };
-            });
-
-            res.json(performanceData);
-        });
-    });
-});
 app.get('/api/check-lock/:game_id/:student_fid', (req, res) => {
   const { game_id, student_fid } = req.params;
   const sql = "SELECT * FROM student_game_locks WHERE game_id = ? AND student_fid = ?";
@@ -893,7 +879,6 @@ app.delete('/api/delete-user', (req, res) => {
     });
 });
 
-// 🟢 NEW: EXPORT GRADES TO EXCEL ROUTE
 app.get('/api/export-grades/:game_id', async (req, res) => {
     const gameId = req.params.game_id;
     const sql = `
@@ -944,65 +929,6 @@ app.get('/api/export-grades/:game_id', async (req, res) => {
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=Grades_Game_${gameId}.xlsx`);
-        await workbook.xlsx.write(res);
-        res.end();
-    });
-});
-
-// 🟢 NEW: EXPORT ITEM ANALYSIS TO EXCEL ROUTE
-app.get('/api/export-item-analysis/:game_id', (req, res) => {
-    const gameId = req.params.game_id;
-    const sortMode = req.query.sort || 'numerical';
-
-    const sql = `
-        SELECT q.id as question_id, q.question_text,
-               SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
-               SUM(CASE WHEN sa.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count
-        FROM game_questions q
-        LEFT JOIN student_answers sa ON q.id = sa.question_id
-        WHERE q.game_id = ?
-        GROUP BY q.id`;
-
-    db.query(sql, [gameId], async (err, results) => {
-        if (err) return res.status(500).json({ error: "Database error" });
-
-        let formatted = results.map(row => {
-            const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
-            const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
-            return { ...row, accuracy_percentage: accuracy, total_answers: total };
-        });
-
-        if (sortMode === 'least_correct') {
-            formatted.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
-        } else if (sortMode === 'best_correct') {
-            formatted.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
-        }
-
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Item Analysis');
-
-        worksheet.columns = [
-            { header: 'Item No.', key: 'item_no', width: 10 },
-            { header: 'Question', key: 'question', width: 50 },
-            { header: 'Correct', key: 'correct', width: 12 },
-            { header: 'Wrong', key: 'wrong', width: 12 },
-            { header: 'Accuracy', key: 'accuracy', width: 15 }
-        ];
-
-        worksheet.getRow(1).font = { bold: true };
-
-        formatted.forEach((item, index) => {
-            worksheet.addRow({
-                item_no: index + 1,
-                question: item.question_text,
-                correct: item.correct_count || 0,
-                wrong: item.wrong_count || 0,
-                accuracy: `${Math.round(item.accuracy_percentage)}%`
-            });
-        });
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=ItemAnalysis_Game_${gameId}.xlsx`);
         await workbook.xlsx.write(res);
         res.end();
     });

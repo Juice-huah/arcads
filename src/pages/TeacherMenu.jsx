@@ -38,14 +38,12 @@ function TeacherMenu() {
   const [gradebookGame, setGradebookGame] = useState(null);   
   const [gradebookData, setGradebookData] = useState([]);    
 
-  // 🟢 Item Analysis States
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
   const [itemSummaryData, setItemSummaryData] = useState({}); 
   const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
   const [itemSortMode, setItemSortMode] = useState('numerical'); 
 
-  // 🟢 Class Performance States
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [classPerformanceData, setClassPerformanceData] = useState([]);
   const [performanceSortMode, setPerformanceSortMode] = useState('alphabetical');
@@ -244,17 +242,6 @@ function TeacherMenu() {
       fetchItemAnalysis(itemAnalysisGame.game_id, newSort);
   };
 
-  const exportGradesToExcel = () => {
-      window.open(`https://arcads-api.onrender.com/api/export-grades/${gradebookGame.game_id}`, '_blank');
-  };
-
-  const exportItemAnalysisToExcel = () => {
-      const className = encodeURIComponent(gradebookClass?.class_name || 'Unknown');
-      const activityName = encodeURIComponent(getDisplayName(itemAnalysisGame));
-      window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}&className=${className}&activityName=${activityName}`, '_blank');
-  };
-
-  // 🟢 NEW: Fetch Class Performance Data
   const openPerformanceModal = async (cls) => {
       try {
           const res = await fetch(`https://arcads-api.onrender.com/api/class-performance/${cls.class_id}`);
@@ -269,7 +256,6 @@ function TeacherMenu() {
       }
   };
 
-  // 🟢 NEW: Sort Class Performance Data
   const handlePerformanceSort = (e) => {
       const mode = e.target.value;
       setPerformanceSortMode(mode);
@@ -285,7 +271,16 @@ function TeacherMenu() {
       setClassPerformanceData(sortedData);
   };
 
-  // 🟢 NEW: Export Class Performance Data
+  const exportGradesToExcel = () => {
+      window.open(`https://arcads-api.onrender.com/api/export-grades/${gradebookGame.game_id}`, '_blank');
+  };
+
+  const exportItemAnalysisToExcel = () => {
+      const className = encodeURIComponent(gradebookClass?.class_name || 'Unknown');
+      const activityName = encodeURIComponent(getDisplayName(itemAnalysisGame));
+      window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}&className=${className}&activityName=${activityName}`, '_blank');
+  };
+
   const exportPerformanceToExcel = () => {
       const className = encodeURIComponent(selectedClass?.class_name || 'Unknown');
       window.open(`https://arcads-api.onrender.com/api/export-class-performance/${selectedClass.class_id}?sort=${performanceSortMode}&className=${className}`, '_blank');
@@ -1081,14 +1076,12 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* 🟢 NEW: Class Performance Modal with Export Button */}
+      {/* 🟢 Class Performance Modal */}
       {showPerformanceModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '900px', maxWidth: '95%'}}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h2 style={{color: 'var(--arcade-yellow)', margin: 0}}>CLASS PERFORMANCE: {selectedClass?.class_name}</h2>
-                
-                {/* Export Performance Button */}
                 <button className="btn btn-primary" onClick={exportPerformanceToExcel} style={{ fontSize: '0.8rem', padding: '8px 15px' }}>
                     📥 DOWNLOAD REPORT
                 </button>
@@ -1129,7 +1122,8 @@ function TeacherMenu() {
                                 <tr key={student.student_fid}>
                                     <td style={{textAlign: 'left', fontWeight: 'bold'}}>{student.student_surname}, {student.student_name}</td>
                                     <td>{student.games_played}</td>
-                                    <td>{student.accumulated_score || 0} / {student.class_total_items}</td>
+                                    {/* 🟢 Participated-only logic rendered here */}
+                                    <td>{student.games_played > 0 ? `${student.accumulated_score || 0} / ${student.attempted_items}` : '-'}</td>
                                     <td>{student.accuracy > 0 ? `${student.accuracy.toFixed(1)}%` : '-'}</td>
                                     <td style={{color: isFailing ? '#ff4c4c' : 'var(--arcade-yellow)', fontWeight: 'bold'}}>
                                         {student.grade > 0 ? `${student.grade}%` : '-'}
