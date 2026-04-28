@@ -12,6 +12,7 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "exceljs": "^3.4.0",
     "expess": "^0.0.1-security",
     "express": "^5.2.1",
     "firebase": "^12.6.0",

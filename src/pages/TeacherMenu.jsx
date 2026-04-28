@@ -6,7 +6,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
-// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -42,6 +41,7 @@ function TeacherMenu() {
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
   const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
+  const [itemSortMode, setItemSortMode] = useState('numerical'); // 🟢 NEW: Sorting State
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -211,40 +211,40 @@ function TeacherMenu() {
       }
   };
 
-  const openItemAnalysis = async (game) => {
-      setItemAnalysisGame(game);
+  // 🟢 UPDATED: Fetches Item Analysis Data with Sort query
+  const fetchItemAnalysis = async (gameId, sortMode) => {
       try {
-          const res = await fetch(`https://arcads-api.onrender.com/api/item-analysis/${game.game_id}`);
+          const res = await fetch(`https://arcads-api.onrender.com/api/item-analysis/${gameId}?sort=${sortMode}`);
           const data = await res.json();
           if (Array.isArray(data)) {
               setItemAnalysisData(data);
-              setShowItemAnalysisModal(true);
           }
       } catch (err) {
           console.error("Error fetching item analysis:", err);
       }
   };
 
-  const exportToCSV = () => {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Last Name,First Name,Raw Score,Total Items,Base-50 Grade,Time Taken (s)\n";
+  const openItemAnalysis = async (game) => {
+      setItemAnalysisGame(game);
+      setItemSortMode('numerical');
+      await fetchItemAnalysis(game.game_id, 'numerical');
+      setShowItemAnalysisModal(true);
+  };
 
-      gradebookData.forEach(row => {
-          const raw = row.raw_score !== null ? row.raw_score : 0;
-          const total = row.total_items || 1;
-          const transmuted = row.raw_score !== null ? Math.round((raw / total) * 50 + 50) : 0;
-          const time = row.time_taken !== null ? row.time_taken : "N/A";
-          
-          csvContent += `"${row.student_surname}","${row.student_name}","${raw}","${total}","${transmuted}","${time}"\n`;
-      });
+  const handleSortChange = (e) => {
+      const newSort = e.target.value;
+      setItemSortMode(newSort);
+      fetchItemAnalysis(itemAnalysisGame.game_id, newSort);
+  };
 
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${getDisplayName(gradebookGame)}_Grades.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  // 🟢 NEW: Trigger Excel download for Grades
+  const exportGradesToExcel = () => {
+      window.open(`https://arcads-api.onrender.com/api/export-grades/${gradebookGame.game_id}`, '_blank');
+  };
+
+  // 🟢 NEW: Trigger Excel download for Item Analysis
+  const exportItemAnalysisToExcel = () => {
+      window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}`, '_blank');
   };
 
   const handleCreateClass = async (e) => {
@@ -480,7 +480,6 @@ function TeacherMenu() {
       }
   };
 
-  // 🟢 NEW: Function to lock or unlock a single student
   const toggleStudentLock = async (row) => {
       const newLockStatus = row.is_locked ? 0 : 1; 
       try {
@@ -814,7 +813,9 @@ function TeacherMenu() {
                               <td>
                                   <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
-                                      <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>STATS</button>
+                                      
+                                      {/* 🟢 UPDATED: Stats is now Item Analysis */}
+                                      <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>ITEM ANALYSIS</button>
                                       
                                       <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#00f5ff', color: '#00f5ff'}} onClick={() => promptReuseActivity(g)}>
                                           REUSE
@@ -848,7 +849,8 @@ function TeacherMenu() {
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
                   <button className="btn btn-secondary" onClick={() => setGradebookGame(null)}>BACK</button>
-                  <button className="btn btn-primary" onClick={exportToCSV}>📥 EXPORT</button>
+                  {/* 🟢 UPDATED: Exports Grades to Excel */}
+                  <button className="btn btn-primary" onClick={exportGradesToExcel}>📥 EXPORT TO EXCEL</button>
                 </div>
             </div>
             
@@ -860,7 +862,6 @@ function TeacherMenu() {
                           const hasPlayed = row.raw_score !== null;
                           const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
                           
-                          // Handle lock display states
                           const lockBtnColor = row.is_locked ? '#14a014' : '#ff4c4c';
                           const lockBtnText = row.is_locked ? 'UNLOCK' : 'LOCK OUT';
 
@@ -889,7 +890,6 @@ function TeacherMenu() {
                                                   RETAKE
                                               </button>
                                           )}
-                                          {/* 🟢 NEW: LOCK OUT BUTTON */}
                                           <button 
                                               className="btn btn-secondary" 
                                               style={{ fontSize: '0.7rem', padding: '5px 10px', borderColor: lockBtnColor, color: lockBtnColor }}
@@ -974,10 +974,31 @@ function TeacherMenu() {
         </div>
       )}
 
+      {/* 🟢 UPDATED: Item Analysis Modal with Dropdown and Excel Export */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            <h2 style={{color: '#0066cc'}}>ACTIVITY STATS: {getDisplayName(itemAnalysisGame)}</h2>
+            <h2 style={{color: '#0066cc', marginBottom: '10px'}}>ITEM ANALYSIS: {getDisplayName(itemAnalysisGame)}</h2>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label style={{ color: '#aaa', fontSize: '0.9rem' }}>Sort By:</label>
+                    <select 
+                        className="game-select" 
+                        value={itemSortMode} 
+                        onChange={handleSortChange}
+                        style={{ padding: '8px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', borderRadius: '5px' }}
+                    >
+                        <option value="numerical">Numerical Order</option>
+                        <option value="least_correct">Least Correct (Most Difficult)</option>
+                        <option value="best_correct">Best Correct (Easiest)</option>
+                    </select>
+                </div>
+                <button className="btn btn-primary" onClick={exportItemAnalysisToExcel} style={{ fontSize: '0.8rem', padding: '8px 15px' }}>
+                    📥 EXPORT TO EXCEL
+                </button>
+            </div>
+
             <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
@@ -1098,7 +1119,6 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* SCHEDULE MODAL */}
       {showEditScheduleModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{maxWidth: '500px', border: '2px solid #0066cc'}}>
@@ -1151,7 +1171,6 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* TOGGLE ACTIVITY MODAL */}
       {showToggleActivityModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: `2px solid ${selectedGameForToggle?.is_active ? '#ff4c4c' : '#14a014'}` }}>

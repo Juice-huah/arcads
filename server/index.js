@@ -2,6 +2,7 @@ import express from "express";
 import mysql from "mysql2"; 
 import cors from "cors";
 import dotenv from "dotenv"; 
+import ExcelJS from "exceljs"; // 🟢 NEW: Added for Excel generation
 
 dotenv.config(); 
 
@@ -33,7 +34,6 @@ db.getConnection((err, connection) => {
   } else {
     console.log("✅ Connected securely to AIVEN via Pool!");
     
-    // 🟢 NEW: Auto-create the tracking table for student-specific locks
     const createLocksTable = `
       CREATE TABLE IF NOT EXISTS student_game_locks (
           game_id INT,
@@ -48,8 +48,6 @@ db.getConnection((err, connection) => {
     connection.release(); 
   }
 });
-
-// ... [TEACHER & STUDENT SIGNUP ROUTES REMAIN UNCHANGED] ...
 
 app.post("/api/teacher-signup", (req, res) => {
   const { uid, name, surname, username } = req.body;
@@ -104,8 +102,6 @@ app.post("/api/check-username-availability", (req, res) => {
     return res.json({ available: results.length === 0 });
   });
 });
-
-// --- CLASS ROUTES ---
 
 const generateClassCode = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -231,7 +227,6 @@ app.delete('/api/delete-game/:game_id', (req, res) => {
     });
 });
 
-// --- SCHEDULE MANAGEMENT ROUTES ---
 app.put('/api/update-schedule/:game_id', (req, res) => {
     const { open_datetime, close_datetime, time_limit } = req.body;
     const sql = "UPDATE game_instances SET open_datetime = ?, close_datetime = ?, time_limit = ? WHERE game_id = ?";
@@ -250,7 +245,6 @@ app.put('/api/toggle-activity/:game_id', (req, res) => {
     });
 });
 
-// --- CORE GAME CREATION ROUTE ---
 app.post('/api/create-game', (req, res) => {
     const { teacher_fid, class_id, game_type, custom_title, questions, game_data, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -287,8 +281,6 @@ app.post('/api/add-question', (req, res) => {
     });
 });
 
-// ... [ADVENTURE, WORD QUEST, FOREST, MOLE, STARTYPE ROUTES REMAIN UNCHANGED] ...
-
 app.post('/api/create-adventure', (req, res) => {
     const { teacher_fid, class_id, custom_title, questions, open_datetime, close_datetime, time_limit } = req.body;
     const sqlGame = "INSERT INTO game_instances (teacher_fid, class_id, game_type, custom_title, open_datetime, close_datetime, time_limit) VALUES (?, ?, 'adventure', ?, ?, ?, ?)";
@@ -299,10 +291,7 @@ app.post('/api/create-adventure', (req, res) => {
             let type = q.type; 
             let cA, cB, cC, cD, correct;
             if (type === 'multiple_choice') {
-                cA = q.choiceA || ""; 
-                cB = q.choiceB || ""; 
-                cC = q.choiceC || ""; 
-                cD = q.choiceD || "";
+                cA = q.choiceA || ""; cB = q.choiceB || ""; cC = q.choiceC || ""; cD = q.choiceD || "";
                 correct = parseInt(q.correctAnswer) || 0; 
             } else if (type === 'true_false') {
                 cA = 'True'; cB = 'False'; cC = ""; cD = "";
@@ -425,10 +414,6 @@ app.post('/api/duplicate-game', (req, res) => {
     });
 });
 
-// ==========================================
-// 5. STATS & ANSWER TRACKING ROUTES
-// ==========================================
-
 app.delete('/api/reset-student-attempt', (req, res) => {
     const { game_id, student_fid } = req.body;
     if (!game_id || !student_fid) return res.status(400).json({ error: "Missing game_id or student_fid" });
@@ -443,7 +428,6 @@ app.delete('/api/reset-student-attempt', (req, res) => {
     });
 });
 
-// 🟢 NEW: LOCK OR UNLOCK A SPECIFIC STUDENT
 app.post('/api/toggle-student-lock', (req, res) => {
     const { game_id, student_fid, lock_status } = req.body;
     if (lock_status) {
@@ -472,8 +456,11 @@ app.post('/api/save-answers', (req, res) => {
     });
 });
 
+// 🟢 UPDATED: Item Analysis Data Logic (with dynamic sorting built in)
 app.get('/api/item-analysis/:game_id', (req, res) => {
     const gameId = req.params.game_id;
+    const sortMode = req.query.sort || 'numerical'; // Accepts sort parameter from frontend
+
     const sql = `
         SELECT q.id as question_id, q.question_text,
                SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
@@ -482,15 +469,27 @@ app.get('/api/item-analysis/:game_id', (req, res) => {
         LEFT JOIN student_answers sa ON q.id = sa.question_id
         WHERE q.game_id = ?
         GROUP BY q.id`;
+        
     db.query(sql, [gameId], (err, results) => {
         if (err) return res.status(500).json({ error: "Database error" });
-        res.json(results);
+
+        // Calculate accuracy percentages
+        let formattedData = results.map(row => {
+            const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
+            const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
+            return { ...row, accuracy_percentage: accuracy, total_answers: total };
+        });
+
+        // Apply Sorting Logic
+        if (sortMode === 'least_correct') {
+            formattedData.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
+        } else if (sortMode === 'best_correct') {
+            formattedData.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
+        }
+
+        res.json(formattedData);
     });
 });
-
-// ==========================================
-// 6. GRADEBOOK, SCORES, AND LEADERBOARD
-// ==========================================
 
 app.get('/api/get-teacher-classes/:teacher_fid', (req, res) => {
     const query = "SELECT class_id as id, class_name as name FROM classes WHERE teacher_fid = ?";
@@ -508,7 +507,6 @@ app.get('/api/get-games/:teacher_fid', (req, res) => {
     });
 });
 
-// 🟢 UPDATED: Gradebook now detects student locks
 app.get('/api/gradebook/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     const sql = `
@@ -527,7 +525,6 @@ app.get('/api/gradebook/:game_id', (req, res) => {
     });
 });
 
-// 🟢 NEW: Check if a specific student is locked from a game
 app.get('/api/check-lock/:game_id/:student_fid', (req, res) => {
   const { game_id, student_fid } = req.params;
   const sql = "SELECT * FROM student_game_locks WHERE game_id = ? AND student_fid = ?";
@@ -580,8 +577,6 @@ app.get('/api/leaderboard/:game_id', (req, res) => {
     });
 });
 
-// ... [CLASS DELETION, USER DELETION, AND ADMIN ROUTES REMAIN UNCHANGED] ...
-
 app.delete("/api/delete-class/:class_id", (req, res) => {
   const classId = req.params.class_id;
   const delAnswers = "DELETE FROM student_answers WHERE game_id IN (SELECT game_id FROM game_instances WHERE class_id = ?)";
@@ -617,6 +612,121 @@ app.delete('/api/delete-user', (req, res) => {
     db.query(sql, [uid], (err, result) => {
         if (err) return res.status(500).json({ error: "Database error" });
         res.json({ message: "User data wiped successfully." });
+    });
+});
+
+// 🟢 NEW: EXPORT GRADES TO EXCEL ROUTE
+app.get('/api/export-grades/:game_id', async (req, res) => {
+    const gameId = req.params.game_id;
+    const sql = `
+        SELECT s.student_fid, s.student_name, s.student_surname, sc.score as raw_score, sc.time_taken,
+               (SELECT COUNT(*) FROM game_questions WHERE game_id = ?) as total_items,
+               CASE WHEN sgl.student_fid IS NOT NULL THEN 1 ELSE 0 END as is_locked
+        FROM class_members cm
+        JOIN student s ON cm.student_fid = s.student_fid
+        LEFT JOIN scores sc ON s.student_fid = sc.student_fid AND sc.game_id = ?
+        LEFT JOIN student_game_locks sgl ON s.student_fid = sgl.student_fid AND sgl.game_id = ?
+        WHERE cm.class_id = (SELECT class_id FROM game_instances WHERE game_id = ?)
+        ORDER BY s.student_surname ASC`;
+
+    db.query(sql, [gameId, gameId, gameId, gameId], async (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Class Grades');
+
+        worksheet.columns = [
+            { header: 'No.', key: 'row_num', width: 5 },
+            { header: 'Last Name', key: 'student_surname', width: 20 },
+            { header: 'First Name', key: 'student_name', width: 20 },
+            { header: 'Raw Score', key: 'raw_score', width: 12 },
+            { header: 'Total Items', key: 'total_items', width: 12 },
+            { header: 'Transmuted Grade', key: 'grade', width: 18 },
+            { header: 'Status', key: 'status', width: 15 }
+        ];
+
+        worksheet.getRow(1).font = { bold: true };
+
+        results.forEach((row, index) => {
+            const hasPlayed = row.raw_score !== null;
+            const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
+            let status = hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING';
+            if (row.is_locked) status = 'LOCKED';
+
+            worksheet.addRow({
+                row_num: index + 1,
+                student_surname: row.student_surname,
+                student_name: row.student_name,
+                raw_score: hasPlayed ? row.raw_score : '-',
+                total_items: row.total_items || 1,
+                grade: hasPlayed ? `${grade}%` : '-',
+                status: status
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Grades_Game_${gameId}.xlsx`);
+        await workbook.xlsx.write(res);
+        res.end();
+    });
+});
+
+// 🟢 NEW: EXPORT ITEM ANALYSIS TO EXCEL ROUTE
+app.get('/api/export-item-analysis/:game_id', (req, res) => {
+    const gameId = req.params.game_id;
+    const sortMode = req.query.sort || 'numerical';
+
+    const sql = `
+        SELECT q.id as question_id, q.question_text,
+               SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
+               SUM(CASE WHEN sa.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count
+        FROM game_questions q
+        LEFT JOIN student_answers sa ON q.id = sa.question_id
+        WHERE q.game_id = ?
+        GROUP BY q.id`;
+
+    db.query(sql, [gameId], async (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+
+        let formatted = results.map(row => {
+            const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
+            const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
+            return { ...row, accuracy_percentage: accuracy, total_answers: total };
+        });
+
+        if (sortMode === 'least_correct') {
+            formatted.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
+        } else if (sortMode === 'best_correct') {
+            formatted.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Item Analysis');
+
+        worksheet.columns = [
+            { header: 'Item No.', key: 'item_no', width: 10 },
+            { header: 'Question', key: 'question', width: 50 },
+            { header: 'Correct', key: 'correct', width: 12 },
+            { header: 'Wrong', key: 'wrong', width: 12 },
+            { header: 'Accuracy', key: 'accuracy', width: 15 }
+        ];
+
+        worksheet.getRow(1).font = { bold: true };
+
+        formatted.forEach((item, index) => {
+            worksheet.addRow({
+                item_no: index + 1,
+                question: item.question_text,
+                correct: item.correct_count || 0,
+                wrong: item.wrong_count || 0,
+                accuracy: `${Math.round(item.accuracy_percentage)}%`
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=ItemAnalysis_Game_${gameId}.xlsx`);
+        await workbook.xlsx.write(res);
+        res.end();
     });
 });
 
