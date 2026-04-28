@@ -38,10 +38,12 @@ function TeacherMenu() {
   const [gradebookGame, setGradebookGame] = useState(null);   
   const [gradebookData, setGradebookData] = useState([]);    
 
+  // 🟢 FIXED: Removed the duplicates, these are the ONLY item analysis states now
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
+  const [itemSummaryData, setItemSummaryData] = useState({}); // Defaulted to empty object
   const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
-  const [itemSortMode, setItemSortMode] = useState('numerical'); // 🟢 NEW: Sorting State
+  const [itemSortMode, setItemSortMode] = useState('numerical'); 
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -87,11 +89,6 @@ function TeacherMenu() {
 
   const [showResetAttemptModal, setShowResetAttemptModal] = useState(false);
   const [studentToReset, setStudentToReset] = useState(null);
-
-  const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
-  const [itemAnalysisData, setItemAnalysisData] = useState([]);
-  const [itemSummaryData, setItemSummaryData] = useState(null); // 🟢 NEW STATE
-  const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
 
   const [clockTick, setClockTick] = useState(0);
 
@@ -216,14 +213,13 @@ function TeacherMenu() {
       }
   };
 
-const fetchItemAnalysis = async (gameId, sortMode) => {
+  const fetchItemAnalysis = async (gameId, sortMode) => {
       try {
           const res = await fetch(`https://arcads-api.onrender.com/api/item-analysis/${gameId}?sort=${sortMode}`);
           const data = await res.json();
-          // Backend now returns { summary: {...}, items: [...] }
           if (data && data.items) {
               setItemAnalysisData(data.items);
-              setItemSummaryData(data.summary);
+              setItemSummaryData(data.summary || {}); 
           }
       } catch (err) {
           console.error("Error fetching item analysis:", err);
@@ -243,14 +239,12 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
       fetchItemAnalysis(itemAnalysisGame.game_id, newSort);
   };
 
-  // 🟢 NEW: Trigger Excel download for Grades
   const exportGradesToExcel = () => {
       window.open(`https://arcads-api.onrender.com/api/export-grades/${gradebookGame.game_id}`, '_blank');
   };
 
-    const exportItemAnalysisToExcel = () => {
-      // Pass the names to the backend so they print on the Excel sheet
-      const className = encodeURIComponent(gradebookClass.class_name);
+  const exportItemAnalysisToExcel = () => {
+      const className = encodeURIComponent(gradebookClass?.class_name || 'Unknown');
       const activityName = encodeURIComponent(getDisplayName(itemAnalysisGame));
       window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}&className=${className}&activityName=${activityName}`, '_blank');
   };
@@ -507,7 +501,6 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
           console.error("Error toggling student lock:", err);
       }
   };
-
 
   const openEditSchedule = (game) => {
       setSelectedGameForSchedule(game);
@@ -821,8 +814,6 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
                               <td>
                                   <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
                                       <button className="btn btn-primary" onClick={() => fetchGradebook(g)}>GRADES</button>
-                                      
-                                      {/* 🟢 UPDATED: Stats is now Item Analysis */}
                                       <button className="btn btn-secondary" onClick={() => openItemAnalysis(g)}>ITEM ANALYSIS</button>
                                       
                                       <button className="btn btn-secondary" style={{backgroundColor: 'var(--darker-blue)', borderColor: '#00f5ff', color: '#00f5ff'}} onClick={() => promptReuseActivity(g)}>
@@ -857,7 +848,6 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
                   <button className="btn btn-secondary" onClick={() => setGradebookGame(null)}>BACK</button>
-                  {/* 🟢 UPDATED: Exports Grades to Excel */}
                   <button className="btn btn-primary" onClick={exportGradesToExcel}>📥 EXPORT TO EXCEL</button>
                 </div>
             </div>
@@ -982,7 +972,6 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
         </div>
       )}
 
-      {/* 🟢 UPDATED: Item Analysis Modal with DepEd Style Header */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '850px', maxWidth: '95%'}}>
@@ -994,8 +983,7 @@ const fetchItemAnalysis = async (gameId, sortMode) => {
                 </button>
             </div>
 
-            {/* 🟢 NEW: DepEd Style Header Block */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', backgroundColor: 'var(--darker-blue)', padding: '15px', borderRadius: '8px', border: '1px solid #444', fontSize: '0.85rem', color: '#fff' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', backgroundColor: 'var(--darker-blue)', padding: '15px', borderRadius: '8px', border: '1px solid #444', fontSize: '0.85rem', color: '#fff', textAlign: 'left' }}>
                 <div>
                     <div style={{marginBottom: '5px'}}><strong style={{color: 'var(--arcade-yellow)'}}>CLASS NAME:</strong> {gradebookClass?.class_name}</div>
                     <div style={{marginBottom: '5px'}}><strong style={{color: 'var(--arcade-yellow)'}}>ACTIVITY NAME:</strong> {getDisplayName(itemAnalysisGame)}</div>
