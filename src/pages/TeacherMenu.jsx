@@ -286,9 +286,14 @@ function TeacherMenu() {
       window.open(`https://arcads-api.onrender.com/api/export-class-performance/${selectedClass.class_id}?sort=${performanceSortMode}&className=${className}`, '_blank');
   };
 
+  // 🟢 FIXED: Bulletproof Create Class Function
   const handleCreateClass = async (e) => {
     e.preventDefault();
-    if (!user || !user.uid) return;
+    
+    if (!user || !user.uid) {
+        setCreateClassError("Authentication error. Please refresh the page and ensure you are logged in.");
+        return;
+    }
 
     const trimmedName = newClassName.trim();
 
@@ -349,12 +354,16 @@ function TeacherMenu() {
         setCloneFromClassId('');
         setClassSearchQuery(''); 
         setCreateStatusMsg('');
-        setIsCreatingClass(false);
         fetchClasses(user.uid); 
+      } else {
+        const errData = await res.json();
+        setCreateClassError(errData.error || "Server failed to process the request.");
       }
     } catch (err) {
       console.error(err);
-      setCreateClassError("A server error occurred. Please try again.");
+      setCreateClassError("A network error occurred. Please check your connection.");
+    } finally {
+      // This guarantees the button will unlock even if it crashes!
       setIsCreatingClass(false);
       setCreateStatusMsg('');
     }
@@ -706,7 +715,7 @@ function TeacherMenu() {
                     onChange={(e) => setClassSearchQuery(e.target.value)}
                     style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: 'var(--darker-blue)', color: '#fff' }}
                 />
-                <button className="btn btn-primary" onClick={() => { setShowCreateModal(true); setCreateClassError(''); setNewClassName(''); setCloneFromClassId(''); setCreateStatusMsg(''); }}>+ CREATE CLASS</button>
+                <button className="btn btn-primary" onClick={() => { setShowCreateModal(true); setCreateClassError(''); setNewClassName(''); setCloneFromClassId(''); setCreateStatusMsg(''); setIsCreatingClass(false); }}>+ CREATE CLASS</button>
               </div>
             </div>
 
@@ -1076,7 +1085,7 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* 🟢 Class Performance Modal */}
+      {/* 🟢 Class Performance Modal with Export Button & Participated-Only Logic */}
       {showPerformanceModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '900px', maxWidth: '95%'}}>
