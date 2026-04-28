@@ -175,7 +175,7 @@ function CreateStarType() {
 
   const renderStep2_Config = () => (
     <div style={{maxWidth: '1000px', margin: '0 auto'}}>
-        <h2 style={{color: '#00f5ff', textAlign:'center', marginBottom:'20px', fontFamily: '"Orbitron", sans-serif'}}>CONFIGURE MISSION FLEET</h2>
+        <h2 style={{color: '#00f5ff', textAlign:'center', marginBottom:'20px', fontFamily: '"Orbitron", sans-serif'}}>CREATE MISSION FLEET</h2>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

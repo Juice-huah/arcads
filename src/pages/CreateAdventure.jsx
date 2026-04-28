@@ -172,7 +172,7 @@ function CreateAdventure() {
 
       <div style={{display:'flex', justifyContent: 'center', gap: '20px'}}>
         <button className="btn-secondary" onClick={() => navigate('/teacher-menu')} style={btnSecStyle}>CANCEL</button>
-        <button className="btn-primary" onClick={() => setStep(2)} style={btnPriStyle}>START CONFIGURATION</button>
+        <button className="btn-primary" onClick={() => setStep(2)} style={btnPriStyle}>START CREATION</button>
       </div>
     </div>
   );
@@ -180,7 +180,7 @@ function CreateAdventure() {
   // STEP 2: CONFIGURATION (Questions)
   const renderStep2_Config = () => (
     <div style={{maxWidth: '800px', margin: '0 auto'}}>
-        <h2 style={{color: '#e6c800', textAlign:'center', marginBottom:'20px'}}>CONFIGURE BATTLE QUESTIONS</h2>
+        <h2 style={{color: '#e6c800', textAlign:'center', marginBottom:'20px'}}>ADD BATTLE QUESTIONS</h2>
         
         {questions.map((q, index) => (
           <div key={index} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid #4a5568', padding: '20px', marginBottom: '20px', borderRadius: '10px' }}>

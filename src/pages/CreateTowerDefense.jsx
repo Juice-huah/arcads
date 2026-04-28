@@ -218,7 +218,7 @@ export default function CreateTowerDefense() {
                 <ul style={{marginTop: '15px', paddingLeft: '20px', color:'white', lineHeight:'1.8', fontFamily: '"Press Start 2P", cursive', fontSize: '0.75rem'}}>
                     <li style={{marginBottom: '10px'}}>Build your waves on the left. Set difficulty and pair Prompts with Answers.</li>
                     <li style={{marginBottom: '10px'}}>You must save at least one Wave Set to publish.</li>
-                    <li>Configure your schedule and select the assigned classes on the right.</li>
+                    <li>Set your schedule and select the assigned classes on the right.</li>
                 </ul>
             </div>
 
@@ -378,14 +378,14 @@ export default function CreateTowerDefense() {
 
                     <div className="td-q-list">
                         <div className="q-list-title-row">
-                            <h2>📋 Configured Waves</h2>
+                            <h2>📋 Set Waves</h2>
                             <span className="count-badge ready">
                                 {savedSets.length} Sets
                             </span>
                         </div>
                         
                         {savedSets.length === 0 ? (
-                            <p className="empty-text">No waves configured yet. Build and save a wave on the left!</p>
+                            <p className="empty-text">No waves set yet. Build and save a wave on the left!</p>
                         ) : (
                             <div className="q-scroll-list">
                                 {savedSets.map((set, idx) => (

@@ -193,7 +193,7 @@ const CreateMazeGame = () => {
 
   const renderStep3_Questions = () => (
     <div className="game-card" style={{maxWidth: '900px'}}>
-      <h2 style={{color: '#e6c800'}}>CONFIGURE QUESTIONS ({difficulty})</h2>
+      <h2 style={{color: '#e6c800'}}>ADD QUESTIONS ({difficulty})</h2>
       <p>Enter {questions.length} questions to be placed at the dungeon locks.</p>
       
       <div className="scroll-container" style={{maxHeight: '50vh', overflowY: 'auto', paddingRight: '10px'}}>

@@ -161,7 +161,7 @@ const CreateWordQuest = () => {
 
   const renderQuestions = () => (
     <div className="game-card" style={{maxWidth:'900px'}}>
-      <h2 style={{color: '#ce93d8'}}>CONFIGURE QUESTIONS</h2>
+      <h2 style={{color: '#ce93d8'}}>SET QUESTIONS</h2>
       <div className="scroll-container">
         {questions.map((q, idx) => (
           <div key={idx} className="question-block" style={{borderColor:'#ce93d8'}}>
