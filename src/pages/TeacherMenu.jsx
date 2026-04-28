@@ -38,12 +38,17 @@ function TeacherMenu() {
   const [gradebookGame, setGradebookGame] = useState(null);   
   const [gradebookData, setGradebookData] = useState([]);    
 
-  // 🟢 FIXED: Removed the duplicates, these are the ONLY item analysis states now
+  // 🟢 Item Analysis States
   const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
   const [itemAnalysisData, setItemAnalysisData] = useState([]);
-  const [itemSummaryData, setItemSummaryData] = useState({}); // Defaulted to empty object
+  const [itemSummaryData, setItemSummaryData] = useState({}); 
   const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
   const [itemSortMode, setItemSortMode] = useState('numerical'); 
+
+  // 🟢 Class Performance States
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  const [classPerformanceData, setClassPerformanceData] = useState([]);
+  const [performanceSortMode, setPerformanceSortMode] = useState('alphabetical');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -247,6 +252,43 @@ function TeacherMenu() {
       const className = encodeURIComponent(gradebookClass?.class_name || 'Unknown');
       const activityName = encodeURIComponent(getDisplayName(itemAnalysisGame));
       window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}&className=${className}&activityName=${activityName}`, '_blank');
+  };
+
+  // 🟢 NEW: Fetch Class Performance Data
+  const openPerformanceModal = async (cls) => {
+      try {
+          const res = await fetch(`https://arcads-api.onrender.com/api/class-performance/${cls.class_id}`);
+          const data = await res.json();
+          if (Array.isArray(data)) {
+              setClassPerformanceData(data);
+              setPerformanceSortMode('alphabetical');
+              setShowPerformanceModal(true);
+          }
+      } catch (err) {
+          console.error("Error fetching class performance:", err);
+      }
+  };
+
+  // 🟢 NEW: Sort Class Performance Data
+  const handlePerformanceSort = (e) => {
+      const mode = e.target.value;
+      setPerformanceSortMode(mode);
+
+      const sortedData = [...classPerformanceData];
+      if (mode === 'alphabetical') {
+          sortedData.sort((a, b) => (a.student_surname || "").localeCompare(b.student_surname || ""));
+      } else if (mode === 'best') {
+          sortedData.sort((a, b) => b.grade - a.grade); 
+      } else if (mode === 'worst') {
+          sortedData.sort((a, b) => a.grade - b.grade); 
+      }
+      setClassPerformanceData(sortedData);
+  };
+
+  // 🟢 NEW: Export Class Performance Data
+  const exportPerformanceToExcel = () => {
+      const className = encodeURIComponent(selectedClass?.class_name || 'Unknown');
+      window.open(`https://arcads-api.onrender.com/api/export-class-performance/${selectedClass.class_id}?sort=${performanceSortMode}&className=${className}`, '_blank');
   };
 
   const handleCreateClass = async (e) => {
@@ -696,6 +738,7 @@ function TeacherMenu() {
               </div>
               <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
                 <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
+                <button className="btn btn-primary" onClick={() => openPerformanceModal(selectedClass)}>📊 VIEW PERFORMANCE</button>
                 <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>+ ADD STUDENT</button>
                 <button className="btn btn-secondary" onClick={() => { setEditClassNameInput(selectedClass.class_name); setShowEditClassModal(true); }} style={{ backgroundColor: 'var(--darker-blue)', borderColor: '#444', color: '#fff' }}>EDIT CLASS</button>
                 <button className="btn btn-danger" onClick={() => setShowDeleteClassModal(true)} style={{ backgroundColor: '#dc3545', borderColor: '#dc3545', color: '#fff' }}>DELETE CLASS</button>
@@ -972,6 +1015,7 @@ function TeacherMenu() {
         </div>
       )}
 
+      {/* 🟢 Item Analysis Modal with DepEd Style Header */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{width: '850px', maxWidth: '95%'}}>
@@ -1033,6 +1077,78 @@ function TeacherMenu() {
                 </table>
             </div>
             <button type="button" onClick={() => setShowItemAnalysisModal(false)} className="btn btn-secondary" style={{marginTop: '20px', width: '100%'}}>CLOSE</button>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 NEW: Class Performance Modal with Export Button */}
+      {showPerformanceModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{width: '900px', maxWidth: '95%'}}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h2 style={{color: 'var(--arcade-yellow)', margin: 0}}>CLASS PERFORMANCE: {selectedClass?.class_name}</h2>
+                
+                {/* Export Performance Button */}
+                <button className="btn btn-primary" onClick={exportPerformanceToExcel} style={{ fontSize: '0.8rem', padding: '8px 15px' }}>
+                    📥 DOWNLOAD REPORT
+                </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', textAlign: 'left' }}>
+                <label style={{ color: '#aaa', fontSize: '0.9rem' }}>Sort Students By:</label>
+                <select 
+                    className="game-select" 
+                    value={performanceSortMode} 
+                    onChange={handlePerformanceSort}
+                    style={{ padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '5px' }}
+                >
+                    <option value="alphabetical">Alphabetical (A-Z)</option>
+                    <option value="best">Best Performance First</option>
+                    <option value="worst">Worst Performance First</option>
+                </select>
+            </div>
+
+            <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
+                <table className="students-table">
+                    <thead>
+                        <tr>
+                            <th style={{textAlign: 'left'}}>Student Name</th>
+                            <th>Games Played</th>
+                            <th>Total Score</th>
+                            <th>Accuracy</th>
+                            <th>Final Grade</th>
+                            <th>DepEd Descriptor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {classPerformanceData.map((student) => {
+                            const isFailing = student.grade < 75;
+                            const descriptorColor = isFailing ? '#ff4c4c' : (student.grade >= 90 ? '#14a014' : '#fff');
+
+                            return (
+                                <tr key={student.student_fid}>
+                                    <td style={{textAlign: 'left', fontWeight: 'bold'}}>{student.student_surname}, {student.student_name}</td>
+                                    <td>{student.games_played}</td>
+                                    <td>{student.accumulated_score || 0} / {student.class_total_items}</td>
+                                    <td>{student.accuracy > 0 ? `${student.accuracy.toFixed(1)}%` : '-'}</td>
+                                    <td style={{color: isFailing ? '#ff4c4c' : 'var(--arcade-yellow)', fontWeight: 'bold'}}>
+                                        {student.grade > 0 ? `${student.grade}%` : '-'}
+                                    </td>
+                                    <td>
+                                        <span style={{ 
+                                            backgroundColor: isFailing ? 'rgba(255, 76, 76, 0.2)' : 'rgba(255, 255, 255, 0.1)', 
+                                            padding: '4px 8px', borderRadius: '4px', color: descriptorColor, fontSize: '0.8rem'
+                                        }}>
+                                            {student.descriptor}
+                                        </span>
+                                    </td>
+                                </tr>
+                            )
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" onClick={() => setShowPerformanceModal(false)} className="btn btn-secondary" style={{marginTop: '20px', width: '100%'}}>CLOSE</button>
           </div>
         </div>
       )}
