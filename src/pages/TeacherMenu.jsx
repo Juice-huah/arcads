@@ -286,10 +286,8 @@ function TeacherMenu() {
       window.open(`https://arcads-api.onrender.com/api/export-class-performance/${selectedClass.class_id}?sort=${performanceSortMode}&className=${className}`, '_blank');
   };
 
-  // 🟢 FIXED: Bulletproof Create Class Function
   const handleCreateClass = async (e) => {
     e.preventDefault();
-    
     if (!user || !user.uid) {
         setCreateClassError("Authentication error. Please refresh the page and ensure you are logged in.");
         return;
@@ -363,7 +361,6 @@ function TeacherMenu() {
       console.error(err);
       setCreateClassError("A network error occurred. Please check your connection.");
     } finally {
-      // This guarantees the button will unlock even if it crashes!
       setIsCreatingClass(false);
       setCreateStatusMsg('');
     }
@@ -955,6 +952,63 @@ function TeacherMenu() {
       </div>
 
       {/* --- MODALS --- */}
+
+      {/* 🟢 RESTORED: Create Class Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ minWidth: '350px' }}>
+            <h2>NEW CLASS</h2>
+            {createClassError && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '10px'}}>{createClassError}</p>}
+            {createStatusMsg && <p style={{color: 'var(--arcade-yellow)', fontSize: '0.8rem', marginBottom: '15px'}}>{createStatusMsg}</p>}
+            
+            <form onSubmit={handleCreateClass}>
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Class Name" 
+                  value={newClassName} 
+                  onChange={(e) => { setNewClassName(e.target.value); setCreateClassError(''); }} 
+                  required 
+                  className="game-input"
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                  disabled={isCreatingClass}
+                />
+              </div>
+
+              {classes.length > 0 && (
+                  <div className="form-group" style={{ marginBottom: '25px', textAlign: 'left' }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '8px' }}>
+                          (Optional) Copy Roster From:
+                      </label>
+                      <select
+                          className="game-select"
+                          value={cloneFromClassId}
+                          onChange={(e) => setCloneFromClassId(e.target.value)}
+                          style={{ width: '100%', padding: '10px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', boxSizing: 'border-box' }}
+                          disabled={isCreatingClass}
+                      >
+                          <option value="">-- Empty Roster --</option>
+                          {classes.map(cls => (
+                              <option key={cls.class_id} value={cls.class_id}>
+                                  {cls.class_name}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
+              )}
+
+              <div className="modal-actions-row">
+                <button type="submit" className="btn btn-primary" disabled={isCreatingClass}>
+                    {isCreatingClass ? 'WORKING...' : 'CREATE'}
+                </button>
+                <button type="button" onClick={() => { setShowCreateModal(false); setCloneFromClassId(''); setCreateStatusMsg(''); }} className="btn btn-secondary" disabled={isCreatingClass}>
+                    CANCEL
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showResetAttemptModal && (
         <div className="modal-overlay">
