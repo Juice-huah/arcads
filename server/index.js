@@ -457,11 +457,12 @@ app.post('/api/save-answers', (req, res) => {
 });
 
 // 🟢 UPDATED: Item Analysis Data Logic (with dynamic sorting built in)
+// 🟢 UPDATED: Item Analysis Data Logic (Now includes Mean, Max, Min, and Participants)
 app.get('/api/item-analysis/:game_id', (req, res) => {
     const gameId = req.params.game_id;
-    const sortMode = req.query.sort || 'numerical'; // Accepts sort parameter from frontend
+    const sortMode = req.query.sort || 'numerical'; 
 
-    const sql = `
+    const sqlItems = `
         SELECT q.id as question_id, q.question_text,
                SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
                SUM(CASE WHEN sa.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count
@@ -469,25 +470,136 @@ app.get('/api/item-analysis/:game_id', (req, res) => {
         LEFT JOIN student_answers sa ON q.id = sa.question_id
         WHERE q.game_id = ?
         GROUP BY q.id`;
+
+    // 🟢 NEW: Query to grab the DepEd Header metrics
+    const sqlSummary = `
+        SELECT 
+            COUNT(student_fid) as total_participants,
+            AVG(score) as mean_score,
+            MAX(score) as highest_score,
+            MIN(score) as lowest_score
+        FROM scores
+        WHERE game_id = ?`;
         
-    db.query(sql, [gameId], (err, results) => {
+    db.query(sqlItems, [gameId], (err, itemsResult) => {
+        if (err) return res.status(500).json({ error: "Database error on items" });
+
+        db.query(sqlSummary, [gameId], (err2, summaryResult) => {
+            if (err2) return res.status(500).json({ error: "Database error on summary" });
+
+            let formattedItems = itemsResult.map(row => {
+                const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
+                const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
+                return { ...row, accuracy_percentage: accuracy, total_answers: total };
+            });
+
+            if (sortMode === 'least_correct') {
+                formattedItems.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
+            } else if (sortMode === 'best_correct') {
+                formattedItems.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
+            }
+
+            // Return BOTH the summary stats and the item data
+            res.json({
+                summary: summaryResult[0],
+                items: formattedItems
+            });
+        });
+    });
+});
+
+// 🟢 UPDATED: EXPORT ITEM ANALYSIS TO EXCEL (With DepEd Header Layout)
+app.get('/api/export-item-analysis/:game_id', (req, res) => {
+    const gameId = req.params.game_id;
+    const sortMode = req.query.sort || 'numerical';
+    const className = req.query.className || 'Unknown Class';
+    const activityName = req.query.activityName || 'Unknown Activity';
+
+    const sqlItems = `
+        SELECT q.id as question_id, q.question_text,
+               SUM(CASE WHEN sa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
+               SUM(CASE WHEN sa.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count
+        FROM game_questions q
+        LEFT JOIN student_answers sa ON q.id = sa.question_id
+        WHERE q.game_id = ?
+        GROUP BY q.id`;
+
+    const sqlSummary = `
+        SELECT 
+            COUNT(student_fid) as total_participants,
+            AVG(score) as mean_score,
+            MAX(score) as highest_score,
+            MIN(score) as lowest_score
+        FROM scores
+        WHERE game_id = ?`;
+
+    db.query(sqlItems, [gameId], async (err, itemsResult) => {
         if (err) return res.status(500).json({ error: "Database error" });
 
-        // Calculate accuracy percentages
-        let formattedData = results.map(row => {
-            const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
-            const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
-            return { ...row, accuracy_percentage: accuracy, total_answers: total };
+        db.query(sqlSummary, [gameId], async (err2, summaryResult) => {
+            if (err2) return res.status(500).json({ error: "Database error" });
+
+            let formatted = itemsResult.map(row => {
+                const total = parseInt(row.correct_count || 0) + parseInt(row.wrong_count || 0);
+                const accuracy = total > 0 ? (parseInt(row.correct_count) / total) * 100 : 0;
+                return { ...row, accuracy_percentage: accuracy, total_answers: total };
+            });
+
+            if (sortMode === 'least_correct') {
+                formatted.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
+            } else if (sortMode === 'best_correct') {
+                formatted.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
+            }
+
+            const summary = summaryResult[0];
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Item Analysis');
+
+            // 🟢 NEW: Add the Top Header Block exactly like the image
+            worksheet.addRow(['CLASS NAME:', className]);
+            worksheet.addRow(['ACTIVITY NAME:', activityName]);
+            worksheet.addRow(['STUDENTS PARTICIPATED:', summary.total_participants || 0]);
+            worksheet.addRow(['NUMBER OF ITEMS:', formatted.length]);
+            worksheet.addRow(['MEAN SCORE:', summary.mean_score ? parseFloat(summary.mean_score).toFixed(2) : '0.00']);
+            worksheet.addRow(['HIGHEST SCORE:', summary.highest_score || 0]);
+            worksheet.addRow(['LOWEST SCORE:', summary.lowest_score || 0]);
+
+            // Styling the header rows
+            for (let i = 1; i <= 7; i++) {
+                worksheet.getCell(`A${i}`).font = { bold: true };
+            }
+
+            worksheet.addRow([]); // Blank spacer row
+
+            // Add Table Headers
+            const headerRow = worksheet.addRow(['Item No.', 'Question', 'Correct', 'Wrong', 'Accuracy']);
+            headerRow.font = { bold: true };
+            headerRow.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9E1F2'} }; // Light blue header like the image
+
+            worksheet.columns = [
+                { key: 'item_no', width: 25 }, // Wider for the header labels
+                { key: 'question', width: 60 },
+                { key: 'correct', width: 12 },
+                { key: 'wrong', width: 12 },
+                { key: 'accuracy', width: 15 }
+            ];
+
+            // Add the data rows
+            formatted.forEach((item, index) => {
+                worksheet.addRow({
+                    item_no: index + 1,
+                    question: item.question_text,
+                    correct: item.correct_count || 0,
+                    wrong: item.wrong_count || 0,
+                    accuracy: `${Math.round(item.accuracy_percentage)}%`
+                });
+            });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=ItemAnalysis_Game_${gameId}.xlsx`);
+            await workbook.xlsx.write(res);
+            res.end();
         });
-
-        // Apply Sorting Logic
-        if (sortMode === 'least_correct') {
-            formattedData.sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
-        } else if (sortMode === 'best_correct') {
-            formattedData.sort((a, b) => b.accuracy_percentage - a.accuracy_percentage);
-        }
-
-        res.json(formattedData);
     });
 });
 

@@ -88,6 +88,11 @@ function TeacherMenu() {
   const [showResetAttemptModal, setShowResetAttemptModal] = useState(false);
   const [studentToReset, setStudentToReset] = useState(null);
 
+  const [itemAnalysisGame, setItemAnalysisGame] = useState(null);
+  const [itemAnalysisData, setItemAnalysisData] = useState([]);
+  const [itemSummaryData, setItemSummaryData] = useState(null); // 🟢 NEW STATE
+  const [showItemAnalysisModal, setShowItemAnalysisModal] = useState(false);
+
   const [clockTick, setClockTick] = useState(0);
 
   useEffect(() => {
@@ -211,13 +216,14 @@ function TeacherMenu() {
       }
   };
 
-  // 🟢 UPDATED: Fetches Item Analysis Data with Sort query
-  const fetchItemAnalysis = async (gameId, sortMode) => {
+const fetchItemAnalysis = async (gameId, sortMode) => {
       try {
           const res = await fetch(`https://arcads-api.onrender.com/api/item-analysis/${gameId}?sort=${sortMode}`);
           const data = await res.json();
-          if (Array.isArray(data)) {
-              setItemAnalysisData(data);
+          // Backend now returns { summary: {...}, items: [...] }
+          if (data && data.items) {
+              setItemAnalysisData(data.items);
+              setItemSummaryData(data.summary);
           }
       } catch (err) {
           console.error("Error fetching item analysis:", err);
@@ -242,9 +248,11 @@ function TeacherMenu() {
       window.open(`https://arcads-api.onrender.com/api/export-grades/${gradebookGame.game_id}`, '_blank');
   };
 
-  // 🟢 NEW: Trigger Excel download for Item Analysis
-  const exportItemAnalysisToExcel = () => {
-      window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}`, '_blank');
+    const exportItemAnalysisToExcel = () => {
+      // Pass the names to the backend so they print on the Excel sheet
+      const className = encodeURIComponent(gradebookClass.class_name);
+      const activityName = encodeURIComponent(getDisplayName(itemAnalysisGame));
+      window.open(`https://arcads-api.onrender.com/api/export-item-analysis/${itemAnalysisGame.game_id}?sort=${itemSortMode}&className=${className}&activityName=${activityName}`, '_blank');
   };
 
   const handleCreateClass = async (e) => {
@@ -974,32 +982,50 @@ function TeacherMenu() {
         </div>
       )}
 
-      {/* 🟢 UPDATED: Item Analysis Modal with Dropdown and Excel Export */}
+      {/* 🟢 UPDATED: Item Analysis Modal with DepEd Style Header */}
       {showItemAnalysisModal && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{width: '750px', maxWidth: '95%'}}>
-            <h2 style={{color: '#0066cc', marginBottom: '10px'}}>ITEM ANALYSIS: {getDisplayName(itemAnalysisGame)}</h2>
+          <div className="modal-box" style={{width: '850px', maxWidth: '95%'}}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label style={{ color: '#aaa', fontSize: '0.9rem' }}>Sort By:</label>
-                    <select 
-                        className="game-select" 
-                        value={itemSortMode} 
-                        onChange={handleSortChange}
-                        style={{ padding: '8px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', borderRadius: '5px' }}
-                    >
-                        <option value="numerical">Numerical Order</option>
-                        <option value="least_correct">Least Correct (Most Difficult)</option>
-                        <option value="best_correct">Best Correct (Easiest)</option>
-                    </select>
-                </div>
+                <h2 style={{color: '#0066cc', margin: 0}}>ITEM ANALYSIS</h2>
                 <button className="btn btn-primary" onClick={exportItemAnalysisToExcel} style={{ fontSize: '0.8rem', padding: '8px 15px' }}>
-                    📥 EXPORT TO EXCEL
+                    📥 DOWNLOAD REPORT
                 </button>
             </div>
 
-            <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto'}}>
+            {/* 🟢 NEW: DepEd Style Header Block */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', backgroundColor: 'var(--darker-blue)', padding: '15px', borderRadius: '8px', border: '1px solid #444', fontSize: '0.85rem', color: '#fff' }}>
+                <div>
+                    <div style={{marginBottom: '5px'}}><strong style={{color: 'var(--arcade-yellow)'}}>CLASS NAME:</strong> {gradebookClass?.class_name}</div>
+                    <div style={{marginBottom: '5px'}}><strong style={{color: 'var(--arcade-yellow)'}}>ACTIVITY NAME:</strong> {getDisplayName(itemAnalysisGame)}</div>
+                    <div style={{marginBottom: '5px'}}><strong style={{color: 'var(--arcade-yellow)'}}>NUMBER OF ITEMS:</strong> {itemAnalysisData.length}</div>
+                </div>
+                <div>
+                    <div style={{marginBottom: '5px'}}><strong style={{color: '#00f5ff'}}>STUDENTS PARTICIPATED:</strong> {itemSummaryData?.total_participants || 0}</div>
+                    <div style={{marginBottom: '5px'}}><strong style={{color: '#00f5ff'}}>MEAN SCORE:</strong> {itemSummaryData?.mean_score ? parseFloat(itemSummaryData.mean_score).toFixed(2) : '0.00'}</div>
+                    <div style={{display: 'flex', gap: '15px'}}>
+                        <div><strong style={{color: '#14a014'}}>HIGHEST SCORE:</strong> {itemSummaryData?.highest_score || 0}</div>
+                        <div><strong style={{color: '#ff4c4c'}}>LOWEST SCORE:</strong> {itemSummaryData?.lowest_score || 0}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                <label style={{ color: '#aaa', fontSize: '0.9rem' }}>Sort Data By:</label>
+                <select 
+                    className="game-select" 
+                    value={itemSortMode} 
+                    onChange={handleSortChange}
+                    style={{ padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '5px' }}
+                >
+                    <option value="numerical">Numerical Order</option>
+                    <option value="least_correct">Least Correct (Most Difficult)</option>
+                    <option value="best_correct">Best Correct (Easiest)</option>
+                </select>
+            </div>
+
+            <div className="table-responsive" style={{maxHeight: '350px', overflowY: 'auto'}}>
                 <table className="students-table">
                     <thead><tr><th style={{textAlign: 'left'}}>Question</th><th>Correct</th><th>Wrong</th><th>Accuracy</th></tr></thead>
                     <tbody>
@@ -1009,8 +1035,8 @@ function TeacherMenu() {
                             return (
                                 <tr key={item.question_id}>
                                     <td style={{textAlign: 'left'}}>{index + 1}. {item.question_text}</td>
-                                    <td style={{color: '#14a014'}}>{item.correct_count || 0}</td>
-                                    <td style={{color: '#ff4c4c'}}>{item.wrong_count || 0}</td>
+                                    <td style={{color: '#14a014', fontWeight: 'bold'}}>{item.correct_count || 0}</td>
+                                    <td style={{color: '#ff4c4c', fontWeight: 'bold'}}>{item.wrong_count || 0}</td>
                                     <td>{total > 0 ? `${acc}%` : '-'}</td>
                                 </tr>
                             )
@@ -1019,62 +1045,6 @@ function TeacherMenu() {
                 </table>
             </div>
             <button type="button" onClick={() => setShowItemAnalysisModal(false)} className="btn btn-secondary" style={{marginTop: '20px', width: '100%'}}>CLOSE</button>
-          </div>
-        </div>
-      )}
-
-      {showCreateModal && (
-        <div className="modal-overlay">
-          <div className="modal-box" style={{ minWidth: '350px' }}>
-            <h2>NEW CLASS</h2>
-            {createClassError && <p style={{color: '#ff4c4c', fontSize: '0.8rem', marginBottom: '10px'}}>{createClassError}</p>}
-            {createStatusMsg && <p style={{color: 'var(--arcade-yellow)', fontSize: '0.8rem', marginBottom: '15px'}}>{createStatusMsg}</p>}
-            
-            <form onSubmit={handleCreateClass}>
-              <div className="form-group" style={{ marginBottom: '15px' }}>
-                <input 
-                  type="text" 
-                  placeholder="Class Name" 
-                  value={newClassName} 
-                  onChange={(e) => { setNewClassName(e.target.value); setCreateClassError(''); }} 
-                  required 
-                  className="game-input"
-                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
-                  disabled={isCreatingClass}
-                />
-              </div>
-
-              {classes.length > 0 && (
-                  <div className="form-group" style={{ marginBottom: '25px', textAlign: 'left' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '8px' }}>
-                          (Optional) Copy Roster From:
-                      </label>
-                      <select
-                          className="game-select"
-                          value={cloneFromClassId}
-                          onChange={(e) => setCloneFromClassId(e.target.value)}
-                          style={{ width: '100%', padding: '10px', backgroundColor: 'var(--darker-blue)', color: '#fff', border: '1px solid #444', boxSizing: 'border-box' }}
-                          disabled={isCreatingClass}
-                      >
-                          <option value="">-- Empty Roster --</option>
-                          {classes.map(cls => (
-                              <option key={cls.class_id} value={cls.class_id}>
-                                  {cls.class_name}
-                              </option>
-                          ))}
-                      </select>
-                  </div>
-              )}
-
-              <div className="modal-actions-row">
-                <button type="submit" className="btn btn-primary" disabled={isCreatingClass}>
-                    {isCreatingClass ? 'WORKING...' : 'CREATE'}
-                </button>
-                <button type="button" onClick={() => { setShowCreateModal(false); setCloneFromClassId(''); setCreateStatusMsg(''); }} className="btn btn-secondary" disabled={isCreatingClass}>
-                    CANCEL
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
