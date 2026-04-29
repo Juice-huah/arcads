@@ -24,6 +24,22 @@ const getDisplayName = (game) => {
     return GAME_DISPLAY_NAMES[dbType] || String(dbType).replace(/_/g, ' ').toUpperCase();
 };
 
+// 🟢 NEW: Name Formatting Helper
+const formatStudentName = (surname, firstName) => {
+    if (!surname && !firstName) return "";
+    
+    // Helper to capitalize the first letter of every word
+    const titleCase = (str) => {
+        if (!str) return "";
+        return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    };
+
+    const formattedSurname = titleCase(surname);
+    const formattedFirstName = titleCase(firstName);
+
+    return `${formattedSurname}, ${formattedFirstName}`;
+};
+
 function TeacherMenu() {
   const [user, setUser] = useState(null);
   
@@ -755,7 +771,8 @@ function TeacherMenu() {
                   ) : (
                     classStudents.map((st) => (
                       <tr key={st.cm_fid}>
-                        <td>{st.student_name ? `${st.student_name} ${st.student_surname}` : <span style={{color:'red'}}>⚠ Missing Record</span>}</td>
+                        {/* 🟢 UPDATED: Now uses formatStudentName */}
+                        <td>{st.student_name ? formatStudentName(st.student_surname, st.student_name) : <span style={{color:'red'}}>⚠ Missing Record</span>}</td>
                         <td>{st.student_username || <span style={{color:'red'}}>Broken ID</span>}</td>
                         <td><button className="remove-btn" onClick={(e) => { e.stopPropagation(); promptRemoveStudent(st.cm_fid); }}>REMOVE</button></td>
                       </tr>
@@ -909,7 +926,8 @@ function TeacherMenu() {
 
                           return (
                               <tr key={row.student_fid}>
-                                  <td>{row.student_surname}, {row.student_name}</td>
+                                  {/* 🟢 UPDATED to match formatting */}
+                                  <td>{formatStudentName(row.student_surname, row.student_name)}</td>
                                   <td>{hasPlayed ? `${row.raw_score} / ${row.total_items}` : '-'}</td>
                                   <td style={{color: hasPlayed && grade >= 75 ? '#14a014' : '#ff4c4c'}}>{hasPlayed ? `${grade}%` : '-'}</td>
                                   <td>
@@ -1183,9 +1201,11 @@ function TeacherMenu() {
 
                             return (
                                 <tr key={student.student_fid}>
-                                    <td style={{textAlign: 'left', fontWeight: 'bold'}}>{student.student_surname}, {student.student_name}</td>
+                                    {/* 🟢 UPDATED to match formatting */}
+                                    <td style={{textAlign: 'left', fontWeight: 'bold'}}>
+                                        {formatStudentName(student.student_surname, student.student_name)}
+                                    </td>
                                     <td>{student.games_played}</td>
-                                    {/* 🟢 Participated-only logic rendered here */}
                                     <td>{student.games_played > 0 ? `${student.accumulated_score || 0} / ${student.attempted_items}` : '-'}</td>
                                     <td>{student.accuracy > 0 ? `${student.accuracy.toFixed(1)}%` : '-'}</td>
                                     <td style={{color: isFailing ? '#ff4c4c' : 'var(--arcade-yellow)', fontWeight: 'bold'}}>
