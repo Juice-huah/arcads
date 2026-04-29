@@ -627,8 +627,14 @@ app.get('/api/class-performance/:class_id', (req, res) => {
         const performanceData = studentsResult.map(student => {
             const score = parseInt(student.accumulated_score || 0);
             const attemptedItems = parseInt(student.attempted_items || 0);
-            let accuracy = 0;
+            let accuracy = (score / attemptedItems) * 100;
             let grade = 0;
+
+            if (accuracy < 60) {
+                grade = Math.round((accuracy / 60) * 15 + 60);
+            } else {
+                grade = Math.round(((accuracy - 60) / 40) * 25 + 75);
+            }
             let descriptor = "No Data";
 
             if (student.games_played > 0 && attemptedItems > 0) {
@@ -656,7 +662,6 @@ app.get('/api/class-performance/:class_id', (req, res) => {
     });
 });
 
-// 🟢 NEW: EXPORT CLASS PERFORMANCE TO EXCEL ROUTE
 app.get('/api/export-class-performance/:class_id', (req, res) => {
     const classId = req.params.class_id;
     const sortMode = req.query.sort || 'alphabetical';
@@ -700,7 +705,6 @@ app.get('/api/export-class-performance/:class_id', (req, res) => {
             return { ...student, attempted_items: attemptedItems, accuracy, grade, descriptor };
         });
 
-        // Apply Sorting
         if (sortMode === 'alphabetical') {
             formatted.sort((a, b) => (a.student_surname || "").localeCompare(b.student_surname || ""));
         } else if (sortMode === 'best') {
