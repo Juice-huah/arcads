@@ -601,7 +601,7 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
     });
 });
 
-// 🟢 NEW: Class Overall Performance (Only counts played games)
+// 🟢 NEW: Class Overall Performance (Only counts played games) - UPDATED FOR DEPED BASE-60
 app.get('/api/class-performance/:class_id', (req, res) => {
     const classId = req.params.class_id;
 
@@ -627,19 +627,20 @@ app.get('/api/class-performance/:class_id', (req, res) => {
         const performanceData = studentsResult.map(student => {
             const score = parseInt(student.accumulated_score || 0);
             const attemptedItems = parseInt(student.attempted_items || 0);
-            let accuracy = (score / attemptedItems) * 100;
+            let accuracy = 0;
             let grade = 0;
-
-            if (accuracy < 60) {
-                grade = Math.round((accuracy / 60) * 15 + 60);
-            } else {
-                grade = Math.round(((accuracy - 60) / 40) * 25 + 75);
-            }
             let descriptor = "No Data";
 
             if (student.games_played > 0 && attemptedItems > 0) {
                 accuracy = (score / attemptedItems) * 100;
-                grade = Math.round((score / attemptedItems) * 50 + 50); // Base-50
+                
+                // DepEd Base-60 Transmutation Formula
+                let ps = accuracy; 
+                if (ps >= 60) {
+                    grade = Math.round(((ps - 60) / 40) * 25 + 75);
+                } else {
+                    grade = Math.round((ps / 60) * 15 + 60);
+                }
 
                 // DepEd Qualitative Scale
                 if (grade >= 90) descriptor = "Outstanding (O)";
@@ -662,6 +663,7 @@ app.get('/api/class-performance/:class_id', (req, res) => {
     });
 });
 
+// 🟢 EXPORT CLASS PERFORMANCE - UPDATED FOR DEPED BASE-60
 app.get('/api/export-class-performance/:class_id', (req, res) => {
     const classId = req.params.class_id;
     const sortMode = req.query.sort || 'alphabetical';
@@ -694,7 +696,14 @@ app.get('/api/export-class-performance/:class_id', (req, res) => {
 
             if (student.games_played > 0 && attemptedItems > 0) {
                 accuracy = (score / attemptedItems) * 100;
-                grade = Math.round((score / attemptedItems) * 50 + 50); 
+                
+                // DepEd Base-60 Transmutation Formula
+                let ps = accuracy; 
+                if (ps >= 60) {
+                    grade = Math.round(((ps - 60) / 40) * 25 + 75);
+                } else {
+                    grade = Math.round((ps / 60) * 15 + 60);
+                }
                 
                 if (grade >= 90) descriptor = "Outstanding (O)";
                 else if (grade >= 85) descriptor = "Very Satisfactory (VS)";
@@ -883,6 +892,7 @@ app.delete('/api/delete-user', (req, res) => {
     });
 });
 
+// 🟢 EXPORT GRADES - UPDATED FOR DEPED BASE-60
 app.get('/api/export-grades/:game_id', async (req, res) => {
     const gameId = req.params.game_id;
     const sql = `
@@ -916,7 +926,18 @@ app.get('/api/export-grades/:game_id', async (req, res) => {
 
         results.forEach((row, index) => {
             const hasPlayed = row.raw_score !== null;
-            const grade = hasPlayed ? Math.round((row.raw_score / (row.total_items || 1)) * 50 + 50) : 0;
+            let grade = 0;
+            
+            if (hasPlayed) {
+                let ps = (row.raw_score / (row.total_items || 1)) * 100;
+                // DepEd Base-60 Transmutation Formula
+                if (ps >= 60) {
+                    grade = Math.round(((ps - 60) / 40) * 25 + 75);
+                } else {
+                    grade = Math.round((ps / 60) * 15 + 60);
+                }
+            }
+            
             let status = hasPlayed ? (grade >= 75 ? 'PASSED' : 'FAILED') : 'PENDING';
             if (row.is_locked) status = 'LOCKED';
 
