@@ -159,7 +159,7 @@ const CreateMazeGame = () => {
 
       <div className="btn-group" style={{justifyContent: 'center', gap: '20px'}}>
         <button className="btn-secondary" onClick={() => navigate('/teacher-menu')}>CANCEL</button>
-        <button className="btn-primary" onClick={() => setStep(2)}>START CONFIGURATION</button>
+        <button className="btn-primary" onClick={() => setStep(2)}>START CREATING</button>
       </div>
     </div>
   );
