@@ -132,17 +132,11 @@
   --arcade-red: #ff4c4c;    
 }
 
-/* ==========================================================================
-   🟣 TEACHER DASHBOARD - "DEEP PLUM ARCADE"
-   ========================================================================== */
 .teacher-dashboard.teacher-theme {
-  /* Main Content Background: The new purple you selected */
   --primary-blue: #2f143d; 
 
-  /* Sidebar & Cards Background: A mathematically darker shade of the plum */
   --darker-blue: #170a1e;  
   
-  /* Retaining your original bright accents for the borders and buttons */
   --arcade-yellow: #ffd700; 
   --arcade-orange: #fca311; 
   --arcade-red: #ff4c4c;    

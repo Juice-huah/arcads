@@ -507,7 +507,6 @@ app.get('/api/item-analysis/:game_id', (req, res) => {
     });
 });
 
-// 🟢 RESTORED & UPDATED: EXPORT ITEM ANALYSIS TO EXCEL (With DepEd Header Layout)
 app.get('/api/export-item-analysis/:game_id', (req, res) => {
     const gameId = req.params.game_id;
     const sortMode = req.query.sort || 'numerical';
@@ -601,7 +600,6 @@ app.get('/api/export-item-analysis/:game_id', (req, res) => {
     });
 });
 
-// 🟢 NEW: Class Overall Performance (Only counts played games) - UPDATED FOR DEPED BASE-60
 app.get('/api/class-performance/:class_id', (req, res) => {
     const classId = req.params.class_id;
 
@@ -663,7 +661,6 @@ app.get('/api/class-performance/:class_id', (req, res) => {
     });
 });
 
-// 🟢 EXPORT CLASS PERFORMANCE - UPDATED FOR DEPED BASE-60
 app.get('/api/export-class-performance/:class_id', (req, res) => {
     const classId = req.params.class_id;
     const sortMode = req.query.sort || 'alphabetical';
@@ -892,7 +889,6 @@ app.delete('/api/delete-user', (req, res) => {
     });
 });
 
-// 🟢 EXPORT GRADES - UPDATED FOR DEPED BASE-60
 app.get('/api/export-grades/:game_id', async (req, res) => {
     const gameId = req.params.game_id;
     const sql = `

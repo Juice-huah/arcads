@@ -1,7 +1,6 @@
 // src/pages/SignUp.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom'; 
-// 🟢 NEW: Imported sendEmailVerification and signOut
 import { createUserWithEmailAndPassword, deleteUser, sendEmailVerification, signOut } from "firebase/auth"; 
 import { auth } from '../firebase'; 
 import './SignUp.css';
@@ -9,7 +8,6 @@ import './SignUp.css';
 function SignUp({ role }) {
   const navigate = useNavigate();
   
-  // Dynamic variables based on the 'role' prop ('student' or 'teacher')
   const isStudent = role === 'student';
   const title = isStudent ? "Create Student Account" : "Create Teacher Account";
   const loginRoute = isStudent ? '/student-login' : '/teacher-login';
@@ -74,14 +72,11 @@ function SignUp({ role }) {
 
   const handleFinalSubmit = async () => {
     try {
-      // 1. Create User in Firebase
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // 🟢 2. NEW: Send the verification email immediately
       await sendEmailVerification(user);
 
-      // 3. Save to MySQL Database
       const response = await fetch(`https://arcads-api.onrender.com${signupEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,15 +93,15 @@ function SignUp({ role }) {
         throw new Error("Failed to save to database.");
       }
 
-      // 🟢 4. NEW: Sign them out so they can't bypass the email check by staying logged in
+      
       await signOut(auth);
 
-      // 5. Show Success & Redirect
+   
       setIsSuccess(true);
 
       setTimeout(() => {
         navigate(loginRoute);
-      }, 4000); // 🟢 Increased timer so they can read the email instruction
+      }, 4000); 
 
     } catch (error) {
       const errorCode = error.code;
@@ -177,7 +172,6 @@ function SignUp({ role }) {
             {isSuccess ? (
               <div className="success-content">
                 <h2 style={{color: '#4cc9f0'}}>SUCCESS!</h2>
-                {/* 🟢 NEW: Updated success message */}
                 <p style={{color: 'white', marginTop: '20px', lineHeight: '1.5'}}>
                   Account created! <br/><br/>
                   <strong style={{color: '#fca311'}}>IMPORTANT:</strong> We sent a verification link to your email. Please verify your email before logging in!

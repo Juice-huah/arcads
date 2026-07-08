@@ -13,7 +13,6 @@ export default function GameScreen({
   const isAI = mode === MODES.VS_AI;
   const [showHud, setShowHud] = useState(true);
 
-  // Array of actual dice faces (Index 1-6)
   const DICE_FACES = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
   return (
@@ -28,9 +27,7 @@ export default function GameScreen({
       position: 'relative'
     }}>
       
-      {/* =========================================
-          TOP NAVIGATION BAR
-          ========================================= */}
+
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -40,7 +37,6 @@ export default function GameScreen({
         boxSizing: 'border-box'
       }}>
         
-        {/* LEFT: Turn & Difficulty Indicators */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '250px' }}>
           <div style={{ 
             color: '#ffd700', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '1px',

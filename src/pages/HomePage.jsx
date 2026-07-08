@@ -35,7 +35,6 @@ function HomePage() {
   return (
     <main className="homepage-container">
       
-      {/* 🟢 CSS INJECTION: Prevents side-scrolling, stacks layout ONLY on mobile */}
       <style>{`
         html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
         .homepage-container { overflow-x: hidden; width: 100%; }

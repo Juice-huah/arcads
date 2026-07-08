@@ -11,7 +11,6 @@ export default function CreateTowerDefense() {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState('');
     
-    // 🟢 NEW: Game Title State
     const [gameTitle, setGameTitle] = useState('Word Tower Defense');
     
     const [waveLevel, setWaveLevel] = useState('Easy');
@@ -143,7 +142,7 @@ export default function CreateTowerDefense() {
                     teacher_fid: user.uid,
                     class_id: selectedClass,
                     game_type: 'tower_defense',
-                    custom_title: gameTitle, // 🟢 FIXED: Sends custom title to backend
+                    custom_title: gameTitle, 
                     open_datetime: formattedOpenDate,
                     close_datetime: formattedCloseDate,
                     time_limit: finalTimeLimit

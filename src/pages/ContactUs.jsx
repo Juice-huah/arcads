@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FaEnvelope, FaPhoneAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import '../components/TeacherMenu.css'; 
-import './GamesCSS.css'; // Importing this to use the game-card and game-input classes!
+import './GamesCSS.css'; 
 
 function ContactUs() {
   const navigate = useNavigate();
@@ -34,7 +34,6 @@ function ContactUs() {
       
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         
-        {/* HEADER SECTION */}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <h1 style={{ color: '#0ac8f0', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Press Start 2P', cursive", lineHeight: '1.5' }}>
             CONTACT US
@@ -44,10 +43,10 @@ function ContactUs() {
           </p>
         </div>
 
-        {/* 2-COLUMN GRID USING YOUR CSS */}
+  
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
           
-          {/* LEFT SIDE: CONTACT INFO (Using game-card class) */}
+   
           <div className="game-card" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ color: '#ff9900', marginBottom: '30px', borderBottom: '2px solid rgba(255, 153, 0, 0.3)', paddingBottom: '15px', fontFamily: "'Press Start 2P', cursive", fontSize: '1rem', lineHeight: '1.5' }}>
               GET IN TOUCH
@@ -83,7 +82,6 @@ function ContactUs() {
             </div>
           </div>
 
-          {/* RIGHT SIDE: CONTACT FORM (Using game-card and game-input classes) */}
           <div className="game-card" style={{ margin: 0, height: '100%' }}>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
@@ -118,7 +116,6 @@ function ContactUs() {
         </div>
       </div>
 
-      {/* --- CUSTOM ALERT MODAL (Using your native classes) --- */}
       {alertData && (
           <div className="modal-overlay">
               <div className="modal-box" style={{ border: `2px solid ${alertData.color}` }}>
@@ -130,7 +127,7 @@ function ContactUs() {
                   </p>
                   <button className="btn btn-primary" onClick={() => {
                       setAlertData(null);
-                      navigate('/'); // Optionally redirect them home after sending
+                      navigate('/');
                   }}>
                     AWESOME
                   </button>
@@ -141,7 +138,6 @@ function ContactUs() {
   );
 }
 
-// --- STYLES FOR THE ICONS AND TEXT ---
 const infoRowStyle = {
   display: 'flex', 
   alignItems: 'center', 

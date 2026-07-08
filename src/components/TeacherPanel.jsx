@@ -22,10 +22,9 @@ export default function TeacherPanel({ questions, onSave, onClose }) {
   const [pinError, setPinError] = useState(false);
 
   const [list,    setList]    = useState(questions);
-  const [editing, setEditing] = useState(null);       // question id being edited, or null
+  const [editing, setEditing] = useState(null);       
   const [form,    setForm]    = useState(BLANK_FORM);
 
-  // ── PIN gate ────────────────────────────────────────────────────────
 
   const tryPin = () => {
     if (pin === CORRECT_PIN) { setUnlocked(true); setPinError(false); }
@@ -64,7 +63,6 @@ export default function TeacherPanel({ questions, onSave, onClose }) {
     );
   }
 
-  // ── Editor helpers ────────────────────────────────────────────────
 
   const startEdit = (q) => {
     setEditing(q ? q.id : null);
@@ -89,7 +87,6 @@ export default function TeacherPanel({ questions, onSave, onClose }) {
 
   const deleteQuestion = (id) => setList(l => l.filter(q => q.id !== id));
 
-  // ── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="modal-overlay" style={{ alignItems: "flex-start", paddingTop: 40 }}>
@@ -111,7 +108,7 @@ export default function TeacherPanel({ questions, onSave, onClose }) {
         </div>
 
         <div className="teacher-wrap">
-          {/* ── Question List ── */}
+
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontFamily: "Cinzel", fontSize: 12, color: "#ffd700", letterSpacing: 1 }}>

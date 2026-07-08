@@ -7,20 +7,17 @@ import '../components/TeacherMenu.css';
 function CreateAdventure() {
   const navigate = useNavigate();
   
-  // --- STATE ---
-  const [step, setStep] = useState(1); // 1=Intro, 2=Config, 3=Schedule, 4=Assign
+
+  const [step, setStep] = useState(1); 
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 🟢 NEW: Game Title State
   const [gameTitle, setGameTitle] = useState('Adventure Battle');
 
-  // Custom Modal States
   const [alertData, setAlertData] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
 
-  // Scheduling Data
   const [openDate, setOpenDate] = useState('');
   const [openTime, setOpenTime] = useState('');
   const [noCloseDate, setNoCloseDate] = useState(true);
@@ -29,7 +26,7 @@ function CreateAdventure() {
   const [unlimitedTime, setUnlimitedTime] = useState(true);
   const [timeLimit, setTimeLimit] = useState(15); 
 
-  // Question State
+
   const [questions, setQuestions] = useState([
     { 
       type: 'multiple_choice', 
@@ -39,7 +36,6 @@ function CreateAdventure() {
     }
   ]);
 
-  // --- 1. FETCH CLASSES ON LOAD ---
   useEffect(() => {
     const fetchClasses = async () => {
         if (auth.currentUser) {
@@ -53,7 +49,6 @@ function CreateAdventure() {
     fetchClasses();
   }, []);
 
-  // --- HANDLERS ---
 
   const handleQuestionChange = (index, field, value) => {
     const newQuestions = [...questions];
@@ -82,7 +77,7 @@ function CreateAdventure() {
     setQuestions(newQuestions);
   };
 
-  // --- SUBMIT LOGIC ---
+
   const handleSubmitClick = () => {
       if (!selectedClass) return setAlertData({ title: "ATTENTION", message: "Please select a class.", color: "#ff9900" });
       setConfirmData({
@@ -113,7 +108,7 @@ function CreateAdventure() {
         body: JSON.stringify({
           teacher_fid: auth.currentUser.uid,
           class_id: selectedClass,
-          custom_title: gameTitle, // 🟢 NEW: Sends the custom title
+          custom_title: gameTitle, 
           questions: payload,
           open_datetime: formattedOpenDate,
           close_datetime: formattedCloseDate,
@@ -137,14 +132,10 @@ function CreateAdventure() {
     }
   };
 
-  // --- RENDER STEPS ---
-
-  // STEP 1: INTRO 
   const renderStep1_Intro = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#ff9900', fontFamily: '"Press Start 2P", cursive', marginBottom:'20px'}}>CREATE NEW ADVENTURE BATTLE</h2>
       
-      {/* 🟢 NEW: Enhanced Instructions in Step 1 */}
       <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #555', marginBottom:'30px'}}>
         <h3 style={{ color: '#ff9900', margin: '0 0 10px 0', fontSize: '1.1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
         <p style={{ color: '#ccc', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '15px' }}>
@@ -158,7 +149,6 @@ function CreateAdventure() {
         </ul>
       </div>
 
-      {/* 🟢 NEW: Game Title Input added here */}
       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '10px', border: '1px solid #4a5568', marginBottom: '30px', textAlign: 'left' }}>
         <label style={{ display: 'block', color: '#ff9900', fontWeight: 'bold', marginBottom: '10px' }}>Activity / Game Title</label>
         <input 
@@ -177,7 +167,6 @@ function CreateAdventure() {
     </div>
   );
 
-  // STEP 2: CONFIGURATION (Questions)
   const renderStep2_Config = () => (
     <div style={{maxWidth: '800px', margin: '0 auto'}}>
         <h2 style={{color: '#e6c800', textAlign:'center', marginBottom:'20px'}}>ADD BATTLE QUESTIONS</h2>
@@ -211,7 +200,6 @@ function CreateAdventure() {
               style={{ width: '96%', padding: '12px', marginBottom: '15px', background: '#1a202c', border: '1px solid #4a5568', color: 'white', borderRadius: '5px' }}
             />
 
-            {/* CONDITIONAL INPUTS */}
             {q.type === 'multiple_choice' && (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
@@ -259,7 +247,6 @@ function CreateAdventure() {
     </div>
   );
 
-  // STEP 3: SCHEDULE
   const renderStep3_Schedule = () => (
     <div className="game-card" style={cardStyle}>
         <h2 style={{color: '#ce93d8', marginBottom:'20px'}}>SCHEDULE ACTIVITY</h2>
@@ -296,7 +283,6 @@ function CreateAdventure() {
     </div>
   );
 
-  // STEP 4: ASSIGN CLASS
   const renderStep4_Assign = () => (
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#14a014', marginBottom:'20px'}}>ASSIGN TO CLASS</h2>
@@ -349,7 +335,6 @@ function CreateAdventure() {
         {step === 4 && renderStep4_Assign()}
       </div>
 
-      {/* --- MODALS --- */}
       {confirmData && (
           <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
               <div className="modal-box" style={{backgroundColor: '#222', border: '2px solid #ff9900', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>
@@ -379,7 +364,6 @@ function CreateAdventure() {
   );
 }
 
-// --- STYLES ---
 const cardStyle = {
     background: '#020b1c', 
     padding: '40px', 

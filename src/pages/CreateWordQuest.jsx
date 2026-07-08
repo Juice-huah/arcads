@@ -11,14 +11,11 @@ const CreateWordQuest = () => {
   const [availableClasses, setAvailableClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
 
-  // 🟢 NEW: Game Title State
   const [gameTitle, setGameTitle] = useState('Word Quest');
 
-  // Custom Modal States
   const [alertData, setAlertData] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
 
-  // Scheduling Data
   const [openDate, setOpenDate] = useState('');
   const [openTime, setOpenTime] = useState('');
   const [noCloseDate, setNoCloseDate] = useState(true);
@@ -27,12 +24,10 @@ const CreateWordQuest = () => {
   const [unlimitedTime, setUnlimitedTime] = useState(true);
   const [timeLimit, setTimeLimit] = useState(15); 
 
-  // Default Questions State
   const [questions, setQuestions] = useState([
     { question: "", options: ["", "", "", ""], correct: "" }
   ]);
 
-  // --- 1. Fetch Classes ---
   useEffect(() => {
     const fetchClasses = async () => {
       if (!auth.currentUser) return;
@@ -120,13 +115,11 @@ const CreateWordQuest = () => {
     }
   };
 
-  // --- 3. Render Views ---
 
   const renderIntro = () => (
     <div className="game-card">
       <h2 style={{color: '#ce93d8', marginBottom: '20px'}}>CREATE WORD QUEST</h2>
       
-      {/* 🟢 NEW: Enhanced Instructions with Pixel Font */}
       <div style={{textAlign:'left', background:'#0c0e17', padding:'20px', borderRadius:'8px', border: '1px dashed #ce93d8', marginBottom:'20px'}}>
         <h3 style={{ color: '#ce93d8', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
         <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
@@ -140,7 +133,6 @@ const CreateWordQuest = () => {
         </ul>
       </div>
 
-      {/* 🟢 NEW: Title Input Box */}
       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '10px', border: '1px solid #4a5568', marginBottom: '30px', textAlign: 'left' }}>
         <label style={{ display: 'block', color: '#ce93d8', fontWeight: 'bold', marginBottom: '10px', fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem' }}>Activity Title</label>
         <input 
@@ -278,7 +270,6 @@ const CreateWordQuest = () => {
       {step === 3 && renderSchedule()}
       {step === 4 && renderAssign()}
 
-      {/* --- MODALS --- */}
       {confirmData && (
           <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
               <div className="modal-box" style={{backgroundColor: '#222', border: '2px solid #ce93d8', padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>

@@ -17,7 +17,6 @@ function StudentLogin() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
             
-            // Verification check turned back on here
             if (!user.emailVerified) { 
                 await signOut(auth); 
                 setMessage('Access Denied: Please verify your email address first!');

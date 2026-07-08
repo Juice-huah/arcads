@@ -3,7 +3,6 @@ import React, { useEffect } from "react";
 import { MODES } from "../constants/gameData";
 
 export default function WinScreen({ players, winner, mode, onRetry, onMenu }) {
-  // Use the actual winner passed from the game logic
   const actualWinner = winner || players[0];
   const loser = players.find(p => p.id !== actualWinner.id) || players[1];
   
@@ -11,7 +10,6 @@ export default function WinScreen({ players, winner, mode, onRetry, onMenu }) {
   const isPlayerWinner = actualWinner.id === 0; // True if Player 1 wins
 
   useEffect(() => {
-    // Only shoot confetti if the human player wins!
     if (isPlayerWinner) {
         const script  = document.createElement("script");
         script.src    = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
@@ -34,7 +32,7 @@ export default function WinScreen({ players, winner, mode, onRetry, onMenu }) {
             {isPlayerWinner ? "👑" : "💀"}
         </div>
 
-        {/* --- DYNAMIC CONGRATULATIONS HEADER --- */}
+     
         <h1 style={{
             color: isPlayerWinner ? '#14a014' : '#ff4444',
             fontSize: '1.8rem',

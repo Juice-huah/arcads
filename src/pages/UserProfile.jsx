@@ -1,7 +1,6 @@
 // src/pages/UserProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase';
-// 🟢 NEW: Imported EmailAuthProvider, reauthenticateWithCredential, and deleteUser
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth'; 
 import { useNavigate } from 'react-router-dom';
 import './SignUp.css';
@@ -22,7 +21,6 @@ function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState({ type: '', msg: '' });
 
-  // 🟢 NEW: State for the Delete Account flow
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [showReauthModal, setShowReauthModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -124,18 +122,15 @@ function UserProfile() {
     }
   };
 
-  // 🟢 NEW: Handles the actual deletion process
   const executeDeleteAccount = async (e) => {
     e.preventDefault();
     setDeleteError('');
     setIsDeleting(true);
 
     try {
-      // 1. Re-authenticate the user with the password they just typed
       const credential = EmailAuthProvider.credential(user.email, deletePassword);
       await reauthenticateWithCredential(user, credential);
 
-      // 2. Delete data from MySQL
       const dbRes = await fetch('https://arcads-api.onrender.com/api/delete-user', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -144,10 +139,8 @@ function UserProfile() {
 
       if (!dbRes.ok) throw new Error("Failed to delete records from MySQL");
 
-      // 3. Delete from Firebase
       await deleteUser(user);
 
-      // 4. Clean up local storage and redirect
       localStorage.removeItem('role');
       localStorage.removeItem('userRole');
       navigate('/');
@@ -220,7 +213,6 @@ function UserProfile() {
           SAVE CHANGES
         </button>
 
-        {/* 🟢 NEW: Delete Button */}
         <button 
           type="button" 
           onClick={() => setShowDeleteWarning(true)} 
@@ -234,7 +226,6 @@ function UserProfile() {
         </button>
       </form>
 
-      {/* 🟢 NEW: Initial Warning Modal */}
       {showDeleteWarning && (
         <div className="modal-overlay">
           <div className="modal-box" style={{border: '2px solid #ff4c4c'}}>
@@ -254,7 +245,6 @@ function UserProfile() {
         </div>
       )}
 
-      {/* 🟢 NEW: Re-authentication Security Modal */}
       {showReauthModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{border: '2px solid #ff4c4c'}}>

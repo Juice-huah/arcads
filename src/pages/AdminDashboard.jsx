@@ -15,7 +15,6 @@ function AdminDashboard() {
     
     const [activeTab, setActiveTab] = useState('dashboard');
 
-    // 🟢 UPDATED: The Master Poller for the Admin Command Center
     useEffect(() => {
         const role = localStorage.getItem('role');
         if (role !== 'admin') {
@@ -23,15 +22,12 @@ function AdminDashboard() {
             return;
         }
         
-        // 1. Initial fetch when the admin first loads the page
         fetchAllAdminData();
 
-        // 2. Background Poller: Silently fetch fresh system data every 30 seconds
         const pollingInterval = setInterval(() => {
             fetchAllAdminData();
         }, 30000); // 30 seconds
 
-        // 3. Always clean up the interval when leaving the page!
         return () => clearInterval(pollingInterval);
     }, [navigate]);
 
@@ -68,7 +64,7 @@ function AdminDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid, role })
             });
-            fetchAllAdminData(); // Instantly refresh after deletion
+            fetchAllAdminData(); 
         } catch (error) {
             console.error("Error deleting user:", error);
         }
@@ -80,7 +76,7 @@ function AdminDashboard() {
             await fetch(`https://arcads-api.onrender.com/api/delete-class/${classId}`, {
                 method: 'DELETE'
             });
-            fetchAllAdminData(); // Instantly refresh after deletion
+            fetchAllAdminData();
         } catch (error) {
             console.error("Error deleting class:", error);
         }
@@ -153,7 +149,6 @@ function AdminDashboard() {
                     </div>
 
                     <div style={{ display: 'flex', gap: '30px' }}>
-                        {/* SIMPLE BAR GRAPH FOR MOST POPULAR GAMES */}
                         <div style={{ flex: 1, backgroundColor: 'white', border: '1px solid #ddd', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
                             <h3 style={{ color: 'black', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>Most Popular Game Types</h3>
                             <div style={{ marginTop: '20px' }}>

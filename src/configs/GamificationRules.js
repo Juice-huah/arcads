@@ -1,11 +1,11 @@
 // config/gamificationRules.js
 
 export const POINT_SYSTEM = {
-  LOGIN_DAILY: 10,          // Points for logging in once every 24h
-  COMPLETE_QUIZ: 50,        // Base points for finishing a quiz
-  PERFECT_SCORE: 100,       // Bonus for getting 100% on a quiz
-  SUBMIT_ASSIGNMENT: 75,    // Points for turning in work on time
-  CLASS_PARTICIPATION: 20   // Awarded by teacher manually
+  LOGIN_DAILY: 10,        
+  COMPLETE_QUIZ: 50,        
+  PERFECT_SCORE: 100,       
+  SUBMIT_ASSIGNMENT: 75,    
+  CLASS_PARTICIPATION: 20   
 };
 
 export const BADGE_CRITERIA = [

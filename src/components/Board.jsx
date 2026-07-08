@@ -2,7 +2,6 @@
 import React from "react";
 import { BOARD_SIZE, TILE_SIZE, LADDERS, SNAKES, POWER_UP_TILES, TRAP_TILES, WILD_TILES, DOUBLE_TILES, STEAL_TILES } from "../constants/gameData";
 
-// 🟢 RESTORED: Exactly 40 Question Tiles perfectly placed around the board
 const QUESTION_TILES = new Set([
   2, 4, 6, 9,
   11, 15, 17, 20,
@@ -132,7 +131,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
       transition: 'all 0.3s ease'
     };
 
-    // 🟢 RESTORED: Blue highlight for Question Tiles
     if (isQuestionTile(tileNum)) {
         baseStyle.backgroundColor = 'rgba(59, 130, 246, 0.15)'; 
         baseStyle.border = '1px solid rgba(59, 130, 246, 0.4)';
@@ -182,7 +180,6 @@ export default function Board({ players, highlightTile, movingPlayer }) {
             const type = getTileType(tileNum);
             let { icon, label } = tileIcon(tileNum);
 
-            // 🟢 RESTORED: Add the Question Mark Icon
             if (isQuestionTile(tileNum) && !icon) {
                 icon = "❓";
             }

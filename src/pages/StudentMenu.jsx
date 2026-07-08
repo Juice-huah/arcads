@@ -6,7 +6,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import '../components/TeacherMenu.css'; 
 import './SignUp.css'; 
 
-// 🟢 Mapping Dictionary for fallback names
 const GAME_DISPLAY_NAMES = {
     'adventure': 'ADVENTURE BATTLE',
     'word_quest': 'WORD QUEST',
@@ -17,12 +16,11 @@ const GAME_DISPLAY_NAMES = {
     'hamsterball': 'HAMSTERBALL'
 };
 
-// 🟢 UPDATED: This function now prioritizes the custom_title from the DB
 const getDisplayName = (game) => {
     if (game && game.custom_title && game.custom_title.trim() !== "") {
         return game.custom_title.toUpperCase();
     }
-    const dbType = game?.game_type || game; // fallback if just string is passed
+    const dbType = game?.game_type || game; 
     return GAME_DISPLAY_NAMES[dbType] || String(dbType).replace(/_/g, ' ').toUpperCase();
 };
 
@@ -44,29 +42,24 @@ const StudentMenu = () => {
   const [leaderboardGame, setLeaderboardGame] = useState(null); 
   const [leaderboardData, setLeaderboardData] = useState([]); 
 
-  // 🟢 NEW: Frontend Clock State for Schedule Updates
   const [clockTick, setClockTick] = useState(0);
 
-  // 🟢 NEW: Invisible Clock Tick (Runs every 60 seconds)
   useEffect(() => {
       const timer = setInterval(() => {
-          setClockTick(prev => prev + 1); // Forces React to recalculate the open/close times
+          setClockTick(prev => prev + 1); 
       }, 60000); 
       return () => clearInterval(timer);
   }, []);
 
-  // 🟢 UPDATED: Auth Listener with Background Polling
   useEffect(() => {
-    let pollingInterval; // Define the interval variable
+    let pollingInterval;
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         
-        // 1. Initial fetch when they log in
         fetchAvailableGames(currentUser.uid);
 
-        // 2. Background Poller: Ask the database for new games every 30 seconds
         pollingInterval = setInterval(() => {
             fetchAvailableGames(currentUser.uid);
         }, 30000); 
@@ -74,13 +67,13 @@ const StudentMenu = () => {
       } else {
         setUser(null);
         setLoading(false);
-        if (pollingInterval) clearInterval(pollingInterval); // Stop polling if logged out
+        if (pollingInterval) clearInterval(pollingInterval); 
       }
     });
 
     return () => {
         unsubscribe();
-        if (pollingInterval) clearInterval(pollingInterval); // Stop polling if they leave the page
+        if (pollingInterval) clearInterval(pollingInterval); 
     };
   }, []);
 
@@ -178,7 +171,7 @@ const StudentMenu = () => {
       if (type === 'tower_defense') return `/student/play-tower-defense/${gameId}`;
       if (type === 'hamsterball') return `/student/play-hamsterball/${gameId}`;
       if (type === 'startype') return `/student/play-startype/${gameId}`; 
-      return `/student/play/${gameId}`; // Default fallback (Maze)
+      return `/student/play/${gameId}`;
   };
 
   const switchTab = (tab) => {
@@ -188,7 +181,7 @@ const StudentMenu = () => {
   };
 
   const getGameStatus = (game) => {
-      const now = new Date(); // 🟢 Every time the clockTick forces a render, this grabs the fresh time!
+      const now = new Date(); 
       const openTime = game.open_datetime ? new Date(game.open_datetime) : null;
       const closeTime = game.close_datetime ? new Date(game.close_datetime) : null;
 
@@ -218,7 +211,6 @@ const StudentMenu = () => {
   return (
     <div className="teacher-dashboard">
       
-      {/* 🟢 CSS INJECTION: Mobile Fixes for Student Menu */}
       <style>{`
         * { box-sizing: border-box; }
         @media (max-width: 850px) {
@@ -256,7 +248,6 @@ const StudentMenu = () => {
       <div className="content-area">
         {loading ? <p>Loading...</p> : (
             <>
-                {/* TAB 1: MY CLASSES */}
                 {activeTab === 'classes' && !selectedClass && (
                     <>
                         <div className="section-header">
@@ -299,7 +290,6 @@ const StudentMenu = () => {
                                 const status = getGameStatus(game);
                                 return (
                                     <div key={game.game_id} className="class-card" style={{borderColor: status.color}}>
-                                        {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
                                         <h3 style={{color: status.color}}>{getDisplayName(game)}</h3>
                                         <p style={{fontSize: '0.8rem', color: '#fff'}}>Assigned by Prof. {game.teacher_surname || "Unknown"}</p>
                                         
@@ -328,7 +318,6 @@ const StudentMenu = () => {
                     </>
                 )}
 
-                {/* TAB 2: MY GRADES */}
                 {activeTab === 'grades' && !selectedClass && (
                     <>
                         <div className="section-header"><h2>MY GRADES</h2></div>
@@ -352,7 +341,6 @@ const StudentMenu = () => {
                                 <button className="btn btn-secondary" onClick={() => setSelectedClass(null)}>BACK</button>
                             </div>
                         </div>
-                        {/* 🟢 Responsive Table Wrapper */}
                         <div className="table-responsive">
                             <table className="students-table" style={{marginTop: '20px'}}>
                                 <thead>
@@ -366,7 +354,6 @@ const StudentMenu = () => {
                                             const grade = Math.round((game.raw_score / (game.total_items || 1)) * 50 + 50);
                                             return (
                                                 <tr key={game.game_id}>
-                                                    {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
                                                     <td style={{color: '#0ac8f0', fontWeight: 'bold'}}>{getDisplayName(game)}</td>
                                                     <td>{game.raw_score} / {game.total_items}</td>
                                                     <td style={{color: grade >= 75 ? '#14a014' : '#ff4c4c', fontWeight: 'bold'}}>{grade}%</td>
@@ -385,7 +372,6 @@ const StudentMenu = () => {
                     </>
                 )}
 
-                {/* TAB 3: LEADERBOARD */}
                 {activeTab === 'leaderboard' && leaderboardView === 'list' && (
                     <>
                         <div className="section-header"><h2>HALL OF FAME</h2></div>
@@ -412,7 +398,6 @@ const StudentMenu = () => {
                         <div className="classes-grid">
                             {groupedGames[selectedClass].filter(g => g.game_id).map((game) => (
                                 <div key={game.game_id} className="class-card" onClick={() => fetchLeaderboard(game)}>
-                                    {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
                                     <h3 style={{color: '#0ac8f0'}}>{getDisplayName(game)}</h3>
                                     <p style={{fontSize: '0.8rem'}}>View Leaderboard</p>
                                 </div>
@@ -424,7 +409,6 @@ const StudentMenu = () => {
                 {activeTab === 'leaderboard' && leaderboardView === 'ranking' && leaderboardGame && (
                     <>
                         <div className="section-header">
-                            {/* 🟢 TRANSLATED USING DICTIONARY AND CUSTOM TITLE */}
                             <h2>{getDisplayName(leaderboardGame)} <span style={{fontSize:'0.6em', color:'#aaa'}}>LEADERBOARD</span></h2>
                             <div className="header-actions">
                                 <button className="btn btn-secondary" onClick={() => setLeaderboardView('games')}>BACK</button>
@@ -441,7 +425,6 @@ const StudentMenu = () => {
         )}
       </div>
 
-      {/* JOIN CLASS MODAL */}
       {showJoinModal && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -461,7 +444,6 @@ const StudentMenu = () => {
         </div>
       )}
 
-      {/* LEAVE CLASS MODAL */}
       {showLeaveClassModal && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ border: '2px solid #dc3545' }}>

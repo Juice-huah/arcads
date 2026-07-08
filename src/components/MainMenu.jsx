@@ -2,14 +2,13 @@
 import { useState, useEffect } from "react";
 import { ABOUT_TILES } from "../constants/gameData";
 
-// ─── Generate Random Twinkling Stars ──────────────────────────────────────────
 const STARS = Array.from({ length: 60 }, () => ({
   left: `${Math.random() * 100}%`,
   top: `${Math.random() * 100}%`,
   size: Math.random() * 2.5 + 1,
   dur: (Math.random() * 3 + 2).toFixed(1),
   del: (Math.random() * 2).toFixed(1),
-  color: Math.random() > 0.8 ? '#fca311' : '#ffffff' // Occasional gold star
+  color: Math.random() > 0.8 ? '#fca311' : '#ffffff'
 }));
 
 export default function MainMenu({ onSelectMode, onExit }) {
@@ -187,7 +186,7 @@ export default function MainMenu({ onSelectMode, onExit }) {
         {/* ── NEW: EXIT GAME BUTTON ── */}
         <button 
           className="btn ghost" 
-          onClick={onExit} // Calls the prop passed from your wrapper
+          onClick={onExit}
           onMouseEnter={e => { 
             e.currentTarget.style.background = 'rgba(255, 77, 77, 0.1)'; 
             e.currentTarget.style.borderColor = '#ff4d4d';

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { MODES } from "../constants/gameData";
 
-// 1. IMPORT ALL 6 IMAGES HERE
 import hero1Img from "../assets/wordquest/images/hero_1.png";
 import hero2Img from "../assets/wordquest/images/hero_2.png";
 import hero3Img from "../assets/wordquest/images/hero_3.png";
@@ -10,7 +9,6 @@ import hero4Img from "../assets/wordquest/images/hero_4.png";
 import hero5Img from "../assets/wordquest/images/hero_5.png"; 
 import hero6Img from "../assets/wordquest/images/hero_6.png"; 
 
-// 2. THE 6 CHARACTERS ARRAY
 const CHARACTERS = [
   { id: "char_1", name: "Warrior", img: hero1Img, idleImg: hero1Img, runImg: hero1Img, color: "#ff4444" },
   { id: "char_2", name: "Mage",    img: hero2Img, idleImg: hero2Img, runImg: hero2Img, color: "#a020f0" },
@@ -26,7 +24,6 @@ export default function CharacterSelect({ mode, onConfirm, onBack }) {
 
   const isAI = mode === MODES.VS_AI;
 
-  // --- 1. AI RANDOM SELECTION LOGIC ---
   useEffect(() => {
     if (isAI) {
       const availableCharacters = CHARACTERS.filter(c => c.id !== p1.id);
@@ -35,7 +32,6 @@ export default function CharacterSelect({ mode, onConfirm, onBack }) {
     }
   }, [isAI]);
 
-  // --- 2. PLAYER 1 CLICK LOGIC ---
   const handleP1Select = (selectedChar) => {
     if (selectedChar.id === p2.id) {
       if (isAI) {
@@ -43,17 +39,15 @@ export default function CharacterSelect({ mode, onConfirm, onBack }) {
         const available = CHARACTERS.filter(c => c.id !== selectedChar.id);
         setP2(available[Math.floor(Math.random() * available.length)]);
       } else {
-        // In Multiplayer, you cannot pick P2's character
         return; 
       }
     }
     setP1(selectedChar);
   };
 
-  // --- 3. PLAYER 2 CLICK LOGIC ---
   const handleP2Select = (selectedChar) => {
-    if (isAI) return; // Cannot click the Computer's grid
-    if (selectedChar.id === p1.id) return; // P2 cannot pick P1's character
+    if (isAI) return;
+    if (selectedChar.id === p1.id) return; 
     setP2(selectedChar);
   };
 
@@ -66,7 +60,6 @@ export default function CharacterSelect({ mode, onConfirm, onBack }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px" }}>
           
-          {/* --- PLAYER 1 SELECTION GRID --- */}
           <div>
             <h3 style={{ color: "#fff", fontFamily: "Press Start 2P", fontSize: "0.8rem", marginBottom: 15 }}>Player 1</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
@@ -99,7 +92,6 @@ export default function CharacterSelect({ mode, onConfirm, onBack }) {
             </div>
           </div>
 
-          {/* --- PLAYER 2 / AI SELECTION GRID --- */}
           <div>
             <h3 style={{ color: "#fff", fontFamily: "Press Start 2P", fontSize: "0.8rem", marginBottom: 15 }}>
               {isAI ? "Opponent (Computer)" : "Player 2"}

@@ -7,22 +7,17 @@ import './GamesCSS.css';
 const CreateMazeGame = () => {
   const navigate = useNavigate();
 
-  // --- STATE ---
   const [step, setStep] = useState(1); 
   const [loading, setLoading] = useState(false);
   const [difficulty, setDifficulty] = useState('NORMAL');
   
-  // 🟢 NEW: Game Title State
   const [gameTitle, setGameTitle] = useState('Knowledge Maze');
 
-  // Custom Modal States
   const [alertData, setAlertData] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
   
-  // Game Data - Defaults to 10 questions for Normal
   const [questions, setQuestions] = useState(Array(10).fill(null).map(() => ({ q: "", choices: ["", "", "", ""], correct: 0 })));
 
-  // Scheduling Data
   const [openDate, setOpenDate] = useState('');
   const [openTime, setOpenTime] = useState('');
   const [noCloseDate, setNoCloseDate] = useState(true);
@@ -31,11 +26,9 @@ const CreateMazeGame = () => {
   const [unlimitedTime, setUnlimitedTime] = useState(true);
   const [timeLimit, setTimeLimit] = useState(15);
 
-  // REAL DATA STATE
   const [availableClasses, setAvailableClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
 
-  // --- FETCH CLASSES FROM MYSQL ---
   useEffect(() => {
     const fetchClasses = async () => {
       if (!auth.currentUser) return;
@@ -55,7 +48,6 @@ const CreateMazeGame = () => {
     fetchClasses();
   }, [auth.currentUser]);
 
-  // --- HANDLERS ---
   const handleDifficultySelect = (lvl) => {
     setDifficulty(lvl);
     const count = lvl === 'EASY' ? 5 : 10;
@@ -87,7 +79,6 @@ const CreateMazeGame = () => {
 
     const teacherId = auth.currentUser ? auth.currentUser.uid : "UNKNOWN_TEACHER"; 
 
-    // Format Dates for MySQL
     let formattedOpenDate = (openDate && openTime) ? `${openDate} ${openTime}:00` : null;
     let formattedCloseDate = (!noCloseDate && closeDate && closeTime) ? `${closeDate} ${closeTime}:00` : null;
     const finalTimeLimit = unlimitedTime ? 0 : parseInt(timeLimit);
@@ -126,12 +117,10 @@ const CreateMazeGame = () => {
     }
   };
 
-  // --- RENDER STEPS ---
   const renderStep1_Intro = () => (
     <div className="game-card">
       <h2 style={{color: '#0ac8f0', marginBottom: '20px'}}>CREATE NEW MAZE ACTIVITY</h2>
       
-      {/* INSTRUCTIONS */}
       <div style={{textAlign: 'left', backgroundColor: '#0c0e17', padding: '20px', borderRadius: '8px', border: '1px dashed #0ac8f0', marginBottom:'30px'}}>
         <h3 style={{ color: '#0ac8f0', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
         <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
@@ -145,7 +134,6 @@ const CreateMazeGame = () => {
         </ul>
       </div>
 
-      {/* 🟢 NEW: Title Input Box */}
       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '10px', border: '1px solid #4a5568', marginBottom: '30px', textAlign: 'left' }}>
         <label style={{ display: 'block', color: '#0ac8f0', fontWeight: 'bold', marginBottom: '10px', fontFamily: '"Press Start 2P", cursive', fontSize: '0.8rem' }}>Activity Title</label>
         <input 
@@ -341,7 +329,6 @@ const CreateMazeGame = () => {
           </div>
       )}
 
-      {/* --- CUSTOM ALERT MODAL --- */}
       {alertData && (
           <div className="modal-overlay" style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(12, 14, 23, 0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
               <div className="modal-box" style={{backgroundColor: '#222', border: `2px solid ${alertData.isSuccess ? '#14a014' : '#ff4c4c'}`, padding: '30px', borderRadius: '10px', textAlign: 'center', maxWidth: '400px'}}>

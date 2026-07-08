@@ -1,5 +1,4 @@
 // src/components/EventModal.jsx
-// Simple modal used for tile events: ladders, snakes, power-ups, traps, wild cards.
 
 export default function EventModal({ event, onClose }) {
   return (

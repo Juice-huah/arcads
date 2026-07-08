@@ -48,7 +48,6 @@ export default function Game({ wordsData, user, gameId, onGameOver }) {
   const answerLogRef = useRef([])
   const isGameOverRef = useRef(false)
 
-  // 🟢 BUG FIX: enemiesRef is now the absolute source of truth to prevent race conditions
   const enemiesRef = useRef([]); 
 
   const allWordsListRef = useRef([]);
@@ -148,7 +147,6 @@ export default function Game({ wordsData, user, gameId, onGameOver }) {
         hp: 1,
       };
 
-      // 🟢 BUG FIX: Update the strict ref instantly to avoid Game Loop overwrites
       enemiesRef.current = [...enemiesRef.current, newEnemy];
       setEnemies(enemiesRef.current);
 
@@ -220,7 +218,6 @@ export default function Game({ wordsData, user, gameId, onGameOver }) {
             }, 1000); 
         }
 
-        // 🟢 BUG FIX: Sync both the Ref and State instantly
         enemiesRef.current = nextEnemies;
         setEnemies(nextEnemies);
 
@@ -267,7 +264,6 @@ export default function Game({ wordsData, user, gameId, onGameOver }) {
     const hit = enemiesRef.current.find(en => en.word === val);
 
     if (hit) {
-      // 🟢 BUG FIX: Filter the Ref directly to prevent deleted enemies from respawning
       enemiesRef.current = enemiesRef.current.filter(en => en.id !== hit.id);
       setEnemies(enemiesRef.current);
       

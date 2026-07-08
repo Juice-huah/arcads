@@ -32,7 +32,6 @@ function StudentSignUp() {
     if (name === 'email') setEmailError('');
   };
 
-  //CHECK USERNAME at PASSWORD BEFORE MODAL
   const handleVerify = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -45,7 +44,6 @@ function StudentSignUp() {
     }
 
     try {
-      // CHECK STUDENT USERNAME
       const response = await fetch('https://arcads-api.onrender.com/api/check-username-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

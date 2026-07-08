@@ -93,7 +93,7 @@ export default function CreateWhackAMole() {
         body: JSON.stringify({
           teacher_fid: user.uid,
           class_id: selectedClass,
-          custom_title: gameTitle, // 🟢 FIXED: Send custom_title instead of game_title
+          custom_title: gameTitle,
           questions: questions,
           open_datetime: formattedOpenDate,
           close_datetime: formattedCloseDate,

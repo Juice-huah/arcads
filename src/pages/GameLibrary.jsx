@@ -16,7 +16,6 @@ export default function GameLibrary() {
   return (
     <main className="homepage-container">
       
-      {/* HERO HEADER */}
       <section className="hero" style={{ minHeight: 'auto', padding: '60px 20px', flexDirection: 'column' }}>
         <h1 className="hero-logo" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '10px' }}>
           GAME LIBRARY
@@ -27,17 +26,15 @@ export default function GameLibrary() {
         </p>
       </section>
 
-      {/* GAME GRID WITH LARGER SCREENSHOTS */}
       <section className="info-grid" style={{ 
           marginTop: '0', 
           paddingTop: '20px', 
           paddingBottom: '80px', 
           display: 'grid',
-          // Adjust columns for larger boxes - maybe fewer per row depending on screen width
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
-          gap: '40px', // slightly larger gap
+          gap: '40px', 
           alignItems: 'stretch',
-          maxWidth: '1300px', // ensure grid itself doesn't become too wide
+          maxWidth: '1300px', 
           margin: '0 auto'
       }}>
         {GAMES_DATA.map((game) => (
@@ -46,11 +43,11 @@ export default function GameLibrary() {
               flexDirection: 'column', 
               alignItems: 'center', 
               textAlign: 'center', 
-              padding: '35px', // slightly more padding for balance
+              padding: '35px',
               background: 'rgba(0, 0, 0, 0.25)', 
-              border: `3px solid ${game.color}`, // bold borders for the bigger boxes
-              borderRadius: '16px', // larger border radius
-              boxShadow: `0 0 20px ${game.color}40`, // enhanced shadow
+              border: `3px solid ${game.color}`,
+              borderRadius: '16px', 
+              boxShadow: `0 0 20px ${game.color}40`, 
               transition: 'transform 0.3s ease, box-shadow 0.3s ease'
             }}
             onMouseOver={(e) => {
@@ -63,10 +60,9 @@ export default function GameLibrary() {
             }}
           >
             
-            {/* LARGER SCREENSHOT CONTAINER */}
             <div style={{ 
                 width: '100%', 
-                // Increased height significantly for bigger picture boxes
+
                 height: '240px', 
                 marginBottom: '25px', 
                 borderRadius: '12px',
@@ -74,7 +70,7 @@ export default function GameLibrary() {
                 overflow: 'hidden', 
                 backgroundColor: '#000',
                 flexShrink: 0,
-                boxShadow: `0 4px 10px rgba(0, 0, 0, 0.5)` // slight inner shadow
+                boxShadow: `0 4px 10px rgba(0, 0, 0, 0.5)`
             }}>
                 <img 
                     src={game.img} 
@@ -84,9 +80,9 @@ export default function GameLibrary() {
                         height: '100%',
                         objectFit: 'cover', 
                         objectPosition: 'center',
-                        transition: 'transform 0.4s ease', // smoother zoom
+                        transition: 'transform 0.4s ease', 
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.08)'} // slightly bigger zoom
+                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.08)'} 
                     onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 />
             </div>
@@ -96,7 +92,7 @@ export default function GameLibrary() {
                 textTransform: 'uppercase', 
                 color: game.color, 
                 fontFamily: "'Press Start 2P', cursive", 
-                fontSize: '1rem', // adjusted text size
+                fontSize: '1rem', 
                 lineHeight: '1.6',
                 fontWeight: 'bold',
                 letterSpacing: '1px'
@@ -106,10 +102,10 @@ export default function GameLibrary() {
             
             <p style={{ 
                 margin: 0, 
-                color: '#ddd', // slightly brighter description text for balance
-                fontSize: '1rem', // adjusted text size
+                color: '#ddd', 
+                fontSize: '1rem',
                 lineHeight: '1.7',
-                fontWeight: '500' // medium weight for clarity
+                fontWeight: '500'
             }}>
                 {game.desc}
             </p>

@@ -13,7 +13,7 @@ function Footer() {
   return (
     <footer className="site-footer" style={{ 
         backgroundColor: isTeacher ? '#170a1e' : undefined,
-        marginTop: isTeacher ? '0' : undefined /* Removes the thick blue gap above the footer */
+        marginTop: isTeacher ? '0' : undefined
     }}>
       
       <style>{`
@@ -26,7 +26,6 @@ function Footer() {
         }
       `}</style>
 
-      {/* Smart CTA SECTION - Only shows if not logged in */}
       {!userLoggedIn && (
         <div style={{ textAlign: 'center', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <h3 style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '1rem', lineHeight: '1.5', letterSpacing: '1px', marginBottom: '20px' }}>
@@ -39,10 +38,8 @@ function Footer() {
         </div>
       )}
 
-      {/* Removes the thin blue line above the copyright text */}
       <div className="footer-main" style={{ borderBottomColor: isTeacher ? 'rgba(255,255,255,0.05)' : undefined }}>
         <div className="footer-about">
-          {/* Logo with 8-bit Pixel font */}
           <div className="logo" style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '1.4rem', letterSpacing: '2px', marginBottom: '15px' }}>
             ARCADS
           </div>

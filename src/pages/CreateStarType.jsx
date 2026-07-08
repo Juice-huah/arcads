@@ -152,7 +152,6 @@ function CreateStarType() {
     <div className="game-card" style={cardStyle}>
       <h2 style={{color: '#00f5ff', fontFamily: '"Orbitron", sans-serif', marginBottom:'20px'}}>CREATE NEW STARTYPE MISSION</h2>
       
-      {/* INSTRUCTIONS */}
       <div style={{textAlign: 'left', backgroundColor: '#020d24', padding: '20px', borderRadius: '8px', border: '1px dashed #00f5ff', marginBottom:'30px'}}>
         <h3 style={{ color: '#00f5ff', margin: '0 0 15px 0', fontSize: '1rem', fontFamily: '"Press Start 2P", cursive' }}>ℹ️ HOW IT WORKS:</h3>
         <p style={{ color: '#ccc', fontSize: '0.75rem', lineHeight: '1.8', marginBottom: '15px', fontFamily: '"Press Start 2P", cursive' }}>
